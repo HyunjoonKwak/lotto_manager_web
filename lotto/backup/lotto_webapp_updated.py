@@ -20,28 +20,28 @@ def index():
     try:
         conn = get_db_connection()
         cursor = conn.cursor()
-        
+
         # 최신 당첨번호 (10회차로 증가)
         cursor.execute("""
             SELECT draw_no, num1, num2, num3, num4, num5, num6, bonus_num, draw_date
             FROM lotto_results ORDER BY draw_no DESC LIMIT 10
         """)
         recent_results = cursor.fetchall()
-        
+
         # 빈출 번호 TOP 10
         cursor.execute("""
             SELECT number, frequency FROM number_frequency
             ORDER BY frequency DESC LIMIT 10
         """)
         frequent_numbers = cursor.fetchall()
-        
+
         # 미출현 번호 TOP 10
         cursor.execute("""
             SELECT number, not_drawn_weeks FROM number_frequency
             ORDER BY not_drawn_weeks DESC LIMIT 10
         """)
         overdue_numbers = cursor.fetchall()
-        
+
         # 수동 추천 번호 (5개)
         cursor.execute("""
             SELECT numbers, algorithm, confidence_score, reason
@@ -49,7 +49,7 @@ def index():
             ORDER BY created_at DESC LIMIT 5
         """)
         manual_recommendations = cursor.fetchall()
-        
+
         # 반자동 추천 번호 (2개, 3개씩만)
         cursor.execute("""
             SELECT numbers, algorithm, confidence_score, reason
@@ -58,13 +58,13 @@ def index():
             ORDER BY confidence_score DESC LIMIT 2
         """)
         semi_auto_recommendations = cursor.fetchall()
-        
+
         # 총 회차 수
         cursor.execute("SELECT COUNT(*) FROM lotto_results")
         total_draws = cursor.fetchone()[0]
-        
+
         conn.close()
-        
+
         template = '''
 <!DOCTYPE html>
 <html lang="ko">
@@ -75,7 +75,7 @@ def index():
     <link href="https://cdnjs.cloudflare.com/ajax/libs/bootstrap/5.3.0/css/bootstrap.min.css" rel="stylesheet">
     <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
     <style>
-        body { 
+        body {
             background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
             min-height: 100vh;
             font-family: 'Noto Sans KR', sans-serif;
@@ -130,11 +130,11 @@ def index():
         .overdue-number { background: linear-gradient(135deg, #ff9ff3, #f368e0) !important; }
         .recommended-number { background: linear-gradient(135deg, #feca57, #ff9ff3) !important; }
         .semi-auto-number { background: linear-gradient(135deg, #26de81, #20bf6b) !important; }
-        
+
         .confidence-high { color: #28a745; font-weight: bold; }
         .confidence-medium { color: #ffc107; font-weight: bold; }
         .confidence-low { color: #dc3545; font-weight: bold; }
-        
+
         .algorithm-badge {
             padding: 5px 10px;
             border-radius: 15px;
@@ -145,7 +145,7 @@ def index():
         .algo-frequency_based { background: #54a0ff; color: white; }
         .algo-overdue_based { background: #ff6b6b; color: white; }
         .algo-balanced { background: #48CAE4; color: white; }
-        
+
         .compact-result {
             padding: 8px 12px;
             margin-bottom: 8px;
@@ -153,14 +153,14 @@ def index():
             border-radius: 8px;
             border-left: 3px solid #667eea;
         }
-        
+
         .compact-result .draw-info {
             font-size: 0.9em;
             font-weight: bold;
             color: #495057;
             margin-bottom: 5px;
         }
-        
+
         .status-indicator {
             padding: 2px 8px;
             border-radius: 10px;
@@ -181,7 +181,7 @@ def index():
             <p><i class="fas fa-calendar"></i> {{ current_time }}</p>
             <p><i class="fas fa-database"></i> 총 {{ total_draws }}회차 데이터 보유</p>
         </div>
-        
+
         <div class="row">
             <!-- 최신 당첨번호 (10회차, 컴팩트) -->
             <div class="col-lg-8">
@@ -207,7 +207,7 @@ def index():
                     {% endif %}
                 </div>
             </div>
-            
+
             <!-- 빠른 메뉴 -->
             <div class="col-lg-4">
                 <div class="stat-card">
@@ -227,7 +227,7 @@ def index():
                         </button>
                     </div>
                 </div>
-                
+
                 <div class="stat-card">
                     <h4><i class="fas fa-info-circle text-info"></i> 시스템 정보</h4>
                     <div class="small">
@@ -243,7 +243,7 @@ def index():
                 </div>
             </div>
         </div>
-        
+
         <div class="row">
             <!-- 빈출 번호 -->
             <div class="col-md-6">
@@ -274,7 +274,7 @@ def index():
                     {% endif %}
                 </div>
             </div>
-            
+
             <!-- 미출현 번호 -->
             <div class="col-md-6">
                 <div class="stat-card">
@@ -313,12 +313,12 @@ def index():
                 </div>
             </div>
         </div>
-        
+
         <!-- 수동 구매 추천 번호 (5개) -->
         <div class="stat-card">
             <h4><i class="fas fa-hand-pointer text-success"></i> 수동 구매 추천 번호 (5세트)</h4>
             <p class="text-muted">다양한 알고리즘으로 분석한 수동 구매용 추천 번호들입니다.</p>
-            
+
             {% if manual_recommendations %}
                 {% for numbers_str, algorithm, confidence, reason in manual_recommendations %}
                 {% set numbers = numbers_str.split(',') %}
@@ -347,12 +347,12 @@ def index():
                 </div>
             {% endif %}
         </div>
-        
+
         <!-- 반자동 구매 추천 번호 (2개, 3개씩) -->
         <div class="stat-card">
             <h4><i class="fas fa-magic text-info"></i> 반자동 구매 추천 (3개씩 2세트)</h4>
             <p class="text-muted">고신뢰도 알고리즘으로 선별된 반자동 구매용 번호 3개씩입니다.</p>
-            
+
             {% if semi_auto_recommendations %}
                 {% for numbers_str, algorithm, confidence, reason in semi_auto_recommendations %}
                 {% set all_numbers = numbers_str.split(',') %}
@@ -383,7 +383,7 @@ def index():
                 </div>
             {% endif %}
         </div>
-        
+
         <!-- 하단 메뉴 -->
         <div class="text-center mt-4">
             <div class="row">
@@ -405,9 +405,9 @@ def index():
             </div>
         </div>
     </div>
-    
+
     <script src="https://cdnjs.cloudflare.com/ajax/libs/bootstrap/5.3.0/js/bootstrap.bundle.min.js"></script>
-    
+
     <script>
         function showLoading(button) {
             const originalText = button.innerHTML;
@@ -415,17 +415,17 @@ def index():
             button.disabled = true;
             return originalText;
         }
-        
+
         function hideLoading(button, originalText) {
             button.innerHTML = originalText;
             button.disabled = false;
         }
-        
+
         function updateData() {
             if (confirm('최신 당첨번호를 수집하시겠습니까?')) {
                 const button = event.target;
                 const originalText = showLoading(button);
-                
+
                 fetch('/api/update_data', {method: 'POST'})
                     .then(response => response.json())
                     .then(data => {
@@ -439,12 +439,12 @@ def index():
                     });
             }
         }
-        
+
         function generateRecommendations() {
             if (confirm('새로운 추천 번호를 생성하시겠습니까?')) {
                 const button = event.target;
                 const originalText = showLoading(button);
-                
+
                 fetch('/api/generate_recommendations', {method: 'POST'})
                     .then(response => response.json())
                     .then(data => {
@@ -458,12 +458,12 @@ def index():
                     });
             }
         }
-        
+
         function runAnalysis() {
             if (confirm('번호 분석을 실행하시겠습니까?')) {
                 const button = event.target;
                 const originalText = showLoading(button);
-                
+
                 fetch('/api/run_analysis', {method: 'POST'})
                     .then(response => response.json())
                     .then(data => {
@@ -481,7 +481,7 @@ def index():
 </body>
 </html>
         '''
-        
+
         return render_template_string(template,
             recent_results=recent_results,
             frequent_numbers=frequent_numbers,
@@ -491,7 +491,7 @@ def index():
             total_draws=total_draws,
             current_time=datetime.now().strftime('%Y년 %m월 %d일 %H:%M:%S')
         )
-        
+
     except Exception as e:
         return f'<h1>오류 발생</h1><p>{str(e)}</p>'
 

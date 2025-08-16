@@ -20,28 +20,28 @@ def index():
     try:
         conn = get_db_connection()
         cursor = conn.cursor()
-        
+
         # 최신 당첨번호
         cursor.execute("""
             SELECT draw_no, num1, num2, num3, num4, num5, num6, bonus_num, draw_date
             FROM lotto_results ORDER BY draw_no DESC LIMIT 5
         """)
         recent_results = cursor.fetchall()
-        
+
         # 빈출 번호 TOP 10
         cursor.execute("""
             SELECT number, frequency FROM number_frequency
             ORDER BY frequency DESC LIMIT 10
         """)
         frequent_numbers = cursor.fetchall()
-        
+
         # 미출현 번호 TOP 10
         cursor.execute("""
             SELECT number, not_drawn_weeks FROM number_frequency
             ORDER BY not_drawn_weeks DESC LIMIT 10
         """)
         overdue_numbers = cursor.fetchall()
-        
+
         # 추천 번호
         cursor.execute("""
             SELECT numbers, algorithm, confidence_score, reason
@@ -49,13 +49,13 @@ def index():
             ORDER BY created_at DESC LIMIT 5
         """)
         recommendations = cursor.fetchall()
-        
+
         # 총 회차 수
         cursor.execute("SELECT COUNT(*) FROM lotto_results")
         total_draws = cursor.fetchone()[0]
-        
+
         conn.close()
-        
+
         template = '''
 <!DOCTYPE html>
 <html lang="ko">
@@ -66,7 +66,7 @@ def index():
     <link href="https://cdnjs.cloudflare.com/ajax/libs/bootstrap/5.3.0/css/bootstrap.min.css" rel="stylesheet">
     <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
     <style>
-        body { 
+        body {
             background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
             min-height: 100vh;
             font-family: 'Noto Sans KR', sans-serif;
@@ -113,11 +113,11 @@ def index():
         .frequent-number { background: linear-gradient(135deg, #00d2d3, #54a0ff) !important; }
         .overdue-number { background: linear-gradient(135deg, #ff9ff3, #f368e0) !important; }
         .recommended-number { background: linear-gradient(135deg, #feca57, #ff9ff3) !important; }
-        
+
         .confidence-high { color: #28a745; font-weight: bold; }
         .confidence-medium { color: #ffc107; font-weight: bold; }
         .confidence-low { color: #dc3545; font-weight: bold; }
-        
+
         .algorithm-badge {
             padding: 5px 10px;
             border-radius: 15px;
@@ -128,7 +128,7 @@ def index():
         .algo-frequency_based { background: #54a0ff; color: white; }
         .algo-overdue_based { background: #ff6b6b; color: white; }
         .algo-balanced { background: #48CAE4; color: white; }
-        
+
         .status-indicator {
             padding: 2px 8px;
             border-radius: 10px;
@@ -149,7 +149,7 @@ def index():
             <p><i class="fas fa-calendar"></i> {{ current_time }}</p>
             <p><i class="fas fa-database"></i> 총 {{ total_draws }}회차 데이터 보유</p>
         </div>
-        
+
         <div class="row">
             <!-- 최신 당첨번호 -->
             <div class="col-lg-8">
@@ -176,7 +176,7 @@ def index():
                     {% endif %}
                 </div>
             </div>
-            
+
             <!-- 빠른 메뉴 -->
             <div class="col-lg-4">
                 <div class="stat-card">
@@ -196,7 +196,7 @@ def index():
                         </button>
                     </div>
                 </div>
-                
+
                 <div class="stat-card">
                     <h4><i class="fas fa-info-circle text-info"></i> 시스템 정보</h4>
                     <div class="small">
@@ -212,7 +212,7 @@ def index():
                 </div>
             </div>
         </div>
-        
+
         <div class="row">
             <!-- 빈출 번호 -->
             <div class="col-md-6">
@@ -243,7 +243,7 @@ def index():
                     {% endif %}
                 </div>
             </div>
-            
+
             <!-- 미출현 번호 -->
             <div class="col-md-6">
                 <div class="stat-card">
@@ -282,12 +282,12 @@ def index():
                 </div>
             </div>
         </div>
-        
+
         <!-- AI 추천 번호 -->
         <div class="stat-card">
             <h4><i class="fas fa-robot text-success"></i> AI 추천 번호</h4>
             <p class="text-muted">다양한 알고리즘으로 분석한 추천 번호들입니다.</p>
-            
+
             {% if recommendations %}
                 {% for numbers_str, algorithm, confidence, reason in recommendations %}
                 {% set numbers = numbers_str.split(',') %}
@@ -316,7 +316,7 @@ def index():
                 </div>
             {% endif %}
         </div>
-        
+
         <!-- 하단 메뉴 -->
         <div class="text-center mt-4">
             <div class="row">
@@ -338,9 +338,9 @@ def index():
             </div>
         </div>
     </div>
-    
+
     <script src="https://cdnjs.cloudflare.com/ajax/libs/bootstrap/5.3.0/js/bootstrap.bundle.min.js"></script>
-    
+
     <script>
         function showLoading(button) {
             const originalText = button.innerHTML;
@@ -348,17 +348,17 @@ def index():
             button.disabled = true;
             return originalText;
         }
-        
+
         function hideLoading(button, originalText) {
             button.innerHTML = originalText;
             button.disabled = false;
         }
-        
+
         function updateData() {
             if (confirm('최신 당첨번호를 수집하시겠습니까?')) {
                 const button = event.target;
                 const originalText = showLoading(button);
-                
+
                 fetch('/api/update_data', {method: 'POST'})
                     .then(response => response.json())
                     .then(data => {
@@ -372,12 +372,12 @@ def index():
                     });
             }
         }
-        
+
         function generateRecommendations() {
             if (confirm('새로운 추천 번호를 생성하시겠습니까?')) {
                 const button = event.target;
                 const originalText = showLoading(button);
-                
+
                 fetch('/api/generate_recommendations', {method: 'POST'})
                     .then(response => response.json())
                     .then(data => {
@@ -391,12 +391,12 @@ def index():
                     });
             }
         }
-        
+
         function runAnalysis() {
             if (confirm('번호 분석을 실행하시겠습니까?')) {
                 const button = event.target;
                 const originalText = showLoading(button);
-                
+
                 fetch('/api/run_analysis', {method: 'POST'})
                     .then(response => response.json())
                     .then(data => {
@@ -414,7 +414,7 @@ def index():
 </body>
 </html>
         '''
-        
+
         return render_template_string(template,
             recent_results=recent_results,
             frequent_numbers=frequent_numbers,
@@ -423,7 +423,7 @@ def index():
             total_draws=total_draws,
             current_time=datetime.now().strftime('%Y년 %m월 %d일 %H:%M:%S')
         )
-        
+
     except Exception as e:
         return f'<h1>오류 발생</h1><p>{str(e)}</p>'
 
@@ -451,7 +451,7 @@ def charts_page():
             <h1>📊 로또 번호 분석 차트</h1>
             <a href="/" class="btn btn-primary">← 메인 대시보드로</a>
         </div>
-        
+
         <div class="row">
             <div class="col-lg-6">
                 <div class="chart-container">
@@ -466,7 +466,7 @@ def charts_page():
                 </div>
             </div>
         </div>
-        
+
         <div class="row">
             <div class="col-12">
                 <div class="chart-container">
@@ -481,7 +481,7 @@ def charts_page():
         document.addEventListener('DOMContentLoaded', function() {
             loadCharts();
         });
-        
+
         function loadCharts() {
             fetch('/api/chart_data')
                 .then(response => response.json())
@@ -496,7 +496,7 @@ def charts_page():
                 })
                 .catch(error => console.error('차트 로드 실패:', error));
         }
-        
+
         function createFrequencyChart(data) {
             const ctx = document.getElementById('frequencyChart').getContext('2d');
             new Chart(ctx, {
@@ -517,7 +517,7 @@ def charts_page():
                 }
             });
         }
-        
+
         function createZoneChart(data) {
             const ctx = document.getElementById('zoneChart').getContext('2d');
             new Chart(ctx, {
@@ -532,7 +532,7 @@ def charts_page():
                 options: { responsive: true }
             });
         }
-        
+
         function createSumTrendChart(data) {
             const ctx = document.getElementById('sumTrendChart').getContext('2d');
             new Chart(ctx, {
@@ -563,28 +563,28 @@ def api_chart_data():
     try:
         conn = get_db_connection()
         cursor = conn.cursor()
-        
+
         # 번호별 출현 빈도
         cursor.execute("""
             SELECT number, frequency FROM number_frequency
             ORDER BY number
         """)
         frequency_data = [{'number': row[0], 'frequency': row[1]} for row in cursor.fetchall()]
-        
+
         # 최근 20회차 합계 추이
         cursor.execute("""
             SELECT draw_no, (num1 + num2 + num3 + num4 + num5 + num6) as total_sum
-            FROM lotto_results 
-            ORDER BY draw_no DESC 
+            FROM lotto_results
+            ORDER BY draw_no DESC
             LIMIT 20
         """)
         sum_trend = [{'draw': row[0], 'sum': row[1]} for row in cursor.fetchall()]
         sum_trend.reverse()
-        
+
         # 구간별 분포
         cursor.execute("""
-            SELECT 
-                CASE 
+            SELECT
+                CASE
                     WHEN number BETWEEN 1 AND 15 THEN '1-15구간'
                     WHEN number BETWEEN 16 AND 30 THEN '16-30구간'
                     ELSE '31-45구간'
@@ -595,15 +595,15 @@ def api_chart_data():
             ORDER BY zone
         """)
         zone_distribution = [{'zone': row[0], 'frequency': row[1]} for row in cursor.fetchall()]
-        
+
         conn.close()
-        
+
         return jsonify({
             'frequency_data': frequency_data,
             'sum_trend': sum_trend,
             'zone_distribution': zone_distribution
         })
-        
+
     except Exception as e:
         return jsonify({'error': str(e)})
 
@@ -612,9 +612,9 @@ def api_update_data():
     """데이터 업데이트 API"""
     try:
         script_path = os.path.join(SCRIPTS_PATH, 'lotto_crawler.py')
-        result = subprocess.run(['python3', script_path], 
+        result = subprocess.run(['python3', script_path],
                               capture_output=True, text=True, timeout=120)
-        
+
         if result.returncode == 0:
             return jsonify({'success': True, 'message': '데이터 업데이트 완료!'})
         else:
@@ -630,9 +630,9 @@ def api_generate_recommendations():
     """새 추천 번호 생성 API"""
     try:
         script_path = os.path.join(SCRIPTS_PATH, 'lotto_recommender.py')
-        result = subprocess.run(['python3', script_path], 
+        result = subprocess.run(['python3', script_path],
                               capture_output=True, text=True, timeout=60)
-        
+
         if result.returncode == 0:
             return jsonify({'success': True, 'message': '새로운 추천 번호가 생성되었습니다!'})
         else:
@@ -648,9 +648,9 @@ def api_run_analysis():
     """번호 분석 실행 API"""
     try:
         script_path = os.path.join(SCRIPTS_PATH, 'lotto_analyzer.py')
-        result = subprocess.run(['python3', script_path], 
+        result = subprocess.run(['python3', script_path],
                               capture_output=True, text=True, timeout=60)
-        
+
         if result.returncode == 0:
             return jsonify({'success': True, 'message': '번호 분석 완료!'})
         else:

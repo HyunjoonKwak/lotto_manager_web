@@ -303,32 +303,32 @@ body {
   .container {
     padding: 15px;
   }
-  
+
   .app-header h1 {
     font-size: 2rem;
   }
-  
+
   .lotto-ball {
     width: 35px;
     height: 35px;
     font-size: 0.8rem;
     margin: 0 2px;
   }
-  
+
   .draw-result {
     padding: 0.75rem;
   }
-  
+
   .draw-info {
     flex-direction: column;
     align-items: flex-start;
     gap: 0.25rem;
   }
-  
+
   .card-body {
     padding: 1rem;
   }
-  
+
   .table-responsive {
     font-size: 0.875rem;
   }
@@ -341,11 +341,11 @@ body {
     font-size: 0.75rem;
     margin: 0 1px;
   }
-  
+
   .app-header h1 {
     font-size: 1.75rem;
   }
-  
+
   .stats-number {
     font-size: 1.5rem;
   }

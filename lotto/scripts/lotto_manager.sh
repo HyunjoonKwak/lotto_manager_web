@@ -71,15 +71,15 @@ show_progress() {
 start_web() {
     print_header
     print_status "loading" "웹 애플리케이션을 시작하는 중..."
-    
+
     if pgrep -f "lotto_webapp.py" >/dev/null; then
         print_status "warning" "웹 애플리케이션이 이미 실행 중입니다."
         return 1
     fi
-    
+
     # PID 파일 경로
     local pid_file="$LOG_DIR/webapp.pid"
-    
+
     # 이전 PID 파일 정리
     if [ -f "$pid_file" ]; then
         local old_pid=$(cat "$pid_file")
@@ -90,24 +90,24 @@ start_web() {
         fi
         rm -f "$pid_file"
     fi
-    
+
     # 백그라운드에서 웹앱 실행
     (
         cd "$(dirname "$APP_PY")"
         nohup "$VENV_BIN/python3" "$APP_PY" > "$LOG_DIR/webapp.log" 2>&1 &
         local webapp_pid=$!
         echo "$webapp_pid" > "$pid_file"
-        
+
         # 시작 로그 기록
         echo "[$(date '+%Y-%m-%d %H:%M:%S')] WEBAPP STARTED (PID: $webapp_pid)" >> "$LOG_DIR/webapp.log"
     ) &
-    
+
     show_progress "서버 초기화"
-    
+
     # 서버 시작 대기
     local max_wait=30
     local wait_count=0
-    
+
     while [ $wait_count -lt $max_wait ]; do
         if [ -f "$pid_file" ]; then
             local pid=$(cat "$pid_file")
@@ -125,7 +125,7 @@ start_web() {
         wait_count=$((wait_count + 1))
         echo -ne "\r${CYAN}서버 시작 대기 중... ${wait_count}/${max_wait}초${NC}"
     done
-    
+
     echo ""
     print_status "error" "웹 애플리케이션 시작 시간 초과 (${max_wait}초)"
     return 1
@@ -135,19 +135,19 @@ start_web() {
 stop_web() {
     print_header
     print_status "loading" "웹 애플리케이션을 중지하는 중..."
-    
+
     local pid_file="$LOG_DIR/webapp.pid"
-    
+
     # PID 파일에서 프로세스 확인
     if [ -f "$pid_file" ]; then
         local pid=$(cat "$pid_file")
         if kill -0 "$pid" 2>/dev/null; then
             print_status "info" "PID 파일에서 프로세스 발견: $pid"
-            
+
             # 정상 종료 시도
             kill "$pid" 2>/dev/null || true
             show_progress "프로세스 종료"
-            
+
             # 종료 대기
             local max_wait=10
             local wait_count=0
@@ -158,14 +158,14 @@ stop_web() {
                 sleep 1
                 wait_count=$((wait_count + 1))
             done
-            
+
             # 강제 종료 시도
             if kill -0 "$pid" 2>/dev/null; then
                 print_status "warning" "강제 종료를 시도합니다..."
                 kill -9 "$pid" 2>/dev/null || true
                 sleep 2
             fi
-            
+
             # 종료 확인
             if ! kill -0 "$pid" 2>/dev/null; then
                 print_status "success" "웹 애플리케이션이 성공적으로 중지되었습니다."
@@ -180,22 +180,22 @@ stop_web() {
             rm -f "$pid_file"
         fi
     fi
-    
+
     # PID 파일이 없거나 프로세스가 없는 경우 pgrep으로 확인
     if pgrep -f "lotto_webapp.py" >/dev/null; then
         local pids=$(pgrep -f "lotto_webapp.py")
         print_status "warning" "PID 파일 없이 실행 중인 프로세스 발견: $pids"
-        
+
         pkill -f "lotto_webapp.py" || true
         show_progress "프로세스 종료"
-        
+
         sleep 2
         if pgrep -f "lotto_webapp.py" >/dev/null; then
             print_status "warning" "강제 종료를 시도합니다..."
             pkill -9 -f "lotto_webapp.py" || true
             sleep 2
         fi
-        
+
         if ! pgrep -f "lotto_webapp.py" >/dev/null; then
             print_status "success" "웹 애플리케이션이 성공적으로 중지되었습니다."
             return 0
@@ -214,10 +214,10 @@ status() {
     print_header
     echo -e "${WHITE}${WEB} 시스템 상태${NC}"
     echo "══════════════════════════════════════════════════════════════"
-    
+
     # 웹 애플리케이션 상태
     local pid_file="$LOG_DIR/webapp.pid"
-    
+
     if [ -f "$pid_file" ]; then
         local pid=$(cat "$pid_file")
         if kill -0 "$pid" 2>/dev/null; then
@@ -239,13 +239,13 @@ status() {
     else
         print_status "error" "웹 애플리케이션 중지됨"
     fi
-    
+
     echo ""
-    
+
     # 포트 상태 확인
     echo -e "${WHITE}${WEB} 포트 상태${NC}"
     echo "══════════════════════════════════════════════════════════════"
-    
+
     if netstat -tlnp 2>/dev/null | grep -q ":5000 "; then
         local port_info=$(netstat -tlnp 2>/dev/null | grep ":5000 " | head -1)
         print_status "success" "포트 5000 활성화됨"
@@ -262,7 +262,7 @@ logs() {
     echo "══════════════════════════════════════════════════════════════"
     echo -e "${YELLOW}로그를 종료하려면 Ctrl+C를 누르세요.${NC}"
     echo ""
-    
+
     if [ -f "$LOG_DIR/webapp.log" ]; then
         tail -n 50 -f "$LOG_DIR/webapp.log"
     else
@@ -277,10 +277,10 @@ monitor_ports() {
     echo "══════════════════════════════════════════════════════════════"
     echo -e "${YELLOW}포트 모니터링을 종료하려면 Ctrl+C를 누르세요.${NC}"
     echo ""
-    
+
     # 모니터링할 포트들
     local ports=("5000" "8080" "3000" "8000")
-    
+
     while true; do
         clear
         print_header
@@ -288,7 +288,7 @@ monitor_ports() {
         echo "══════════════════════════════════════════════════════════════"
         echo -e "${WHITE}${CLOCK} 마지막 업데이트: ${GREEN}$(date '+%Y-%m-%d %H:%M:%S')${NC}"
         echo ""
-        
+
         for port in "${ports[@]}"; do
             if netstat -tlnp 2>/dev/null | grep -q ":$port "; then
                 local port_info=$(netstat -tlnp 2>/dev/null | grep ":$port " | head -1)
@@ -299,7 +299,7 @@ monitor_ports() {
             fi
             echo ""
         done
-        
+
         echo -e "${CYAN}5초 후 자동 새로고침...${NC}"
         sleep 5
     done
@@ -311,9 +311,9 @@ crawl() {
     print_status "loading" "로또 데이터를 수집하는 중..."
     echo -e "${WHITE}데이터 수집 시작${NC}"
     echo "══════════════════════════════════════════════════════════════"
-    
+
     "$VENV_BIN/python3" "$CRAWLER" 2>&1 | tee -a "$LOG_DIR/crawler.log"
-    
+
     if [ ${PIPESTATUS[0]} -eq 0 ]; then
         print_status "success" "데이터 수집이 완료되었습니다!"
     else
@@ -328,9 +328,9 @@ analyze() {
     print_status "loading" "로또 데이터를 분석하는 중..."
     echo -e "${WHITE}데이터 분석 시작${NC}"
     echo "══════════════════════════════════════════════════════════════"
-    
+
     "$VENV_BIN/python3" "$ANALYZER" 2>&1 | tee -a "$LOG_DIR/analyzer.log"
-    
+
     if [ ${PIPESTATUS[0]} -eq 0 ]; then
         print_status "success" "데이터 분석이 완료되었습니다!"
     else
@@ -345,9 +345,9 @@ recommend() {
     print_status "loading" "로또 번호를 추천하는 중..."
     echo -e "${WHITE}추천 번호 생성 시작${NC}"
     echo "══════════════════════════════════════════════════════════════"
-    
+
     "$VENV_BIN/python3" "$RECO" 2>&1 | tee -a "$LOG_DIR/recommend.log"
-    
+
     if [ ${PIPESTATUS[0]} -eq 0 ]; then
         print_status "success" "추천 번호 생성이 완료되었습니다!"
     else
@@ -374,7 +374,7 @@ interactive_menu() {
         echo "══════════════════════════════════════════════════════════════"
         echo -ne "${CYAN}선택하세요 (0-8): ${NC}"
         read -r choice
-        
+
         case $choice in
             1) start_web; echo -e "\n${YELLOW}계속하려면 Enter를 누르세요...${NC}"; read ;;
             2) stop_web; echo -e "\n${YELLOW}계속하려면 Enter를 누르세요...${NC}"; read ;;
@@ -384,15 +384,15 @@ interactive_menu() {
             6) crawl; echo -e "\n${YELLOW}계속하려면 Enter를 누르세요...${NC}"; read ;;
             7) analyze; echo -e "\n${YELLOW}계속하려면 Enter를 누르세요...${NC}"; read ;;
             8) recommend; echo -e "\n${YELLOW}계속하려면 Enter를 누르세요...${NC}"; read ;;
-            0) 
+            0)
                 print_header
                 print_status "info" "로또 번호 분석 시스템을 종료합니다."
                 echo -e "${WHITE}${DICE} 감사합니다! ${DICE}${NC}"
-                exit 0 
+                exit 0
                 ;;
-            *) 
+            *)
                 print_status "error" "잘못된 선택입니다. 다시 시도해주세요."
-                sleep 2 
+                sleep 2
                 ;;
         esac
     done

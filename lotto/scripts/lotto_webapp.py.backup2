@@ -20,28 +20,28 @@ def index():
     try:
         conn = get_db_connection()
         cursor = conn.cursor()
-        
+
         # 최신 당첨번호 (10회차로 증가)
         cursor.execute("""
             SELECT draw_no, num1, num2, num3, num4, num5, num6, bonus_num, draw_date
             FROM lotto_results ORDER BY draw_no DESC LIMIT 10
         """)
         recent_results = cursor.fetchall()
-        
+
         # 빈출 번호 TOP 10
         cursor.execute("""
             SELECT number, frequency FROM number_frequency
             ORDER BY frequency DESC LIMIT 10
         """)
         frequent_numbers = cursor.fetchall()
-        
+
         # 미출현 번호 TOP 10 (제대로 분석되었는지 확인)
         cursor.execute("""
             SELECT number, not_drawn_weeks, last_drawn FROM number_frequency
             ORDER BY not_drawn_weeks DESC LIMIT 10
         """)
         overdue_numbers = cursor.fetchall()
-        
+
         # 수동 추천 번호 (5개) - type별로 구분
         cursor.execute("""
             SELECT numbers, algorithm, confidence_score, reason
@@ -50,7 +50,7 @@ def index():
             ORDER BY created_at DESC LIMIT 5
         """)
         manual_recommendations = cursor.fetchall()
-        
+
         # 반자동 추천 번호 (2개, 3개씩만)
         cursor.execute("""
             SELECT numbers, algorithm, confidence_score, reason
@@ -59,17 +59,17 @@ def index():
             ORDER BY created_at DESC LIMIT 2
         """)
         semi_auto_recommendations = cursor.fetchall()
-        
+
         # 총 회차 수
         cursor.execute("SELECT COUNT(*) FROM lotto_results")
         total_draws = cursor.fetchone()[0]
-        
+
         # 최신 회차로 미출현 주차 검증
         cursor.execute("SELECT MAX(draw_no) FROM lotto_results")
         latest_draw = cursor.fetchone()[0] or 0
-        
+
         conn.close()
-        
+
         template = '''
 <!DOCTYPE html>
 <html lang="ko">
@@ -121,7 +121,7 @@ def index():
             left: 0;
             width: 100%;
             height: 100%;
-            background: 
+            background:
                 radial-gradient(circle at 20% 50%, rgba(120, 119, 198, 0.3) 0%, transparent 50%),
                 radial-gradient(circle at 80% 20%, rgba(255, 119, 198, 0.3) 0%, transparent 50%),
                 radial-gradient(circle at 40% 80%, rgba(120, 219, 255, 0.3) 0%, transparent 50%);
@@ -853,7 +853,7 @@ def index():
                     <i class="fas fa-dice"></i> 로또 번호 분석 시스템
                 </h1>
                 <p class="header-subtitle fade-in">AI 기반 로또 번호 분석 및 추천 서비스</p>
-                
+
                 <div class="stats-row">
                     <div class="stat-item fade-in" style="animation-delay: 0.2s;">
                         <span class="stat-number">1,145</span>
@@ -924,7 +924,7 @@ def index():
                                 <span class="lotto-ball ball-41-45" title="148회 출현">43</span>
                                 <span class="lotto-ball ball-11-20" title="147회 출현">19</span>
                             </div>
-                            
+
                             <table class="stats-table table table-sm">
                                 <thead>
                                     <tr>
@@ -994,7 +994,7 @@ def index():
                                 <span class="lotto-ball ball-11-20" title="17주차 전">13</span>
                                 <span class="lotto-ball ball-21-30" title="16주차 전">26</span>
                             </div>
-                            
+
                             <table class="stats-table table table-sm">
                                 <thead>
                                     <tr>
@@ -1247,7 +1247,7 @@ def index():
 
     <!-- Bootstrap JS -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/bootstrap/5.3.0/js/bootstrap.bundle.min.js"></script>
-    
+
     <script>
         // 로딩 상태 관리
         function showLoading(button) {
@@ -1256,7 +1256,7 @@ def index():
             button.disabled = true;
             return originalText;
         }
-        
+
         function hideLoading(button, originalText) {
             button.innerHTML = originalText;
             button.disabled = false;
@@ -1287,9 +1287,9 @@ def index():
                     <span style="font-weight: 500;">${message}</span>
                 </div>
             `;
-            
+
             document.body.appendChild(toastContainer);
-            
+
             // 자동 제거
             setTimeout(() => {
                 toastContainer.style.animation = 'slideOutRight 0.5s cubic-bezier(0.4, 0, 0.2, 1)';
@@ -1316,7 +1316,7 @@ def index():
             if (confirm('최신 당첨번호를 수집하시겠습니까?')) {
                 const button = event.target;
                 const originalText = showLoading(button);
-                
+
                 // 실제 API 호출 시뮬레이션
                 setTimeout(() => {
                     hideLoading(button, originalText);
@@ -1325,24 +1325,24 @@ def index():
                 }, 2000);
             }
         }
-        
+
         function generateRecommendations() {
             if (confirm('새로운 추천 번호를 생성하시겠습니까?')) {
                 const button = event.target;
                 const originalText = showLoading(button);
-                
+
                 setTimeout(() => {
                     hideLoading(button, originalText);
                     showToast('새로운 추천 번호가 생성되었습니다!');
                 }, 1500);
             }
         }
-        
+
         function runAnalysis() {
             if (confirm('번호 분석을 실행하시겠습니까?')) {
                 const button = event.target;
                 const originalText = showLoading(button);
-                
+
                 setTimeout(() => {
                     hideLoading(button, originalText);
                     showToast('번호 분석이 완료되었습니다!');
@@ -1367,7 +1367,7 @@ def index():
                     opacity: 1;
                 }
             }
-            
+
             @keyframes slideOutRight {
                 from {
                     transform: translateX(0) scale(1);
@@ -1411,7 +1411,7 @@ def index():
                     const number = this.textContent;
                     this.classList.add('pulse');
                     showToast(`${number}번을 선택했습니다!`, 'success');
-                    
+
                     setTimeout(() => {
                         this.classList.remove('pulse');
                     }, 1000);
@@ -1458,7 +1458,7 @@ def index():
                         }
                         requestAnimationFrame(updateCounter);
                     } else {
-                        counter.textContent = counter.textContent.includes('%') ? 
+                        counter.textContent = counter.textContent.includes('%') ?
                             target + '%' : target.toLocaleString();
                     }
                 };
@@ -1471,7 +1471,7 @@ def index():
         function handleResize() {
             const isMobile = window.innerWidth < 768;
             const balls = document.querySelectorAll('.lotto-ball');
-            
+
             balls.forEach(ball => {
                 if (isMobile) {
                     ball.style.width = '35px';
@@ -1694,7 +1694,7 @@ def index():
                             <div class="alert alert-custom alert-success">
                                 <i class="fas fa-check-circle"></i> 모든 시스템 정상 운영 중
                             </div>
-                            
+
                             <div class="mb-3">
                                 <strong>데이터베이스 상태</strong>
                                 <div class="progress mt-2" style="height: 8px;">
@@ -1720,7 +1720,7 @@ def index():
                             </div>
 
                             <hr>
-                            
+
                             <div class="text-center">
                                 <small class="text-muted">
                                     <i class="fas fa-clock"></i> 마지막 업데이트<br>
@@ -1745,7 +1745,7 @@ def index():
                         </div>
                         <div class="card-body">
         '''
-        
+
         return render_template_string(template,
             recent_results=recent_results,
             frequent_numbers=frequent_numbers,
@@ -1756,7 +1756,7 @@ def index():
             latest_draw=latest_draw,
             current_time=datetime.now().strftime('%Y년 %m월 %d일 %H:%M:%S')
         )
-        
+
     except Exception as e:
         return f'<h1>오류 발생</h1><p>{str(e)}</p>'
 
@@ -1766,9 +1766,9 @@ def api_generate_recommendations():
     """새 추천 번호 생성 API (강화버전 사용)"""
     try:
         script_path = os.path.join(SCRIPTS_PATH, 'lotto_recommender_enhanced.py')
-        result = subprocess.run(['python3', script_path], 
+        result = subprocess.run(['python3', script_path],
                               capture_output=True, text=True, timeout=60)
-        
+
         if result.returncode == 0:
             return jsonify({'success': True, 'message': '새로운 추천 번호가 생성되었습니다! (5개 수동 + 2개 반자동)'})
         else:

@@ -69,31 +69,31 @@ def api_statistics():
     """통계 정보 API"""
     with get_conn() as conn:
         cur = conn.cursor()
-        
+
         # 기본 통계
         cur.execute("SELECT COUNT(*), MAX(draw_no) FROM lotto_results")
         total_draws, latest_draw = cur.fetchone()
-        
+
         # 최근 30일 통계
         thirty_days_ago = datetime.now() - timedelta(days=30)
         cur.execute("""
-            SELECT COUNT(*) FROM lotto_results 
+            SELECT COUNT(*) FROM lotto_results
             WHERE draw_date >= ?
         """, (thirty_days_ago.strftime('%Y-%m-%d'),))
         recent_draws = cur.fetchone()[0]
-        
+
         # 번호별 통계
         cur.execute("""
-            SELECT number, frequency, not_drawn_weeks 
-            FROM number_frequency 
+            SELECT number, frequency, not_drawn_weeks
+            FROM number_frequency
             ORDER BY frequency DESC
         """)
         number_stats = cur.fetchall()
-        
+
         # 추천 번호 통계
         cur.execute("SELECT COUNT(*) FROM recommended_numbers")
         total_recommendations = cur.fetchone()[0]
-        
+
         return jsonify({
             'total_draws': total_draws or 0,
             'latest_draw': latest_draw or 0,
@@ -112,7 +112,7 @@ def api_statistics():
 def api_recent_results():
     """최근 당첨 결과 API"""
     limit = request.args.get('limit', 10, type=int)
-    
+
     with get_conn() as conn:
         cur = conn.cursor()
         cur.execute("""
@@ -120,7 +120,7 @@ def api_recent_results():
             FROM lotto_results ORDER BY draw_no DESC LIMIT ?
         """, (limit,))
         results = cur.fetchall()
-        
+
         return jsonify({
             'results': [
                 {
@@ -137,20 +137,20 @@ def api_number_analysis(number):
     """특정 번호 분석 API"""
     if not 1 <= number <= 45:
         return jsonify({'error': '유효하지 않은 번호입니다 (1-45)'}), 400
-    
+
     with get_conn() as conn:
         cur = conn.cursor()
-        
+
         # 번호 통계
         cur.execute("""
             SELECT frequency, not_drawn_weeks, last_drawn
             FROM number_frequency WHERE number = ?
         """, (number,))
         stats = cur.fetchone()
-        
+
         if not stats:
             return jsonify({'error': '번호 정보를 찾을 수 없습니다'}), 404
-        
+
         # 최근 출현 기록
         cur.execute("""
             SELECT draw_no, draw_date FROM lotto_results
@@ -158,14 +158,14 @@ def api_number_analysis(number):
             ORDER BY draw_no DESC LIMIT 10
         """, (number, number, number, number, number, number, number))
         recent_appearances = cur.fetchall()
-        
+
         return jsonify({
             'number': number,
             'frequency': stats[0],
             'not_drawn_weeks': stats[1],
             'last_drawn': stats[2],
             'recent_appearances': [
-                {'draw_no': row[0], 'draw_date': row[1]} 
+                {'draw_no': row[0], 'draw_date': row[1]}
                 for row in recent_appearances
             ]
         })
@@ -176,36 +176,36 @@ def api_search_draws():
     draw_no = request.args.get('draw_no', type=int)
     date_from = request.args.get('date_from')
     date_to = request.args.get('date_to')
-    
+
     if not any([draw_no, date_from, date_to]):
         return jsonify({'error': '검색 조건을 입력해주세요'}), 400
-    
+
     with get_conn() as conn:
         cur = conn.cursor()
-        
+
         query = """
             SELECT draw_no, num1, num2, num3, num4, num5, num6, bonus_num, draw_date
             FROM lotto_results WHERE 1=1
         """
         params = []
-        
+
         if draw_no:
             query += " AND draw_no = ?"
             params.append(draw_no)
-        
+
         if date_from:
             query += " AND draw_date >= ?"
             params.append(date_from)
-        
+
         if date_to:
             query += " AND draw_date <= ?"
             params.append(date_to)
-        
+
         query += " ORDER BY draw_no DESC LIMIT 50"
-        
+
         cur.execute(query, params)
         results = cur.fetchall()
-        
+
         return jsonify({
             'results': [
                 {
@@ -227,7 +227,7 @@ def api_health():
             db_status = "healthy"
     except Exception as e:
         db_status = f"error: {str(e)}"
-    
+
     return jsonify({
         'status': 'ok',
         'timestamp': datetime.now().isoformat(),

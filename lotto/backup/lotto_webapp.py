@@ -20,28 +20,28 @@ def index():
     try:
         conn = get_db_connection()
         cursor = conn.cursor()
-        
+
         # 최신 당첨번호 (10회차로 증가)
         cursor.execute("""
             SELECT draw_no, num1, num2, num3, num4, num5, num6, bonus_num, draw_date
             FROM lotto_results ORDER BY draw_no DESC LIMIT 10
         """)
         recent_results = cursor.fetchall()
-        
+
         # 빈출 번호 TOP 10
         cursor.execute("""
             SELECT number, frequency FROM number_frequency
             ORDER BY frequency DESC LIMIT 10
         """)
         frequent_numbers = cursor.fetchall()
-        
+
         # 미출현 번호 TOP 10 (제대로 분석되었는지 확인)
         cursor.execute("""
             SELECT number, not_drawn_weeks, last_drawn FROM number_frequency
             ORDER BY not_drawn_weeks DESC LIMIT 10
         """)
         overdue_numbers = cursor.fetchall()
-        
+
         # 수동 추천 번호 (5개) - type별로 구분
         cursor.execute("""
             SELECT numbers, algorithm, confidence_score, reason
@@ -50,7 +50,7 @@ def index():
             ORDER BY created_at DESC LIMIT 5
         """)
         manual_recommendations = cursor.fetchall()
-        
+
         # 반자동 추천 번호 (2개, 3개씩만)
         cursor.execute("""
             SELECT numbers, algorithm, confidence_score, reason
@@ -59,17 +59,17 @@ def index():
             ORDER BY created_at DESC LIMIT 2
         """)
         semi_auto_recommendations = cursor.fetchall()
-        
+
         # 총 회차 수
         cursor.execute("SELECT COUNT(*) FROM lotto_results")
         total_draws = cursor.fetchone()[0]
-        
+
         # 최신 회차로 미출현 주차 검증
         cursor.execute("SELECT MAX(draw_no) FROM lotto_results")
         latest_draw = cursor.fetchone()[0] or 0
-        
+
         conn.close()
-        
+
         template = '''
 <!DOCTYPE html>
 <html lang="ko">
@@ -80,7 +80,7 @@ def index():
     <link href="https://cdnjs.cloudflare.com/ajax/libs/bootstrap/5.3.0/css/bootstrap.min.css" rel="stylesheet">
     <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
     <style>
-        body { 
+        body {
             background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
             min-height: 100vh;
             font-family: 'Noto Sans KR', sans-serif;
@@ -135,11 +135,11 @@ def index():
         .overdue-number { background: linear-gradient(135deg, #ff9ff3, #f368e0) !important; }
         .recommended-number { background: linear-gradient(135deg, #feca57, #ff9ff3) !important; }
         .semi-auto-number { background: linear-gradient(135deg, #26de81, #20bf6b) !important; }
-        
+
         .confidence-high { color: #28a745; font-weight: bold; }
         .confidence-medium { color: #ffc107; font-weight: bold; }
         .confidence-low { color: #dc3545; font-weight: bold; }
-        
+
         .algorithm-badge {
             padding: 5px 10px;
             border-radius: 15px;
@@ -153,7 +153,7 @@ def index():
         .algo-smart_combination { background: #a55eea; color: white; }
         .algo-semi_auto_frequent { background: #26de81; color: white; }
         .algo-semi_auto_overdue { background: #fd79a8; color: white; }
-        
+
         .compact-result {
             padding: 6px 10px;
             margin-bottom: 6px;
@@ -164,20 +164,20 @@ def index():
             justify-content: space-between;
             align-items: center;
         }
-        
+
         .draw-info {
             font-size: 0.85em;
             font-weight: bold;
             color: #495057;
             min-width: 120px;
         }
-        
+
         .numbers-row {
             display: flex;
             align-items: center;
             gap: 2px;
         }
-        
+
         .status-indicator {
             padding: 2px 8px;
             border-radius: 10px;
@@ -187,7 +187,7 @@ def index():
         .status-success { background: #d4edda; color: #155724; }
         .status-warning { background: #fff3cd; color: #856404; }
         .status-info { background: #d1ecf1; color: #0c5460; }
-        
+
         .recommendation-card {
             margin-bottom: 15px;
             padding: 15px;
@@ -195,7 +195,7 @@ def index():
             border-radius: 10px;
             border-left: 4px solid #667eea;
         }
-        
+
         .semi-auto-card {
             background: linear-gradient(135deg, rgba(38, 222, 129, 0.1), rgba(32, 191, 107, 0.1));
             border-left-color: #26de81;
@@ -211,7 +211,7 @@ def index():
             <p><i class="fas fa-calendar"></i> {{ current_time }}</p>
             <p><i class="fas fa-database"></i> 총 {{ total_draws }}회차 데이터 보유 (최신: {{ latest_draw }}회차)</p>
         </div>
-        
+
         <div class="row">
             <!-- 최신 당첨번호 (10회차, 컴팩트) -->
             <div class="col-lg-7">
@@ -237,7 +237,7 @@ def index():
                     {% endif %}
                 </div>
             </div>
-            
+
             <!-- 빠른 메뉴 & 시스템 정보 -->
             <div class="col-lg-5">
                 <div class="stat-card">
@@ -257,7 +257,7 @@ def index():
                         </button>
                     </div>
                 </div>
-                
+
                 <div class="stat-card">
                     <h4><i class="fas fa-info-circle text-info"></i> 분석 현황</h4>
                     <div class="small">
@@ -274,7 +274,7 @@ def index():
                 </div>
             </div>
         </div>
-        
+
         <div class="row">
             <!-- 빈출 번호 -->
             <div class="col-md-6">
@@ -305,7 +305,7 @@ def index():
                     {% endif %}
                 </div>
             </div>
-            
+
             <!-- 미출현 번호 (검증된 데이터) -->
             <div class="col-md-6">
                 <div class="stat-card">
@@ -346,12 +346,12 @@ def index():
                 </div>
             </div>
         </div>
-        
+
         <!-- 수동 구매 추천 번호 (5개) -->
         <div class="stat-card">
             <h4><i class="fas fa-hand-pointer text-success"></i> 수동 구매 추천 번호 (5세트)</h4>
             <p class="text-muted">다양한 알고리즘으로 분석한 수동 구매용 추천 번호들입니다.</p>
-            
+
             {% if manual_recommendations %}
                 <div class="row">
                     {% for numbers_str, algorithm, confidence, reason in manual_recommendations %}
@@ -382,12 +382,12 @@ def index():
                 </div>
             {% endif %}
         </div>
-        
+
         <!-- 반자동 구매 추천 번호 (2개, 3개씩) -->
         <div class="stat-card">
             <h4><i class="fas fa-magic text-info"></i> 반자동 구매 추천 (3개씩 고정, 2세트)</h4>
             <p class="text-muted">고신뢰도 알고리즘으로 선별된 반자동 구매용 번호 3개씩입니다. 나머지 3개는 자동 선택하세요.</p>
-            
+
             {% if semi_auto_recommendations %}
                 <div class="row">
                     {% for numbers_str, algorithm, confidence, reason in semi_auto_recommendations %}
@@ -418,7 +418,7 @@ def index():
                 </div>
             {% endif %}
         </div>
-        
+
         <!-- 하단 메뉴 -->
         <div class="text-center mt-4">
             <div class="row">
@@ -440,9 +440,9 @@ def index():
             </div>
         </div>
     </div>
-    
+
     <script src="https://cdnjs.cloudflare.com/ajax/libs/bootstrap/5.3.0/js/bootstrap.bundle.min.js"></script>
-    
+
     <script>
         function showLoading(button) {
             const originalText = button.innerHTML;
@@ -450,17 +450,17 @@ def index():
             button.disabled = true;
             return originalText;
         }
-        
+
         function hideLoading(button, originalText) {
             button.innerHTML = originalText;
             button.disabled = false;
         }
-        
+
         function updateData() {
             if (confirm('최신 당첨번호를 수집하시겠습니까?')) {
                 const button = event.target;
                 const originalText = showLoading(button);
-                
+
                 fetch('/api/update_data', {method: 'POST'})
                     .then(response => response.json())
                     .then(data => {
@@ -474,12 +474,12 @@ def index():
                     });
             }
         }
-        
+
         function generateRecommendations() {
             if (confirm('새로운 추천 번호를 생성하시겠습니까?')) {
                 const button = event.target;
                 const originalText = showLoading(button);
-                
+
                 fetch('/api/generate_recommendations', {method: 'POST'})
                     .then(response => response.json())
                     .then(data => {
@@ -493,12 +493,12 @@ def index():
                     });
             }
         }
-        
+
         function runAnalysis() {
             if (confirm('번호 분석을 실행하시겠습니까?')) {
                 const button = event.target;
                 const originalText = showLoading(button);
-                
+
                 fetch('/api/run_analysis', {method: 'POST'})
                     .then(response => response.json())
                     .then(data => {
@@ -516,7 +516,7 @@ def index():
 </body>
 </html>
         '''
-        
+
         return render_template_string(template,
             recent_results=recent_results,
             frequent_numbers=frequent_numbers,
@@ -527,7 +527,7 @@ def index():
             latest_draw=latest_draw,
             current_time=datetime.now().strftime('%Y년 %m월 %d일 %H:%M:%S')
         )
-        
+
     except Exception as e:
         return f'<h1>오류 발생</h1><p>{str(e)}</p>'
 
@@ -537,9 +537,9 @@ def api_generate_recommendations():
     """새 추천 번호 생성 API (강화버전 사용)"""
     try:
         script_path = os.path.join(SCRIPTS_PATH, 'lotto_recommender_enhanced.py')
-        result = subprocess.run(['python3', script_path], 
+        result = subprocess.run(['python3', script_path],
                               capture_output=True, text=True, timeout=60)
-        
+
         if result.returncode == 0:
             return jsonify({'success': True, 'message': '새로운 추천 번호가 생성되었습니다! (5개 수동 + 2개 반자동)'})
         else:

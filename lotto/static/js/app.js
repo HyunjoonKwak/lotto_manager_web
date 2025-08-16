@@ -41,7 +41,7 @@ class LottoApp {
         document.querySelectorAll('.card').forEach((card, index) => {
             card.style.opacity = '0';
             card.style.transform = 'translateY(20px)';
-            
+
             setTimeout(() => {
                 card.style.transition = 'all 0.6s ease-out';
                 card.style.opacity = '1';
@@ -72,7 +72,7 @@ class LottoApp {
         const ball = event.target;
         ball.style.transform = 'scale(1.2) rotate(5deg)';
         ball.style.boxShadow = '0 6px 12px rgba(0, 0, 0, 0.3)';
-        
+
         // 주변 볼들도 약간 확대
         const nearbyBalls = this.getNearbyBalls(ball);
         nearbyBalls.forEach(nearbyBall => {
@@ -84,7 +84,7 @@ class LottoApp {
         const ball = event.target;
         ball.style.transform = '';
         ball.style.boxShadow = '';
-        
+
         // 주변 볼들 원래대로
         const nearbyBalls = this.getNearbyBalls(ball);
         nearbyBalls.forEach(nearbyBall => {
@@ -96,20 +96,20 @@ class LottoApp {
         const balls = Array.from(document.querySelectorAll('.lotto-ball'));
         const ballIndex = balls.indexOf(ball);
         const nearby = [];
-        
+
         for (let i = Math.max(0, ballIndex - 2); i <= Math.min(balls.length - 1, ballIndex + 2); i++) {
             if (i !== ballIndex) {
                 nearby.push(balls[i]);
             }
         }
-        
+
         return nearby;
     }
 
     addCardClickEffect(event) {
         const card = event.currentTarget;
         card.style.transform = 'scale(0.98)';
-        
+
         setTimeout(() => {
             card.style.transform = '';
         }, 150);
@@ -137,11 +137,11 @@ class LottoApp {
     async generateRecommendations() {
         const btn = document.getElementById('generate-recommendations');
         const originalText = btn.innerHTML;
-        
+
         // 로딩 상태 표시
         btn.innerHTML = '<span class="loading-spinner"></span> 생성 중...';
         btn.disabled = true;
-        
+
         try {
             const response = await fetch('/api/generate_recommendations', {
                 method: 'POST',
@@ -149,9 +149,9 @@ class LottoApp {
                     'Content-Type': 'application/json'
                 }
             });
-            
+
             const result = await response.json();
-            
+
             if (result.success) {
                 this.showNotification('추천 번호가 성공적으로 생성되었습니다!', 'success');
                 setTimeout(() => {
@@ -268,7 +268,7 @@ class LottoApp {
             evenCount: numbers.filter(n => n % 2 === 0).length,
             oddCount: numbers.filter(n => n % 2 === 1).length
         };
-        
+
         return analysis;
     }
 }

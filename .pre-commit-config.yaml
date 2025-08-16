@@ -3,6 +3,6 @@ repos:
     rev: v4.6.0
     hooks:
       - id: check-added-large-files
-        args: ["--maxkb=100000"]  # 100MB 이상 파일 커밋 차단
-      - id: end-of-file-fixer
-      - id: trailing-whitespace
+        args: ["--maxkb=100000"]  # 100MB 초과 파일 커밋 차단
+      - id: end-of-file-fixer      # 파일 끝 개행 정리
+      - id: trailing-whitespace    # 불필요한 공백 제거

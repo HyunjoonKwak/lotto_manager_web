@@ -40,7 +40,7 @@
             left: 0;
             width: 100%;
             height: 100%;
-            background: 
+            background:
                 radial-gradient(circle at 20% 50%, rgba(120, 119, 198, 0.3) 0%, transparent 50%),
                 radial-gradient(circle at 80% 20%, rgba(255, 119, 198, 0.3) 0%, transparent 50%),
                 radial-gradient(circle at 40% 80%, rgba(120, 219, 255, 0.3) 0%, transparent 50%);
@@ -575,7 +575,7 @@
                     <i class="fas fa-dice"></i> 로또 번호 분석 시스템
                 </h1>
                 <p class="header-subtitle">AI 기반 로또 번호 분석 및 추천 서비스</p>
-                
+
                 <div class="stats-row">
                     <div class="stat-item">
                         <span class="stat-number">1,145</span>
@@ -646,7 +646,7 @@
                                 <span class="lotto-ball ball-41-45" title="148회 출현">43</span>
                                 <span class="lotto-ball ball-11-20" title="147회 출현">19</span>
                             </div>
-                            
+
                             <table class="stats-table table table-sm">
                                 <thead>
                                     <tr>
@@ -716,7 +716,7 @@
                                 <span class="lotto-ball ball-11-20" title="17주차 전">13</span>
                                 <span class="lotto-ball ball-21-30" title="16주차 전">26</span>
                             </div>
-                            
+
                             <table class="stats-table table table-sm">
                                 <thead>
                                     <tr>
@@ -969,7 +969,7 @@
 
     <!-- Bootstrap JS -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/bootstrap/5.3.0/js/bootstrap.bundle.min.js"></script>
-    
+
     <script>
         // 로딩 상태 관리
         function showLoading(button) {
@@ -978,7 +978,7 @@
             button.disabled = true;
             return originalText;
         }
-        
+
         function hideLoading(button, originalText) {
             button.innerHTML = originalText;
             button.disabled = false;
@@ -1003,9 +1003,9 @@
                 <i class="fas fa-${type === 'success' ? 'check-circle' : 'exclamation-circle'} me-2"></i>
                 ${message}
             `;
-            
+
             document.body.appendChild(toastContainer);
-            
+
             setTimeout(() => {
                 toastContainer.style.animation = 'slideOutRight 0.5s ease-out';
                 setTimeout(() => document.body.removeChild(toastContainer), 500);
@@ -1017,7 +1017,7 @@
             if (confirm('최신 당첨번호를 수집하시겠습니까?')) {
                 const button = event.target;
                 const originalText = showLoading(button);
-                
+
                 // 실제 API 호출 시뮬레이션
                 setTimeout(() => {
                     hideLoading(button, originalText);
@@ -1026,24 +1026,24 @@
                 }, 2000);
             }
         }
-        
+
         function generateRecommendations() {
             if (confirm('새로운 추천 번호를 생성하시겠습니까?')) {
                 const button = event.target;
                 const originalText = showLoading(button);
-                
+
                 setTimeout(() => {
                     hideLoading(button, originalText);
                     showToast('새로운 추천 번호가 생성되었습니다!');
                 }, 1500);
             }
         }
-        
+
         function runAnalysis() {
             if (confirm('번호 분석을 실행하시겠습니까?')) {
                 const button = event.target;
                 const originalText = showLoading(button);
-                
+
                 setTimeout(() => {
                     hideLoading(button, originalText);
                     showToast('번호 분석이 완료되었습니다!');
@@ -1068,7 +1068,7 @@
                     opacity: 1;
                 }
             }
-            
+
             @keyframes slideOutRight {
                 from {
                     transform: translateX(0);
@@ -1103,7 +1103,7 @@
         function handleResize() {
             const isMobile = window.innerWidth < 768;
             const balls = document.querySelectorAll('.lotto-ball');
-            
+
             balls.forEach(ball => {
                 if (isMobile) {
                     ball.style.width = '35px';
@@ -1200,7 +1200,7 @@
                             <div class="alert alert-custom alert-success">
                                 <i class="fas fa-check-circle"></i> 모든 시스템 정상 운영 중
                             </div>
-                            
+
                             <div class="mb-3">
                                 <strong>데이터베이스 상태</strong>
                                 <div class="progress mt-2" style="height: 8px;">
@@ -1226,7 +1226,7 @@
                             </div>
 
                             <hr>
-                            
+
                             <div class="text-center">
                                 <small class="text-muted">
                                     <i class="fas fa-clock"></i> 마지막 업데이트<br>
