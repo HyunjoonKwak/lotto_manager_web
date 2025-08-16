@@ -1,0 +1,231 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="utf-8"/>
+    <meta name="viewport" content="width=device-width, initial-scale=1"/>
+    <meta name="description" content="로또 번호 분석 및 추천 시스템"/>
+    <meta name="theme-color" content="#6366f1"/>
+    <meta name="apple-mobile-web-app-capable" content="yes"/>
+    <meta name="apple-mobile-web-app-status-bar-style" content="default"/>
+    <meta name="apple-mobile-web-app-title" content="로또분석"/>
+    <meta name="msapplication-TileColor" content="#6366f1"/>
+    <meta name="msapplication-config" content="/static/browserconfig.xml"/>
+    <title>🎲 로또 번호 분석</title>
+    <link rel="manifest" href="{{ url_for('static', filename='manifest.json') }}">
+    
+    <!-- Bootstrap CSS -->
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/bootstrap/5.3.0/css/bootstrap.min.css" rel="stylesheet">
+    <!-- Google Fonts -->
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+    <!-- Font Awesome -->
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet">
+    <!-- Custom CSS -->
+    <link href="{{ url_for('static', filename='css/style.css') }}" rel="stylesheet">
+</head>
+<body>
+    <div class="container">
+        <!-- 헤더 -->
+        <header class="app-header">
+            <h1><i class="fas fa-dice"></i> 로또 번호 분석</h1>
+            <p>AI 기반 로또 번호 분석 및 추천 시스템</p>
+        </header>
+
+        <!-- 통계 카드 -->
+        <div class="row mb-4">
+            <div class="col-md-3 col-sm-6 mb-3">
+                <div class="stats-card">
+                    <div class="stats-number">{{ total_draws }}</div>
+                    <div class="stats-label">총 회차</div>
+                </div>
+            </div>
+            <div class="col-md-3 col-sm-6 mb-3">
+                <div class="stats-card">
+                    <div class="stats-number">{{ latest_draw }}</div>
+                    <div class="stats-label">최신 회차</div>
+                </div>
+            </div>
+            <div class="col-md-3 col-sm-6 mb-3">
+                <div class="stats-card">
+                    <div class="stats-number">{{ frequent_numbers|length if frequent_numbers else 0 }}</div>
+                    <div class="stats-label">빈출 번호</div>
+                </div>
+            </div>
+            <div class="col-md-3 col-sm-6 mb-3">
+                <div class="stats-card">
+                    <div class="stats-number">{{ recommendations|length if recommendations else 0 }}</div>
+                    <div class="stats-label">추천 번호</div>
+                </div>
+            </div>
+        </div>
+
+        <!-- 메인 콘텐츠 -->
+        <div class="row g-4">
+            <!-- 최신 당첨번호 -->
+            <div class="col-lg-6">
+                <div class="card">
+                    <div class="card-header">
+                        <i class="fas fa-trophy me-2"></i>최신 당첨번호
+                    </div>
+                    <div class="card-body">
+                        {% if recent_results %}
+                            {% for r in recent_results %}
+                                <div class="draw-result">
+                                    <div class="draw-info">
+                                        <div class="draw-number">{{ r['draw_no'] }}회차</div>
+                                        <div class="draw-date">{{ r['draw_date'] }}</div>
+                                    </div>
+                                    <div class="d-flex align-items-center flex-wrap">
+                                        <span class="lotto-ball">{{ r['num1'] }}</span>
+                                        <span class="lotto-ball">{{ r['num2'] }}</span>
+                                        <span class="lotto-ball">{{ r['num3'] }}</span>
+                                        <span class="lotto-ball">{{ r['num4'] }}</span>
+                                        <span class="lotto-ball">{{ r['num5'] }}</span>
+                                        <span class="lotto-ball">{{ r['num6'] }}</span>
+                                        <span class="mx-2 text-muted">+</span>
+                                        <span class="lotto-ball bonus">{{ r['bonus_num'] }}</span>
+                                    </div>
+                                </div>
+                            {% endfor %}
+                        {% else %}
+                            <div class="text-center text-muted py-4">
+                                <i class="fas fa-inbox fa-3x mb-3"></i>
+                                <p>데이터가 없습니다.</p>
+                            </div>
+                        {% endif %}
+                    </div>
+                </div>
+            </div>
+
+            <!-- 빈출/미출현 번호 -->
+            <div class="col-lg-6">
+                <!-- 빈출 번호 -->
+                <div class="card mb-4">
+                    <div class="card-header">
+                        <i class="fas fa-fire me-2"></i>빈출 TOP 10
+                    </div>
+                    <div class="card-body">
+                        {% if frequent_numbers %}
+                            <div class="d-flex flex-wrap gap-2">
+                                {% for n in frequent_numbers %}
+                                    <div class="lotto-ball" title="출현 {{ n['frequency'] }}회">
+                                        {{ n['number'] }}
+                                    </div>
+                                {% endfor %}
+                            </div>
+                        {% else %}
+                            <div class="text-center text-muted py-3">
+                                <i class="fas fa-chart-bar fa-2x mb-2"></i>
+                                <p>데이터가 없습니다.</p>
+                            </div>
+                        {% endif %}
+                    </div>
+                </div>
+
+                <!-- 미출현 번호 -->
+                <div class="card">
+                    <div class="card-header">
+                        <i class="fas fa-clock me-2"></i>미출현 TOP 10
+                    </div>
+                    <div class="card-body">
+                        {% if overdue_numbers %}
+                            <div class="table-responsive">
+                                <table class="table table-hover">
+                                    <thead>
+                                        <tr>
+                                            <th>순위</th>
+                                            <th>번호</th>
+                                            <th>미출현(주)</th>
+                                            <th>마지막 회차</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        {% for n in overdue_numbers %}
+                                            <tr>
+                                                <td><span class="badge bg-secondary">{{ loop.index }}</span></td>
+                                                <td><span class="lotto-ball">{{ n['number'] }}</span></td>
+                                                <td><strong>{{ n['not_drawn_weeks'] }}</strong></td>
+                                                <td><small class="text-muted">{{ n['last_drawn'] }}</small></td>
+                                            </tr>
+                                        {% endfor %}
+                                    </tbody>
+                                </table>
+                            </div>
+                        {% else %}
+                            <div class="text-center text-muted py-3">
+                                <i class="fas fa-hourglass-half fa-2x mb-2"></i>
+                                <p>데이터가 없습니다.</p>
+                            </div>
+                        {% endif %}
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- 추천 번호 -->
+        <div class="card mt-4">
+            <div class="card-header d-flex justify-content-between align-items-center">
+                <span><i class="fas fa-magic me-2"></i>추천 번호</span>
+                <div class="d-flex gap-2">
+                    <div class="form-check form-switch">
+                        <input class="form-check-input" type="checkbox" id="auto-refresh-toggle">
+                        <label class="form-check-label text-white" for="auto-refresh-toggle">
+                            <small>자동 새로고침</small>
+                        </label>
+                    </div>
+                    <button class="btn btn-primary btn-sm" id="generate-recommendations">
+                        <i class="fas fa-plus me-1"></i>새 추천 생성
+                    </button>
+                </div>
+            </div>
+            <div class="card-body">
+                {% if recommendations %}
+                    {% for r in recommendations %}
+                        {% set nums = r['numbers'].split(',') %}
+                        <div class="recommendation-item">
+                            <div class="d-flex align-items-center mb-2">
+                                <span class="algorithm-badge">{{ r['algorithm'] }}</span>
+                                <span class="confidence-score">{{ r['confidence_score'] }}%</span>
+                            </div>
+                            <div class="d-flex align-items-center flex-wrap mb-2">
+                                {% for x in nums %}
+                                    <span class="lotto-ball">{{ x|int }}</span>
+                                {% endfor %}
+                            </div>
+                            <div class="recommendation-meta">
+                                <div class="mb-1"><i class="fas fa-lightbulb me-1"></i>{{ r['reason'] }}</div>
+                                <div><i class="fas fa-calendar me-1"></i>{{ r['created_at'] }}</div>
+                            </div>
+                        </div>
+                    {% endfor %}
+                {% else %}
+                    <div class="text-center text-muted py-4">
+                        <i class="fas fa-magic fa-3x mb-3"></i>
+                        <p>추천 데이터가 없습니다.</p>
+                        <button class="btn btn-primary" id="generate-recommendations">
+                            <i class="fas fa-plus me-1"></i>첫 번째 추천 생성
+                        </button>
+                    </div>
+                {% endif %}
+            </div>
+        </div>
+
+        <!-- 푸터 -->
+        <footer class="text-center text-white mt-5 mb-3">
+            <p class="mb-0">
+                <small>
+                    <i class="fas fa-code me-1"></i>
+                    로또 번호 분석 시스템 v2.0
+                    <span class="mx-2">|</span>
+                    <i class="fas fa-chart-line me-1"></i>
+                    AI 기반 분석
+                </small>
+            </p>
+        </footer>
+    </div>
+
+    <!-- Bootstrap JS -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/bootstrap/5.3.0/js/bootstrap.bundle.min.js"></script>
+    <!-- Custom JS -->
+    <script src="{{ url_for('static', filename='js/app.js') }}"></script>
+</body>
+</html>

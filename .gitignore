@@ -1,0 +1,8 @@
+.DS_Store
+@eaDir/
+.Spotlight-*
+.Trashes
+__pycache__/
+*.log
+.venv/
+node_modules/
