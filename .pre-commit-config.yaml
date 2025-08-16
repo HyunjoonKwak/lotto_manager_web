@@ -1,0 +1,8 @@
+repos:
+  - repo: https://github.com/pre-commit/pre-commit-hooks
+    rev: v4.6.0
+    hooks:
+      - id: check-added-large-files
+        args: ["--maxkb=100000"]  # 100MB 이상 파일 커밋 차단
+      - id: end-of-file-fixer
+      - id: trailing-whitespace
