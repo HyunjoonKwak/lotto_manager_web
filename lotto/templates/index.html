@@ -1,231 +1,300 @@
-<!DOCTYPE html>
-<html lang="ko">
-<head>
-    <meta charset="utf-8"/>
-    <meta name="viewport" content="width=device-width, initial-scale=1"/>
-    <meta name="description" content="로또 번호 분석 및 추천 시스템"/>
-    <meta name="theme-color" content="#6366f1"/>
-    <meta name="apple-mobile-web-app-capable" content="yes"/>
-    <meta name="apple-mobile-web-app-status-bar-style" content="default"/>
-    <meta name="apple-mobile-web-app-title" content="로또분석"/>
-    <meta name="msapplication-TileColor" content="#6366f1"/>
-    <meta name="msapplication-config" content="/static/browserconfig.xml"/>
-    <title>🎲 로또 번호 분석</title>
-    <link rel="manifest" href="{{ url_for('static', filename='manifest.json') }}">
-
-    <!-- Bootstrap CSS -->
-    <link href="https://cdnjs.cloudflare.com/ajax/libs/bootstrap/5.3.0/css/bootstrap.min.css" rel="stylesheet">
-    <!-- Google Fonts -->
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
-    <!-- Font Awesome -->
-    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet">
-    <!-- Custom CSS -->
-    <link href="{{ url_for('static', filename='css/style.css') }}" rel="stylesheet">
+<!doctype html><html lang="ko"><head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>로또 대시보드</title>
+<link rel="stylesheet" href="/static/main.css">
+<style>
+  body{font-family:system-ui,-apple-system,Segoe UI,Roboto,Apple SD Gothic Neo,Noto Sans KR,sans-serif;margin:0;padding:0;background:#fafafa;color:#222}
+  header{padding:16px 20px;background:#111;color:#fff}
+  main{padding:16px 20px;display:grid;grid-template-columns:1fr 1fr;gap:16px}
+  .span2{grid-column:1 / span 2}
+  h1{margin:0;font-size:20px}
+  h2{margin:8px 0 12px;font-size:18px}
+  h3{margin:6px 0;font-size:15px}
+  button{padding:8px 12px;border:1px solid #ddd;background:#fff;border-radius:8px;cursor:pointer}
+  input[type=number]{width:120px;padding:6px;border:1px solid #ddd;border-radius:8px}
+  .table-wrap{border:1px solid #eee;border-radius:10px;overflow:auto;background:#fff}
+  table{width:100%;border-collapse:separate;border-spacing:0}
+  th,td{padding:8px 10px;border-bottom:1px solid #f0f0f0;white-space:nowrap}
+  th{position:sticky;top:0;background:#f9f9f9}
+  .nums{font-family:ui-monospace,SFMono-Regular,Menlo,monospace}
+</style>
 </head>
 <body>
-    <div class="container">
-        <!-- 헤더 -->
-        <header class="app-header">
-            <h1><i class="fas fa-dice"></i> 로또 번호 분석</h1>
-            <p>AI 기반 로또 번호 분석 및 추천 시스템</p>
-        </header>
+<header><h1>로또 대시보드 (최신 회차: {{ latest_draw }})</h1></header>
+<main>
+  <div id="status-line" style="margin:6px 0 10px;"><span id="msg" style="color:#444;"></span></div>
 
-        <!-- 통계 카드 -->
-        <div class="row mb-4">
-            <div class="col-md-3 col-sm-6 mb-3">
-                <div class="stats-card">
-                    <div class="stats-number">{{ total_draws }}</div>
-                    <div class="stats-label">총 회차</div>
-                </div>
-            </div>
-            <div class="col-md-3 col-sm-6 mb-3">
-                <div class="stats-card">
-                    <div class="stats-number">{{ latest_draw }}</div>
-                    <div class="stats-label">최신 회차</div>
-                </div>
-            </div>
-            <div class="col-md-3 col-sm-6 mb-3">
-                <div class="stats-card">
-                    <div class="stats-number">{{ frequent_numbers|length if frequent_numbers else 0 }}</div>
-                    <div class="stats-label">빈출 번호</div>
-                </div>
-            </div>
-            <div class="col-md-3 col-sm-6 mb-3">
-                <div class="stats-card">
-                    <div class="stats-number">{{ recommendations|length if recommendations else 0 }}</div>
-                    <div class="stats-label">추천 번호</div>
-                </div>
-            </div>
-        </div>
-
-        <!-- 메인 콘텐츠 -->
-        <div class="row g-4">
-            <!-- 최신 당첨번호 -->
-            <div class="col-lg-6">
-                <div class="card">
-                    <div class="card-header">
-                        <i class="fas fa-trophy me-2"></i>최신 당첨번호
-                    </div>
-                    <div class="card-body">
-                        {% if recent_results %}
-                            {% for r in recent_results %}
-                                <div class="draw-result">
-                                    <div class="draw-info">
-                                        <div class="draw-number">{{ r['draw_no'] }}회차</div>
-                                        <div class="draw-date">{{ r['draw_date'] }}</div>
-                                    </div>
-                                    <div class="d-flex align-items-center flex-wrap">
-                                        <span class="lotto-ball">{{ r['num1'] }}</span>
-                                        <span class="lotto-ball">{{ r['num2'] }}</span>
-                                        <span class="lotto-ball">{{ r['num3'] }}</span>
-                                        <span class="lotto-ball">{{ r['num4'] }}</span>
-                                        <span class="lotto-ball">{{ r['num5'] }}</span>
-                                        <span class="lotto-ball">{{ r['num6'] }}</span>
-                                        <span class="mx-2 text-muted">+</span>
-                                        <span class="lotto-ball bonus">{{ r['bonus_num'] }}</span>
-                                    </div>
-                                </div>
-                            {% endfor %}
-                        {% else %}
-                            <div class="text-center text-muted py-4">
-                                <i class="fas fa-inbox fa-3x mb-3"></i>
-                                <p>데이터가 없습니다.</p>
-                            </div>
-                        {% endif %}
-                    </div>
-                </div>
-            </div>
-
-            <!-- 빈출/미출현 번호 -->
-            <div class="col-lg-6">
-                <!-- 빈출 번호 -->
-                <div class="card mb-4">
-                    <div class="card-header">
-                        <i class="fas fa-fire me-2"></i>빈출 TOP 10
-                    </div>
-                    <div class="card-body">
-                        {% if frequent_numbers %}
-                            <div class="d-flex flex-wrap gap-2">
-                                {% for n in frequent_numbers %}
-                                    <div class="lotto-ball" title="출현 {{ n['frequency'] }}회">
-                                        {{ n['number'] }}
-                                    </div>
-                                {% endfor %}
-                            </div>
-                        {% else %}
-                            <div class="text-center text-muted py-3">
-                                <i class="fas fa-chart-bar fa-2x mb-2"></i>
-                                <p>데이터가 없습니다.</p>
-                            </div>
-                        {% endif %}
-                    </div>
-                </div>
-
-                <!-- 미출현 번호 -->
-                <div class="card">
-                    <div class="card-header">
-                        <i class="fas fa-clock me-2"></i>미출현 TOP 10
-                    </div>
-                    <div class="card-body">
-                        {% if overdue_numbers %}
-                            <div class="table-responsive">
-                                <table class="table table-hover">
-                                    <thead>
-                                        <tr>
-                                            <th>순위</th>
-                                            <th>번호</th>
-                                            <th>미출현(주)</th>
-                                            <th>마지막 회차</th>
-                                        </tr>
-                                    </thead>
-                                    <tbody>
-                                        {% for n in overdue_numbers %}
-                                            <tr>
-                                                <td><span class="badge bg-secondary">{{ loop.index }}</span></td>
-                                                <td><span class="lotto-ball">{{ n['number'] }}</span></td>
-                                                <td><strong>{{ n['not_drawn_weeks'] }}</strong></td>
-                                                <td><small class="text-muted">{{ n['last_drawn'] }}</small></td>
-                                            </tr>
-                                        {% endfor %}
-                                    </tbody>
-                                </table>
-                            </div>
-                        {% else %}
-                            <div class="text-center text-muted py-3">
-                                <i class="fas fa-hourglass-half fa-2x mb-2"></i>
-                                <p>데이터가 없습니다.</p>
-                            </div>
-                        {% endif %}
-                    </div>
-                </div>
-            </div>
-        </div>
-
-        <!-- 추천 번호 -->
-        <div class="card mt-4">
-            <div class="card-header d-flex justify-content-between align-items-center">
-                <span><i class="fas fa-magic me-2"></i>추천 번호</span>
-                <div class="d-flex gap-2">
-                    <div class="form-check form-switch">
-                        <input class="form-check-input" type="checkbox" id="auto-refresh-toggle">
-                        <label class="form-check-label text-white" for="auto-refresh-toggle">
-                            <small>자동 새로고침</small>
-                        </label>
-                    </div>
-                    <button class="btn btn-primary btn-sm" id="generate-recommendations">
-                        <i class="fas fa-plus me-1"></i>새 추천 생성
-                    </button>
-                </div>
-            </div>
-            <div class="card-body">
-                {% if recommendations %}
-                    {% for r in recommendations %}
-                        {% set nums = r['numbers'].split(',') %}
-                        <div class="recommendation-item">
-                            <div class="d-flex align-items-center mb-2">
-                                <span class="algorithm-badge">{{ r['algorithm'] }}</span>
-                                <span class="confidence-score">{{ r['confidence_score'] }}%</span>
-                            </div>
-                            <div class="d-flex align-items-center flex-wrap mb-2">
-                                {% for x in nums %}
-                                    <span class="lotto-ball">{{ x|int }}</span>
-                                {% endfor %}
-                            </div>
-                            <div class="recommendation-meta">
-                                <div class="mb-1"><i class="fas fa-lightbulb me-1"></i>{{ r['reason'] }}</div>
-                                <div><i class="fas fa-calendar me-1"></i>{{ r['created_at'] }}</div>
-                            </div>
-                        </div>
-                    {% endfor %}
-                {% else %}
-                    <div class="text-center text-muted py-4">
-                        <i class="fas fa-magic fa-3x mb-3"></i>
-                        <p>추천 데이터가 없습니다.</p>
-                        <button class="btn btn-primary" id="generate-recommendations">
-                            <i class="fas fa-plus me-1"></i>첫 번째 추천 생성
-                        </button>
-                    </div>
-                {% endif %}
-            </div>
-        </div>
-
-        <!-- 푸터 -->
-        <footer class="text-center text-white mt-5 mb-3">
-            <p class="mb-0">
-                <small>
-                    <i class="fas fa-code me-1"></i>
-                    로또 번호 분석 시스템 v2.0
-                    <span class="mx-2">|</span>
-                    <i class="fas fa-chart-line me-1"></i>
-                    AI 기반 분석
-                </small>
-            </p>
-        </footer>
+  <section>
+    <h2>최근 10회 당첨번호</h2>
+    <div class="table-wrap" style="margin-top:8px;">
+      <table class="sticky">
+        <thead><tr><th>#</th><th>회차</th><th>추첨일</th><th>번호(6)</th><th>보너스</th></tr></thead>
+        <tbody id="recent-draws-body"></tbody>
+      </table>
     </div>
+  </section>
 
-    <!-- Bootstrap JS -->
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/bootstrap/5.3.0/js/bootstrap.bundle.min.js"></script>
-    <!-- Custom JS -->
-    <script src="{{ url_for('static', filename='js/app.js') }}"></script>
-</body>
-</html>
+  <section>
+    <h2>회차 당첨번호 단건 조회</h2>
+    <div class="spin-wrap" style="display:inline-flex;gap:4px;align-items:center;">
+      <button type="button" id="spin-draw-prev">◀</button>
+      <input id="draw-input" type="number" placeholder="회차 입력" min="1" max="{{ latest_draw }}" value="{{ latest_draw }}" step="1">
+      <button type="button" id="spin-draw-next">▶</button>
+      <button type="button" id="spin-draw-latest">최신</button>
+      <button id="btn-draw">회차 조회</button>
+    </div>
+    <div class="table-wrap" style="margin-top:8px;">
+      <table class="sticky">
+        <thead><tr><th>회차</th><th>추첨일</th><th>번호(6)</th><th>보너스</th></tr></thead>
+        <tbody id="draw-body"></tbody>
+      </table>
+    </div>
+  </section>
+
+  <section>
+    <h2>1등 당첨점</h2>
+    <div class="spin-wrap" style="display:inline-flex;gap:4px;align-items:center;">
+      <button type="button" id="spin-shop-prev">◀</button>
+      <input id="shop-draw-input" type="number" placeholder="회차 입력" min="1" max="{{ latest_draw }}" value="{{ latest_draw }}" step="1">
+      <button type="button" id="spin-shop-next">▶</button>
+      <button type="button" id="spin-shop-latest">최신</button>
+      <button id="btn-load-draw-shops">해당 회차 판매점</button>
+      <button id="btn-load-latest-shops">최신 회차 판매점</button>
+    </div>
+    <div class="table-wrap" style="margin-top:8px;">
+      <table class="sticky">
+        <thead><tr><th>#</th><th>점포</th><th>방법</th><th>주소</th></tr></thead>
+        <tbody id="shops-body"></tbody>
+      </table>
+    </div>
+  </section>
+
+  <section class="span2">
+    <h2>최근 추천 (자동 6개 ×5 + 반자동 3개 ×5)</h2>
+    <div class="grid" style="grid-template-columns:1fr 1fr; gap:16px;">
+      <div>
+        <h3>자동 번호 6개 (최근 5)</h3>
+        <div class="table-wrap"><table class="sticky">
+          <thead><tr><th>#</th><th>회차</th><th>번호(6)</th><th>생성시각</th></tr></thead>
+          <tbody id="recent-auto6-body">
+            {% for r in recent_auto6 %}
+              <tr><td>{{ loop.index }}</td><td>{{ r['week_no'] }}</td><td class="nums">{{ r['numbers'] }}</td><td>{{ r['created_at'] }}</td></tr>
+            {% endfor %}
+          </tbody>
+        </table></div>
+      </div>
+      <div>
+        <h3>반자동 3개 (최근 5)</h3>
+        <div class="table-wrap"><table class="sticky">
+          <thead><tr><th>#</th><th>회차</th><th>번호(3)</th><th>생성시각</th></tr></thead>
+          <tbody id="recent-semi-body">
+            {% for r in recent_semi %}
+              <tr><td>{{ loop.index }}</td><td>{{ r['week_no'] }}</td><td class="nums">{{ r['numbers'] }}</td><td>{{ r['created_at'] }}</td></tr>
+            {% endfor %}
+          </tbody>
+        </table></div>
+      </div>
+    </div>
+  </section>
+
+  <section class="span2">
+    <h2>회차별 추천 목록</h2>
+    <div class="actions" style="margin:8px 0;">
+      <input id="reco-draw" type="number" min="1" placeholder="회차" style="width:120px;padding:6px;border:1px solid #ddd;border-radius:8px;">
+      <button id="btn-reco-load">불러오기</button>
+    </div>
+    <div class="table-wrap">
+      <table class="sticky">
+        <thead><tr><th>#</th><th>알고리즘</th><th>추천번호</th><th>확신도</th><th>사유</th><th>생성시각</th></tr></thead>
+        <tbody id="reco-body">
+          <tr id="reco-empty-hint" style="display:none;"><td colspan="6" style="text-align:center;color:#666;">
+            추천 이력이 없습니다. <button id="btn-reco-create-this">이 회차 생성</button>
+          </td></tr>
+        </tbody>
+      </table>
+    </div>
+  </section>
+
+  <section class="span2">
+    <h2>검증 결과</h2>
+    <div class="actions" style="margin:8px 0;">
+      <input id="res-draw" type="number" min="1" placeholder="회차" style="width:120px;padding:6px;border:1px solid #ddd;border-radius:8px;">
+      <button id="btn-res-load">불러오기</button>
+      <button id="btn-res-csv">CSV 다운로드</button>
+    </div>
+    <div class="table-wrap">
+      <table class="sticky">
+        <thead><tr><th>#</th><th>알고리즘</th><th>추천번호</th><th>일치</th><th>보너스</th><th>등수</th><th>생성시각</th></tr></thead>
+        <tbody id="res-body"></tbody>
+      </table>
+    </div>
+  </section>
+</main>
+
+<script>
+  const msg = document.getElementById("msg"); const setMsg=(t)=>{ try{ if(msg) msg.textContent=t; }catch(e){} }; const setMsg=(t)=>{ if(msg) msg.textContent=t; };
+  const drawBody = document.getElementById("draw-body");
+  const shopsBody = document.getElementById("shops-body");
+  const btnDraw = document.getElementById("btn-draw");
+  const btnLoadShops = document.getElementById("btn-load-draw-shops");
+  const btnLoadLatestShops = document.getElementById("btn-load-latest-shops");
+  const drawInput = document.getElementById("draw-input");
+  const shopDrawInput = document.getElementById("shop-draw-input");
+
+  const recoBody = document.getElementById("reco-body");
+  const resBody  = document.getElementById("res-body");
+  const btnRecoLoad = document.getElementById("btn-reco-load");
+  const btnResLoad  = document.getElementById("btn-res-load");
+  const btnResCsv   = document.getElementById("btn-res-csv");
+  const inputRecoDraw = document.getElementById("reco-draw");
+  const inputResDraw  = document.getElementById("res-draw");
+  const LATEST = {{ latest_draw|int }};
+  if(inputRecoDraw) inputRecoDraw.value = LATEST;
+  if(inputResDraw)  inputResDraw.value  = LATEST;
+
+  function wrapDraw(v){ v=parseInt(v||0,10); if(isNaN(v)) return LATEST; if(v<1) return LATEST; if(v> LATEST) return 1; return v; }
+
+  function renderDraw(d){
+    drawBody.innerHTML = "";
+    if(!d || !d.success){ return; }
+    const tr = document.createElement("tr");
+    tr.innerHTML = `<td>${d.draw_no}</td><td>${d.draw_date||""}</td><td class="nums">${(d.numbers||[]).join(",")}</td><td>${d.bonus??""}</td>`;
+    drawBody.appendChild(tr);
+  }
+  function renderShops(draw_no, shops){
+    shopsBody.innerHTML = "";
+    (shops||[]).forEach((s,i)=>{
+      const tr=document.createElement("tr");
+      tr.innerHTML = `<td>${i+1}</td><td>${s.shop??""}</td><td>${s.method??""}</td><td>${s.address??""}</td>`;
+      shopsBody.appendChild(tr);
+    });
+  }
+
+  btnDraw.onclick = async () => {
+    let v = wrapDraw(drawInput.value);
+    setMsg( `회차 ${v} 불러오는 중...`;
+    const r = await fetch(`/api/draw/${v}`); const j = await r.json();
+    renderDraw(j)); setMsg( j.success ? "완료" : "실패";
+  };
+
+  btnLoadShops.onclick = async () => {
+    let v = wrapDraw(shopDrawInput.value);
+    setMsg( `회차 ${v} 1등 판매점 불러오는 중...`;
+    const r = await fetch(`/api/winshops/${v}`); const j = await r.json();
+    renderShops(j.draw_no, j.shops)); setMsg( `회차 ${j.draw_no} 판매점 ${j.count}개`;
+  };
+
+  btnLoadLatestShops.onclick = async () => {
+    setMsg( "최신 회차 1등 판매점 불러오는 중...";
+    const r = await fetch(`/api/winshops/latest`); const j = await r.json();
+    if (j && j.draw_no) shopDrawInput.value = j.draw_no;
+    renderShops(j.draw_no, j.shops)); setMsg( `회차 ${j.draw_no} 판매점 ${j.count}개`;
+  };
+
+  function renderReco(list){
+    const hint=document.getElementById("reco-empty-hint");
+    while (recoBody.firstChild) recoBody.removeChild(recoBody.firstChild);
+    if(!list || list.length===0){
+      if(hint){ hint.style.display="table-row"; recoBody.appendChild(hint); }
+      return;
+    }
+    if(hint) hint.style.display="none";
+    list.forEach((r,i)=>{
+      const tr=document.createElement("tr");
+      const slot = r.slot? ` #${r.slot}`:"";
+      tr.innerHTML = `<td>${i+1}</td><td>${r.algorithm}${slot}</td><td class="nums">${r.numbers}</td><td>${r.confidence??""}</td><td>${r.reason??""}</td><td>${r.created_at}</td>`;
+      recoBody.appendChild(tr);
+    });
+  }
+  function renderResults(list){
+    resBody.innerHTML = "";
+    list.forEach((r,i)=>{
+      const tr=document.createElement("tr");
+      tr.innerHTML = `<td>${i+1}</td><td>${r.algorithm}</td><td class="nums">${r.numbers}</td><td>${r.matched}</td><td>${r.bonus}</td><td>${r.rank}</td><td>${r.generated_at}</td>`;
+      resBody.appendChild(tr);
+    });
+  }
+
+  async function loadRecentRecs(){
+    try{
+      const r = await fetch("/api/recommendations/recent"); const j = await r.json();
+      const A = document.getElementById("recent-auto6-body");
+      const B = document.getElementById("recent-semi-body");
+      const a = j.auto6||[], b = j.semi_auto||[];
+      if(A) A.innerHTML = a.map((x,i)=>`<tr><td>${i+1}</td><td>${x.week_no}</td><td class="nums">${x.numbers}</td><td>${x.created_at}</td></tr>`).join("");
+      if(B) B.innerHTML = b.map((x,i)=>`<tr><td>${i+1}</td><td>${x.week_no}</td><td class="nums">${x.numbers}</td><td>${x.created_at}</td></tr>`).join("");
+    }catch(e){}
+  }
+
+  // 추천 생성/검증 버튼
+  btnRecoNext.onclick = async () => {
+    setMsg( "다음 회차 추천 생성 중...";
+    const r = await fetch("/api/recommendations/generate", {method:"POST"});
+    const j = await r.json();
+    if(j.success){
+      setMsg( "완료!";
+      await loadRecentRecs();
+      const rd=document.getElementById("reco-draw"); const btn=document.getElementById("btn-reco-load");
+      if(rd && btn){ rd.value = ({{ latest_draw|int }} + 1); btn.click(); }
+    } else setMsg( "실패";
+  };
+  btnValidate.onclick = async () => {
+    let v = wrapDraw(drawInput.value);
+    setMsg( `회차 ${v} 검증 중...`;
+    const r = await fetch(`/api/recommendations/validate/${v}`, {method:"POST"});
+    const j = await r.json();
+    setMsg( j.success ? "검증 완료!" : "검증 실패";
+  };
+
+  // 회차별 추천/검증 로더
+  btnRecoLoad.onclick = async ()=>{
+    const d = parseInt(inputRecoDraw.value||"0",10);
+    if(!d){ msg.textContent="회차 입력"; return; }
+    setMsg( "추천 불러오는 중...";
+    const r = await fetch(`/api/recommendations/${d}`); const j = await r.json();
+    if(j.success){ renderReco(j.items||[])); setMsg( `회차 ${d} 추천 ${j.count}건`; }
+    else setMsg( "실패";
+  };
+  btnResLoad.onclick = async ()=>{
+    const d = parseInt(inputResDraw.value||"0",10);
+    if(!d){ msg.textContent="회차 입력"; return; }
+    setMsg( "검증결과 불러오는 중...";
+    const r = await fetch(`/api/recommendations/results/${d}`); const j = await r.json();
+    if(j.success){ renderResults(j.items||[]); msg.textContent=`회차 ${d} 결과 ${j.count}건`; }
+    else msg.textContent="실패";
+  };
+  btnResCsv.onclick = ()=>{ const d = parseInt(inputResDraw.value||"0",10); if(!d) return; window.open(`/api/recommendations/results/${d}/csv`,"_blank"); };
+
+  // 스핀(◀/▶/최신) 버튼
+  function spinAttach(idPrev,idInput,idNext,idLatest){
+    const p=document.getElementById(idPrev), i=document.getElementById(idInput), n=document.getElementById(idNext), l=document.getElementById(idLatest);
+    if(!i) return;
+    const wrap=(v)=>{ v=parseInt(v||'',10); if(isNaN(v)) return LATEST; if(v<1) return LATEST; if(v> LATEST) return 1; return v; };
+    p && (p.onclick=()=>{ let v=parseInt(i.value||'',10); if(isNaN(v)) v=LATEST; i.value=(v<=1?LATEST:v-1); });
+    n && (n.onclick=()=>{ let v=parseInt(i.value||'',10); if(isNaN(v)) v=LATEST; i.value=(v>=LATEST?1:v+1); });
+    l && (l.onclick=()=>{ i.value = LATEST; });
+    i.addEventListener("change", ()=>{ i.value = wrap(i.value); });
+    i.addEventListener("wheel", (e)=>{ e.preventDefault(); }, {passive:false});
+  }
+  spinAttach("spin-draw-prev","draw-input","spin-draw-next","spin-draw-latest");
+  spinAttach("spin-shop-prev","shop-draw-input","spin-shop-next","spin-shop-latest");
+
+  async function loadRecentDraws(){
+    try{
+      const r = await fetch("/api/draw/recent?limit=10"); const j = await r.json();
+      const body = document.getElementById("recent-draws-body");
+      if(!body) return;
+      body.innerHTML = (j.items||[]).map((x,i)=>(
+        `<tr><td>${i+1}</td><td>${x.draw_no}</td><td>${x.draw_date||""}</td><td class="nums">${(x.numbers||[]).join(",")}</td><td>${x.bonus??""}</td></tr>`
+      )).join("");
+    }catch(e){}
+  }
+
+  // 최초 로드
+  (async ()=>{
+    await loadRecentRecs();
+    await loadRecentDraws();
+    const rd=document.getElementById("reco-draw"); const btn=document.getElementById("btn-reco-load");
+    if(rd && btn){ if(!rd.value) rd.value = LATEST; btn.click(); }
+  })();
+</script>

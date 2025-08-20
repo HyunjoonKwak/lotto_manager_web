@@ -15,15 +15,19 @@ def recompute_number_frequency():
     if not rows:
         print("❌ 분석할 데이터가 없습니다."); return
 
-    freq = Counter(); bonus = Counter(); last = {}
-    for r in rows:
-        nums = [r['num1'],r['num2'],r['num3'],r['num4'],r['num5'],r['num6']]
-        for n in nums:
-            freq[n]+=1
-            last[n]=r['draw_no']
-        bonus[r['bonus_num']]+=1
+    freq = Counter()
+    bonus = Counter()
+    last  = {}
 
-    latest = rows[-1]['draw_no']
+    for r in rows:
+        draw = r["draw_no"]
+        nums = [r["num1"], r["num2"], r["num3"], r["num4"], r["num5"], r["num6"]]
+        for n in nums:
+            freq[n] += 1
+            last[n] = draw
+        bonus[r["bonus_num"]] += 1
+
+    latest = rows[-1]["draw_no"]
 
     with get_conn() as conn:
         cur = conn.cursor()

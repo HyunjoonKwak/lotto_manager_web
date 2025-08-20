@@ -7,3 +7,39 @@ __pycache__/
 .venv/
 node_modules/
 #recycle/
+
+# env & secrets
+.env
+*/.env
+
+# databases / sqlite / cache
+*.db
+*.db-*
+*.sqlite
+instance/
+lotto_app/instance/
+lotto_dashboard/instance/
+
+# pid / runtime
+*.pid
+
+# backups, archives, dumps
+*_backup*/
+*_bak*/
+*.bak*
+*.tgz
+*.tar
+*.zip
+*.mako   # (템플릿 생성물이라면 제외 고려)
+
+# logs & debug html
+logs/
+*/logs/
+*.log
+*debug.html
+
+# python stuff
+__pycache__/
+*.pyc
+.venv/
+

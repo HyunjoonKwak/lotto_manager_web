@@ -1,25 +1,26 @@
 import sqlite3
-from contextlib import contextmanager
-from config import DB_PATH
+import contextlib
+from config import DB as DB_PATH   # 호환용 alias
 
-PRAGMAS = [
-    "PRAGMA journal_mode=WAL;",
-    "PRAGMA synchronous=NORMAL;",
-    "PRAGMA foreign_keys=ON;",
-    "PRAGMA temp_store=MEMORY;",
-    "PRAGMA cache_size=-20000;"  # ~20MB
-]
-
-def init_connection(conn: sqlite3.Connection):
-    for p in PRAGMAS:
-        conn.execute(p)
-    conn.row_factory = sqlite3.Row
-
-@contextmanager
 def get_conn():
-    conn = sqlite3.connect(DB_PATH, timeout=30, isolation_level=None)  # autocommit
+    con = sqlite3.connect(DB_PATH, check_same_thread=False)
+    con.row_factory = sqlite3.Row             # ★ 중요: dict(row) 가능하도록
+    return con
+
+@contextlib.contextmanager
+def get_connection():
+    con = get_conn()
     try:
-        init_connection(conn)
-        yield conn
+        yield con
     finally:
-        conn.close()
+        con.close()
+
+def fetchone(sql, params=()):
+    with get_connection() as con:
+        cur = con.execute(sql, params)
+        return cur.fetchone()
+
+def fetchall(sql, params=()):
+    with get_connection() as con:
+        cur = con.execute(sql, params)
+        return cur.fetchall()

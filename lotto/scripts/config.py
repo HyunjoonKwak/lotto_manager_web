@@ -1,17 +1,12 @@
-import os
-from pathlib import Path
-from dotenv import load_dotenv
+import os, pathlib
 
-ENV_DIR = Path(__file__).resolve().parent
-load_dotenv(ENV_DIR / ".env")
+# 프로젝트 루트: .../lotto
+ROOT = pathlib.Path(__file__).resolve().parents[1]
 
-APP_ROOT     = Path(os.getenv("APP_ROOT", "/volume1/web/lotto"))
-DB_PATH      = str(Path(os.getenv("DB_PATH", APP_ROOT / "database" / "lotto.db")))
-SCRIPTS_PATH = str(Path(os.getenv("SCRIPTS_PATH", APP_ROOT / "scripts")))
-LOG_DIR      = str(Path(os.getenv("LOG_DIR", APP_ROOT / "logs")))
-FLASK_HOST   = os.getenv("FLASK_HOST", "0.0.0.0")
-FLASK_PORT   = int(os.getenv("FLASK_PORT", "8080"))
+# DB 경로: 환경변수 LOTTO_DB 우선, 없으면 프로젝트 내부 database/lotto.db
+DB = os.environ.get("LOTTO_DB") or str(ROOT / "database" / "lotto.db")
 
-def ensure_dirs():
-    for p in [APP_ROOT, Path(DB_PATH).parent, Path(SCRIPTS_PATH), Path(LOG_DIR)]:
-        Path(p).mkdir(parents=True, exist_ok=True)
+# 로그/서버 설정
+LOG_DIR = str(ROOT / "logs")
+HOST = os.environ.get("LOTTO_HOST", "0.0.0.0")
+PORT = int(os.environ.get("LOTTO_PORT", "8080"))
