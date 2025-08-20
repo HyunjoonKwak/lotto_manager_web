@@ -1,27 +1,38 @@
-# 환경설정
+# secrets
 .env
 */.env
 
-# 데이터베이스
+# databases / runtime state
 *.db
 *.db-*
 *.sqlite
 instance/
+lotto_app/instance/
+lotto_dashboard/instance/
 lotto/database/
 
-# 백업/아카이브
+# pid / runtime
+*.pid
+
+# backups / archives / dumps
 *_backup*/
 *.tgz
 *.tar
 *.zip
+*.bak*
+*backup*.py
+*bak*.py
 
-# 로그/런타임
-*.pid
+# logs & debug html
 logs/
 */logs/
+*.log
 *debug.html
 
-# 파이썬 캐시
+# python
 __pycache__/
 *.pyc
 .venv/
+
+# misc
+.DS_Store
