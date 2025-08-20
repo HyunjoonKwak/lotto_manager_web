@@ -1,0 +1,30 @@
+{% extends "base.html" %}
+{% block content %}
+<h3 class="mb-3">추천 번호</h3>
+<div class="row g-3">
+  <div class="col-md-6">
+    <div class="card h-100">
+      <div class="card-body">
+        <h5 class="card-title">전체 조합 5개</h5>
+        <ol class="mb-0">
+        {% for combo in full %}
+          <li>{{ combo|join(', ') }}</li>
+        {% endfor %}
+        </ol>
+      </div>
+    </div>
+  </div>
+  <div class="col-md-6">
+    <div class="card h-100">
+      <div class="card-body">
+        <h5 class="card-title">반자동(3개 추천) 5세트</h5>
+        <ol class="mb-0">
+        {% for triple in semi %}
+          <li>{{ triple|join(', ') }} + (자유선택 3개)</li>
+        {% endfor %}
+        </ol>
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}

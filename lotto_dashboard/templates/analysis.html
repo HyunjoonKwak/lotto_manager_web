@@ -1,0 +1,39 @@
+{% extends "base.html" %}
+{% block content %}
+<h3 class="mb-3">빈출 분석</h3>
+<p class="text-muted">전체 누적 기준.</p>
+<div class="row g-3">
+  <div class="col-md-4">
+    <div class="card h-100">
+      <div class="card-body">
+        <h5 class="card-title">단일 번호 빈도</h5>
+        <table class="table table-sm">
+          <thead><tr><th>번호</th><th>빈도</th></tr></thead>
+          <tbody>
+            {% for n,c in singles %}
+              <tr><td>{{ n }}</td><td>{{ c }}</td></tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+  <div class="col-md-8">
+    <div class="card h-100">
+      <div class="card-body">
+        <h5 class="card-title">페어(2-number) 빈도 TOP 100</h5>
+        <div class="table-responsive">
+          <table class="table table-sm">
+            <thead><tr><th>#</th><th>조합</th><th>빈도</th></tr></thead>
+            <tbody>
+              {% for pair,count in pairs %}
+                <tr><td>{{ loop.index }}</td><td>{{ pair[0] }}, {{ pair[1] }}</td><td>{{ count }}</td></tr>
+              {% endfor %}
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}

@@ -1,0 +1,17 @@
+{% extends "base.html" %}
+{% block content %}
+<h3>최근 회차 (최신 10)</h3>
+{% if not draws %}
+  <p>데이터가 없습니다. 잠시 후 새로고침하거나 CLI로 <code>fetch-latest 10</code> 실행하세요.</p>
+{% endif %}
+{% for d in draws %}
+<div class="card">
+  <div><strong>{{ d['round'] }}회차</strong> <span class="muted">{{ d['draw_date'] }}</span></div>
+  <div class="nums">
+    {% for x in [d['n1'],d['n2'],d['n3'],d['n4'],d['n5'],d['n6']] %}<span>{{ x }}</span>{% endfor %}
+    + <span>{{ d['bonus'] }}</span>
+  </div>
+  <div><a href="/round/{{ d['round'] }}">1등 당첨점 보기</a></div>
+</div>
+{% endfor %}
+{% endblock %}

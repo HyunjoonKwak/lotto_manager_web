@@ -1,0 +1,58 @@
+{% extends "base.html" %}
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-3">
+  <h3 class="m-0">당첨점 조회</h3>
+</div>
+
+<form class="row gy-2 gx-2 mb-3" method="get" action="{{ url_for('shops.shops_home') }}">
+  <div class="col-auto">
+    <input type="number" class="form-control" placeholder="회차" name="round" value="{{ round_no or '' }}" min="1" required>
+  </div>
+  <div class="col-auto">
+    <select class="form-select" name="rank">
+      <option value="1" {% if rank==1 %}selected{% endif %}>1등</option>
+      <option value="2" {% if rank==2 %}selected{% endif %}>2등</option>
+    </select>
+  </div>
+  <div class="col-auto">
+    <input type="text" class="form-control" placeholder="상호/주소 검색 (옵션)" name="q" value="{{ q or '' }}">
+  </div>
+  <div class="col-auto">
+    <button class="btn btn-primary">조회</button>
+  </div>
+</form>
+
+<form class="mb-3" method="post" action="{{ url_for('shops.shops_home') }}">
+  <input type="hidden" name="round" value="{{ round_no or '' }}">
+  <input type="hidden" name="rank" value="{{ rank or 1 }}">
+  <button class="btn btn-outline-secondary">강제 크롤링 (해당 회차/랭크)</button>
+</form>
+
+{% if round_no %}
+  <div class="card">
+    <div class="card-body">
+      <h5 class="card-title">{{ round_no }}회 {{ rank }}등 당첨점 <span class="text-muted">({{ count }}건)</span></h5>
+      <div class="table-responsive">
+        <table class="table table-sm">
+          <thead><tr><th>#</th><th>상호명</th><th>소재지</th><th>판매구분</th></tr></thead>
+          <tbody>
+            {% for s in shops %}
+              <tr>
+                <td>{{ s.rank or '-' }}</td>
+                <td>{{ s.name }}</td>
+                <td>{{ s.address }}</td>
+                <td>{{ s.method or '미상' }}</td>
+              </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+      {% if not shops %}
+        <div class="text-muted">데이터가 없습니다.</div>
+      {% endif %}
+    </div>
+  </div>
+{% else %}
+  <div class="text-muted">상단에서 회차와 등수를 선택해 주세요.</div>
+{% endif %}
+{% endblock %}

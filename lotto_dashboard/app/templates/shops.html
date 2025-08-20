@@ -1,0 +1,65 @@
+{% extends "base.html" %}
+{% block content %}
+<div class="container mt-4">
+  <h3>당첨점 조회</h3>
+
+  <form method="get" class="row g-2 mb-3">
+    <div class="col-auto">
+      <label for="round" class="col-form-label">회차</label>
+    </div>
+    <div class="col-auto">
+      <input type="number" id="round" name="round" class="form-control" value="{{ round_no or '' }}" min="1" required>
+    </div>
+    <div class="col-auto">
+      <select class="form-select" name="rank">
+        <option value="1" {% if rank==1 %}selected{% endif %}>1등</option>
+        <option value="2" {% if rank==2 %}selected{% endif %}>2등</option>
+      </select>
+    </div>
+    <div class="col-auto">
+      <input type="text" class="form-control" name="q" placeholder="상호/주소 검색 (옵션)" value="{{ q or '' }}">
+    </div>
+    <div class="col-auto">
+      <button type="submit" class="btn btn-primary">조회</button>
+    </div>
+  </form>
+
+  <form method="post" class="mb-3">
+    <button class="btn btn-outline-secondary">크롤링 새로고침</button>
+    <small class="text-muted ms-2">* 새로고침 시 logs/shops/ 에 원본/테이블 로그 저장</small>
+  </form>
+
+  {% if round_no %}
+    <h5 class="mb-3">{{ round_no }}회 {{ rank }}등 당첨점 ({{ count }}건)</h5>
+  {% endif %}
+
+  <div class="table-responsive">
+    <table class="table table-sm table-striped align-middle">
+      <thead class="table-light">
+        <tr>
+          <th style="width:70px">#</th>
+          <th>상호명</th>
+          <th>소재지</th>
+          <th style="width:140px">판매구분/비고</th>
+        </tr>
+      </thead>
+      <tbody>
+      {% if shops %}
+        {% for s in shops %}
+        <tr>
+          <td>{{ loop.index }}</td>
+          <td>{{ s.name }}</td>
+          <td>{{ s.address }}</td>
+          <td>{{ s.method or '미상' }}</td>
+        </tr>
+        {% endfor %}
+      {% else %}
+        <tr>
+          <td colspan="4" class="text-center text-muted py-4">데이터가 없습니다.</td>
+        </tr>
+      {% endif %}
+      </tbody>
+    </table>
+  </div>
+</div>
+{% endblock %}
