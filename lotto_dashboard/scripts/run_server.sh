@@ -1,14 +1,12 @@
-#!/bin/bash
-# Lotto Dashboard 실행 스크립트 (메뉴형)
-# - 포그라운드 실행
-# - 백그라운드 실행 (nohup, 로그 저장)
-# - 상태 확인
-# - 중지
+#!/usr/bin/env bash
+# Lotto Dashboard 실행 스크립트 (메뉴형) - macOS 친화 패치
+set -euo pipefail
 
-set -e
-
-ROOT_DIR="$(dirname "$(dirname "$0")")"
-cd "$ROOT_DIR" || exit 1
+# --- 스크립트 경로/루트 계산(어떤 방식으로 실행해도 안전) ---
+SCRIPT_FILE="${BASH_SOURCE[0]:-$0}"
+SCRIPT_DIR="$(cd "$(dirname "$SCRIPT_FILE")" && pwd)"
+ROOT_DIR="$(cd "$SCRIPT_DIR/.." && pwd)"
+cd "$ROOT_DIR"
 
 PORT="${PORT:-8080}"
 LOG_DIR="$ROOT_DIR/logs"
@@ -17,62 +15,72 @@ PID_FILE="$RUN_DIR/server.pid"
 
 mkdir -p "$LOG_DIR" "$RUN_DIR"
 
+# --- 파이썬 실행기 선택(.venv 우선) ---
+if [[ -x "$ROOT_DIR/.venv/bin/python" ]]; then
+  PYTHON="$ROOT_DIR/.venv/bin/python"
+else
+  PYTHON="$(command -v python3 || command -v python)"
+fi
+
 activate_venv() {
-  if [ -d ".venv" ]; then
+  if [[ -d ".venv" ]]; then
     # shellcheck disable=SC1091
-    source .venv/bin/activate
+    source ".venv/bin/activate"
   fi
 }
 
 find_pids() {
-  # 우선 pgrep 사용
+  # app.py 또는 wsgi.py로 실행된 Flask/Werkzeug까지 포착
   if command -v pgrep >/dev/null 2>&1; then
-    pgrep -f "python .*app.py" || true
+    pgrep -f "$PYTHON .*app.py|$PYTHON .*wsgi.py" || true
   else
-    # BusyBox 환경용 대체
-    ps aux | grep -E "python .*app.py" | grep -v grep | awk '{print $2}'
+    ps aux | grep -E "$PYTHON .*app.py|$PYTHON .*wsgi.py" | grep -v grep | awk '{print $2}'
   fi
 }
 
 status() {
   echo "== 서버 상태 확인 =="
-  PIDS="$(find_pids)"
-  if [ -s "$PID_FILE" ]; then
+  local PIDS
+  PIDS="$(find_pids || true)"
+  if [[ -s "$PID_FILE" ]]; then
     echo "PID 파일: $(cat "$PID_FILE")"
   fi
-  if [ -n "$PIDS" ]; then
+  if [[ -n "${PIDS:-}" ]]; then
     echo "실행 중인 PID: $PIDS"
   else
     echo "실행 중인 서버 프로세스가 없습니다."
   fi
-  # 포트 리스닝 확인 (가능하면)
-  if command -v ss >/dev/null 2>&1; then
-    echo
-    echo "== 포트 리스닝 (:${PORT}) =="
-    ss -tulnp 2>/dev/null | grep ":$PORT" || echo "$PORT 포트 리스닝 없음"
+
+  echo
+  echo "== 포트 리스닝 (:${PORT}) =="
+  if command -v lsof >/dev/null 2>&1; then
+    lsof -nP -iTCP:"$PORT" -sTCP:LISTEN || echo "$PORT 포트 리스닝 없음"
   elif command -v netstat >/dev/null 2>&1; then
-    echo
-    echo "== 포트 리스닝 (:${PORT}) =="
-    netstat -tulnp 2>/dev/null | grep ":$PORT" || echo "$PORT 포트 리스닝 없음"
+    # macOS netstat에는 -p 옵션이 없습니다.
+    netstat -an | grep "\.$PORT " || echo "$PORT 포트 리스닝 없음"
+  else
+    echo "lsof/netstat 없음 - 포트 확인 불가"
   fi
 }
 
 start_foreground() {
-  echo "🚀 포그라운드 실행: http://<NAS-IP>:${PORT}"
+  echo "🚀 포그라운드 실행: http://localhost:${PORT}"
   activate_venv
   export PORT
-  python app.py
+  # SIGINT/SIGTERM 전달을 위해 exec 사용
+  exec "$PYTHON" app.py
 }
 
 start_background() {
+  local TS LOG_FILE
   TS="$(date +%Y%m%d_%H%M%S)"
   LOG_FILE="$LOG_DIR/server_${TS}.log"
-  echo "🚀 백그라운드 실행: http://<NAS-IP>:${PORT}"
+  echo "🚀 백그라운드 실행: http://localhost:${PORT}"
   echo "   로그: $LOG_FILE"
   activate_venv
   export PORT
-  nohup python app.py >"$LOG_FILE" 2>&1 &
-  PID=$!
+  nohup "$PYTHON" app.py >"$LOG_FILE" 2>&1 &
+  local PID=$!
   echo "$PID" > "$PID_FILE"
   disown || true
   echo "PID: $PID (저장: $PID_FILE)"
@@ -80,8 +88,10 @@ start_background() {
 
 stop_server() {
   echo "🛑 서버 중지"
-  KILLED=0
-  if [ -s "$PID_FILE" ]; then
+  local KILLED=0
+
+  if [[ -s "$PID_FILE" ]]; then
+    local PID_FROM_FILE
     PID_FROM_FILE="$(cat "$PID_FILE")"
     if kill -0 "$PID_FROM_FILE" 2>/dev/null; then
       kill "$PID_FROM_FILE" 2>/dev/null || true
@@ -95,9 +105,9 @@ stop_server() {
     rm -f "$PID_FILE"
   fi
 
-  # 혹시 남아있을 수 있는 프로세스 추가 종료
-  PIDS="$(find_pids)"
-  if [ -n "$PIDS" ]; then
+  local PIDS
+  PIDS="$(find_pids || true)"
+  if [[ -n "${PIDS:-}" ]]; then
     echo "$PIDS" | xargs -r kill 2>/dev/null || true
     sleep 1
     echo "$PIDS" | xargs -r kill -9 2>/dev/null || true
@@ -105,7 +115,7 @@ stop_server() {
     echo "검색된 프로세스 종료: $PIDS"
   fi
 
-  if [ "$KILLED" -eq 0 ]; then
+  if [[ "$KILLED" -eq 0 ]]; then
     echo "종료할 프로세스가 없습니다."
   fi
 }
@@ -117,6 +127,7 @@ menu() {
   echo " PORT : $PORT"
   echo " LOG  : $LOG_DIR"
   echo " PID  : $PID_FILE"
+  echo " PY   : $PYTHON"
   echo "====================================="
   echo " 1) 포그라운드 실행 (Ctrl+C로 종료)"
   echo " 2) 백그라운드 실행 (nohup)"
@@ -136,8 +147,7 @@ menu() {
   esac
 }
 
-# 인자 기반 빠른 실행 (옵션형)
-case "$1" in
+case "${1:-}" in
   foreground) start_foreground ;;
   background) start_background ;;
   status) status ;;

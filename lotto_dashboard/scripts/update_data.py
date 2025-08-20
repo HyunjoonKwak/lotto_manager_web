@@ -25,16 +25,19 @@ def commit_with_retry():
 
 def ensure_draw_row(d):
     """dict d -> Draw insert (중복이면 skip)"""
+    if not d:
+        return False
     with db.session.no_autoflush:
         existed = Draw.query.filter_by(round=d["round"]).first()
     if existed:
         return False
+    bonus_val = d.get("bonus", 0) or 0
     obj = Draw(
         round=d["round"],
-        draw_date=d["draw_date"],
+        draw_date=d.get("draw_date"),
         n1=d["numbers"][0], n2=d["numbers"][1], n3=d["numbers"][2],
         n4=d["numbers"][3], n5=d["numbers"][4], n6=d["numbers"][5],
-        bonus=d["bonus"]
+        bonus=bonus_val
     )
     db.session.add(obj)
     return True
@@ -53,7 +56,6 @@ def smart_fill_all():
 def smart_fill_missing():
     """중간 비어있는 회차만 채우기 + 최신 회차 채우기."""
     added = 0
-    # 현재 보유 회차 집합
     rounds = [r for (r,) in db.session.query(Draw.round).order_by(Draw.round).all()]
     if not rounds:
         return smart_fill_all()
@@ -73,16 +75,12 @@ def smart_fill_missing():
         commit_with_retry()
 
     # 2) 최신 회차 계속 늘려가기
-    #    max_r+1부터 성공이 끊길 때까지 수집
-    tail_added = 0
     for i, d in enumerate(iter_fetch_draws(max_r + 1), start=1):
         if ensure_draw_row(d):
             added += 1
-            tail_added += 1
         if i % BATCH_SIZE == 0:
             commit_with_retry()
     commit_with_retry()
-
     return added
 
 def analyze_matches(new_round):
@@ -141,7 +139,6 @@ def main():
                 print("[SMART] DB 존재 → 중간 빈 회차 채우기 + 최신 회차 갱신")
                 added = smart_fill_missing()
                 if added:
-                    # 최신 회차에 대해 연관성 분석 (마지막 회차 기준)
                     new_round = db.session.query(db.func.max(Draw.round)).scalar()
                     m = analyze_matches(new_round)
                     print(f"[SMART] 수집 {added}건, 연관성 분석 {m}건 저장")
@@ -182,3 +179,5 @@ def main():
             else:
                 print("[OK] 신규 없음")
 
+if __name__ == "__main__":
+    main()
