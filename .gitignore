@@ -1,45 +1,27 @@
-.DS_Store
-@eaDir/
-.Spotlight-*
-.Trashes
-__pycache__/
-*.log
-.venv/
-node_modules/
-#recycle/
-
-# env & secrets
+# 환경설정
 .env
 */.env
 
-# databases / sqlite / cache
+# 데이터베이스
 *.db
 *.db-*
 *.sqlite
 instance/
-lotto_app/instance/
-lotto_dashboard/instance/
+lotto/database/
 
-# pid / runtime
-*.pid
-
-# backups, archives, dumps
+# 백업/아카이브
 *_backup*/
-*_bak*/
-*.bak*
 *.tgz
 *.tar
 *.zip
-*.mako   # (템플릿 생성물이라면 제외 고려)
 
-# logs & debug html
+# 로그/런타임
+*.pid
 logs/
 */logs/
-*.log
 *debug.html
 
-# python stuff
+# 파이썬 캐시
 __pycache__/
 *.pyc
 .venv/
-
