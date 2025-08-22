@@ -1,38 +1,32 @@
-# secrets
+# python / venv
+.venv/
+.direnv/
+*/.venv/
+*/.direnv/
+__pycache__/
+*.pyc
+
+# 환경변수/비밀
 .env
 */.env
 
-# databases / runtime state
-*.db
-*.db-*
-*.sqlite
+# DB/런타임 아티팩트
 instance/
-lotto_app/instance/
-lotto_dashboard/instance/
-lotto/database/
-
-# pid / runtime
-*.pid
-
-# backups / archives / dumps
-*_backup*/
-*.tgz
-*.tar
-*.zip
-*.bak*
-*backup*.py
-*bak*.py
-
-# logs & debug html
+*/instance/
+*.db
+*.sqlite
+*.sqlite3
 logs/
 */logs/
-*.log
-*debug.html
+run/
+*/run/
+*.pid
+app.log
+*/app.log
 
-# python
-__pycache__/
-*.pyc
-.venv/
-
-# misc
-.DS_Store
+# 빌드/캐시
+dist/
+build/
+.pytest_cache/
+.ruff_cache/
+.envrc.bak.*

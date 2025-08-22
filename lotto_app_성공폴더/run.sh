@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-ROOT="/volume1/code_work/lotto_app"
+ROOT="/Users/specialrisk_mac/code_work/NAS_CODE/lotto_app_성공폴더"
 VENV="$ROOT/.venv/bin"
 APP="app.web:app"
 PORT="${PORT:-8080}"
