@@ -1,489 +1,215 @@
-import time, os, re, json, logging
-from typing import Dict, List, Optional, Tuple
+# app/utils/scraper.py
+from __future__ import annotations
+
+import os
+import json
+import time
+import sqlite3
+from typing import Any, Dict, List, Optional, Tuple
+
 import requests
-import requests_cache
-from bs4 import BeautifulSoup
-from requests.adapters import HTTPAdapter
-from urllib3.util.retry import Retry
+from flask import current_app
 
-# --------------------------
-# 경로/캐시/상수
-# --------------------------
-PROJECT_ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), "../../"))
-LOG_DIR = os.path.join(PROJECT_ROOT, "logs", "shops")
-os.makedirs(LOG_DIR, exist_ok=True)
+# ---------------------------------------------------------------------
+# 공통 경로/DB 헬퍼
+# ---------------------------------------------------------------------
 
-CACHE_PATH = os.path.join(PROJECT_ROOT, "logs", "http_cache")
+def _db_path(app) -> str:
+    inst_dir = getattr(app, "instance_path", None) or os.path.join(os.getcwd(), "instance")
+    os.makedirs(inst_dir, exist_ok=True)
+    return os.path.join(inst_dir, "lotto.db")
 
-HOME = "https://www.dhlottery.co.kr/"
-HOME_BYWIN = "https://www.dhlottery.co.kr/gameResult.do?method=byWin"
+def _connect(app) -> sqlite3.Connection:
+    path = _db_path(app)
+    conn = sqlite3.connect(path)
+    conn.execute("""
+        CREATE TABLE IF NOT EXISTS numbers (
+            round      INTEGER PRIMARY KEY,
+            n1         INTEGER NOT NULL,
+            n2         INTEGER NOT NULL,
+            n3         INTEGER NOT NULL,
+            n4         INTEGER NOT NULL,
+            n5         INTEGER NOT NULL,
+            n6         INTEGER NOT NULL,
+            bn         INTEGER NOT NULL,
+            draw_date  TEXT
+        )
+    """)
+    # shops 테이블은 다른 유틸에서 생성/관리하지만, 없는 환경에서도 깨지지 않도록만 보장
+    conn.execute("""
+        CREATE TABLE IF NOT EXISTS shops (
+            round   INTEGER NOT NULL,
+            rank    INTEGER NOT NULL,
+            name    TEXT    NOT NULL,
+            address TEXT DEFAULT '',
+            method  TEXT,
+            lat     REAL,
+            lon     REAL,
+            source_url TEXT,
+            fetched_at INTEGER,
+            PRIMARY KEY (round, rank, name, address)
+        )
+    """)
+    return conn
 
-LOTTO_DRAW_URL  = "https://www.dhlottery.co.kr/common.do?method=getLottoNumber&drwNo={drwNo}"
-LOTTO_DRAW_HTML = "https://www.dhlottery.co.kr/gameResult.do?method=byWin&drwNo={drwNo}"
-LOTTO_SHOP_BASE = "https://www.dhlottery.co.kr/store.do"
+# ---------------------------------------------------------------------
+# 동행복권 API
+#   https://www.dhlottery.co.kr/common.do?method=getLottoNumber&drwNo={round}
+#   성공 시: {"returnValue":"success", "drwNo":1185, "drwtNo1":.., ..., "bnusNo":.., "drwNoDate":"YYYY-MM-DD"}
+#   실패 시: {"returnValue":"fail"}
+# ---------------------------------------------------------------------
 
-VALID_METHODS = {"자동", "반자동", "수동"}
-ROUND_RANGE_RE = re.compile(r"\b\d{1,4}\s*~\s*\d{1,4}\b")
-MASS_DIGIT_RE  = re.compile(r"(?:\b\d{2,4}\b[ ,]*){10,}")  # 숫자 나열 과다
+_API_URL = "https://www.dhlottery.co.kr/common.do?method=getLottoNumber&drwNo={round}"
 
-log = logging.getLogger(__name__)
-
-# --------------------------
-# 세션: 브라우저 흉내 + 재시도
-# --------------------------
-def _new_browser_session():
-    s = requests.Session()
-    retries = Retry(
-        total=5,
-        backoff_factor=0.6,
-        status_forcelist=[429, 500, 502, 503, 504],
-        allowed_methods=["GET", "HEAD"],
-        raise_on_status=False,
-    )
-    s.mount("https://", HTTPAdapter(max_retries=retries))
-    s.headers.update({
-        "User-Agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 14_5) "
-                      "AppleWebKit/537.36 (KHTML, like Gecko) "
-                      "Chrome/127.0.0.0 Safari/537.36",
-        "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
-        "Accept-Language": "ko-KR,ko;q=0.9,en-US;q=0.8,en;q=0.7",
-        "Cache-Control": "no-cache",
-        "Pragma": "no-cache",
+def api_get_numbers(round_no: int, *, timeout: float = 10.0) -> Optional[Dict[str, Any]]:
+    url = _API_URL.format(round=round_no)
+    r = requests.get(url, timeout=timeout, headers={
+        "User-Agent": "Mozilla/5.0",
+        "Accept": "application/json,*/*;q=0.9",
         "Connection": "keep-alive",
-        "Upgrade-Insecure-Requests": "1",
     })
-    return s
-
-# 전역 단일 브라우저 세션 (쿠키 공유)
-browser = _new_browser_session()
-
-# HTML(당첨점/결과 페이지)용 캐시 세션
-session_cached = requests_cache.CachedSession(
-    cache_name=CACHE_PATH, backend="sqlite", expire_after=24*3600,
-    allowable_methods=["GET", "HEAD"], allowable_codes=[200],
-    stale_if_error=True,
-    fast_save=True,
-    timeout=30,
-)
-session_cached.headers.update({
-    "User-Agent": browser.headers.get("User-Agent"),
-    "Referer": HOME,
-})
-
-def prime_cookies():
-    """쿠키/세션 프라임: 홈 → byWin → 홈 순으로 살짝 두드림"""
+    # 일부 환경에서 text/html 로 오기도 해서 강제로 json 파싱 시도
     try:
-        browser.get(HOME, timeout=10, allow_redirects=True)
-        time.sleep(0.3)
-        browser.get(HOME_BYWIN, timeout=10, allow_redirects=True, headers={"Referer": HOME})
-        time.sleep(0.3)
-        browser.get(HOME, timeout=10, allow_redirects=True)
-    except Exception as e:
-        log.debug("prime_cookies error: %s", e)
+        data = r.json()
+    except json.JSONDecodeError:
+        # 응답이 비정상일 수 있으므로 방어
+        try:
+            data = json.loads(r.text)
+        except Exception:
+            return None
+    if not isinstance(data, dict):
+        return None
+    if data.get("returnValue") != "success":
+        return None
+    return data
 
-# --------------------------
-# 디버그 저장
-# --------------------------
-def _save_debug_html(html: str, round_no: int, rank: int, page: int, tag: str = "") -> str:
-    suffix = f"_{tag}" if tag else ""
-    filename = f"shops_{round_no}_{rank}_p{page}{suffix}.debug.html"
-    path = os.path.join(LOG_DIR, filename)
+def parse_numbers(payload: Dict[str, Any]) -> Optional[Dict[str, Any]]:
     try:
-        with open(path, "w", encoding="utf-8") as f:
-            f.write(html or "")
+        return {
+            "round": int(payload["drwNo"]),
+            "n1": int(payload["drwtNo1"]),
+            "n2": int(payload["drwtNo2"]),
+            "n3": int(payload["drwtNo3"]),
+            "n4": int(payload["drwtNo4"]),
+            "n5": int(payload["drwtNo5"]),
+            "n6": int(payload["drwtNo6"]),
+            "bn": int(payload["bnusNo"]),
+            "draw_date": str(payload.get("drwNoDate") or ""),
+        }
     except Exception:
-        pass
-    return path
-
-def _save_debug_text(text: str, name: str):
-    path = os.path.join(LOG_DIR, f"{name}.debug.html")
-    try:
-        with open(path, "w", encoding="utf-8") as f:
-            f.write(text or "")
-    except Exception:
-        pass
-    return path
-
-# --------------------------
-# 점검(maintenance) 감지
-# --------------------------
-def _is_maintenance_page(html: str) -> bool:
-    """동행복권 점검/안내/차단 페이지 간단 감지"""
-    if not html:
-        return False
-    text = html[:2000]  # 앞부분만 훑어도 충분
-    keywords = [
-        "시스템 점검", "점검중", "점검 중", "점검시간", "서비스 이용이 원활하지",
-        "접근이 제한", "보안", "안내 페이지", "일시 중단", "오류가 발생",
-    ]
-    return any(kw in text for kw in keywords)
-
-# --------------------------
-# HTML 폴백 파서 (회차 결과 페이지)
-# --------------------------
-def _parse_draw_from_html(html: str, drw_no: int) -> Optional[Dict]:
-    """
-    결과 페이지(HTML)에서 당첨번호/보너스/날짜 추출
-    우선순위:
-      1) id 기반: #drwtNo1..#drwtNo6, #bnusNo
-      2) 클래스 기반: .ball_645 (7개 나오면 마지막을 보너스로 간주)
-    날짜:
-      .win_result 등 텍스트에서 YYYY-MM-DD 또는 YYYY.MM.DD
-    """
-    soup = BeautifulSoup(html, "html.parser")
-
-    # --- 번호 6개: id 기반
-    nums: List[int] = []
-    for i in range(1, 7):
-        el = soup.select_one(f"#drwtNo{i}")
-        if el and el.get_text(strip=True).isdigit():
-            nums.append(int(el.get_text(strip=True)))
-        else:
-            nums = []
-            break
-
-    bonus: Optional[int] = None
-
-    # --- 클래스 기반 보강 (모바일/변형 레이아웃)
-    if not nums:
-        balls = [b.get_text(strip=True) for b in soup.select(".ball_645")]
-        balls = [int(x) for x in balls if x.isdigit()]
-        if len(balls) >= 7:
-            nums = balls[:6]
-            bonus = balls[6]
-        elif len(balls) >= 6:
-            nums = balls[:6]
-
-    if not nums or len(nums) < 6:
         return None
 
-    # --- 보너스: id 기반 우선
-    if bonus is None:
-        b_el = soup.select_one("#bnusNo")
-        if b_el and b_el.get_text(strip=True).isdigit():
-            bonus = int(b_el.get_text(strip=True))
+# ---------------------------------------------------------------------
+# DB upsert & range fetch
+# ---------------------------------------------------------------------
 
-    # 날짜
-    draw_date = None
-    for sel in [".win_result", ".lottery_win_number", "body"]:
-        wr = soup.select_one(sel)
-        if not wr:
-            continue
-        t = wr.get_text(" ", strip=True)
-        m = re.search(r"\d{4}\.\d{2}\.\d{2}|\d{4}-\d{2}-\d{2}", t)
-        if m:
-            draw_date = m.group(0).replace(".", "-")
-            break
-
-    return {
-        "round": drw_no,
-        "draw_date": draw_date,
-        "numbers": nums,
-        "bonus": bonus if bonus is not None else 0,
-    }
-
-# --------------------------
-# 기본 추첨 정보 (JSON 우선, 실패 시 HTML 폴백 + 점검 감지)
-# --------------------------
-def fetch_draw(drw_no: int) -> Optional[Dict]:
-    # 최초 한 번 쿠키 프라임
-    if not getattr(fetch_draw, "_primed", False):
-        prime_cookies()
-        fetch_draw._primed = True
-
-    # 1) JSON 엔드포인트 먼저 시도 (AJAX 헤더 부여)
-    url = LOTTO_DRAW_URL.format(drwNo=drw_no)
-    try:
-        r = browser.get(url, timeout=10, headers={
-            "Accept": "application/json, text/javascript, */*; q=0.1",
-            "X-Requested-With": "XMLHttpRequest",
-            "Referer": HOME_BYWIN,
-            "Sec-Fetch-Dest": "empty",
-            "Sec-Fetch-Mode": "cors",
-            "Sec-Fetch-Site": "same-origin",
-        })
-    except requests.RequestException as e:
-        log.warning("[fetch_draw] round=%s request error: %s", drw_no, e)
-        r = None
-
-    if r is not None and r.status_code == 200:
-        ctype = r.headers.get("Content-Type", "")
-        text_head = (r.text or "")[:200].strip()
-        if "application/json" in ctype or text_head.startswith("{"):
-            try:
-                jd = r.json()
-            except json.JSONDecodeError:
-                jd = None
-            if jd and jd.get("returnValue") == "success":
-                return {
-                    "round": jd.get("drwNo"),
-                    "draw_date": jd.get("drwNoDate"),
-                    "numbers": [jd.get(f"drwtNo{i}") for i in range(1, 7)],
-                    "bonus": jd.get("bnusNo") or 0,
-                }
-            else:
-                log.warning("[fetch_draw] round=%s JSON but invalid payload", drw_no)
-        else:
-            # JSON이 아닌 HTML이면 점검페이지인지 검사
-            if _is_maintenance_page(r.text):
-                _save_debug_html(r.text, drw_no, 0, 0, tag="maintenance_json")
-                log.warning("[fetch_draw] round=%s maintenance detected on JSON endpoint", drw_no)
-                return None
-            log.warning("[fetch_draw] round=%s non-JSON: ctype=%r head=%r", drw_no, ctype, text_head)
-    elif r is not None:
-        log.warning("[fetch_draw] round=%s bad status=%s", drw_no, r.status_code)
-
-    # 2) JSON 실패 시 HTML 페이지 폴백
-    html_url = LOTTO_DRAW_HTML.format(drwNo=drw_no)
-    try:
-        r2 = browser.get(html_url, timeout=10, headers={
-            "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
-            "Referer": HOME_BYWIN,
-        })
-    except requests.RequestException as e:
-        log.warning("[fetch_draw][fallback] round=%s request error: %s", drw_no, e)
-        return None
-
-    if r2.status_code != 200:
-        log.warning("[fetch_draw][fallback] round=%s bad status=%s", drw_no, r2.status_code)
-        return None
-
-    # 점검/안내 페이지 감지 → 디버그 저장 후 None
-    if _is_maintenance_page(r2.text):
-        _save_debug_html(r2.text, drw_no, 0, 0, tag="maintenance_html")
-        log.warning("[fetch_draw][fallback] round=%s maintenance detected on HTML page", drw_no)
-        return None
-
-    parsed = _parse_draw_from_html(r2.text, drw_no)
-    if not parsed:
-        _save_debug_html(r2.text, drw_no, 0, 0, tag="parse_failed")
-        log.warning("[fetch_draw][fallback] round=%s parse failed (HTML)", drw_no)
-        return None
-    return parsed
-
-# --------------------------
-# 당첨점 파싱 핵심
-# --------------------------
-def _detect_page_rank(html: str) -> Optional[int]:
-    text = BeautifulSoup(html, "html.parser").get_text(" ", strip=True)
-    if re.search(r"\b2\s*등\b", text):
-        return 2
-    if re.search(r"\b1\s*등\b", text):
+def upsert_numbers(app, row: Dict[str, Any]) -> int:
+    with _connect(app) as conn:
+        cur = conn.execute("""
+            INSERT INTO numbers (round, n1,n2,n3,n4,n5,n6,bn,draw_date)
+            VALUES (:round, :n1,:n2,:n3,:n4,:n5,:n6,:bn,:draw_date)
+            ON CONFLICT(round) DO UPDATE SET
+              n1=excluded.n1, n2=excluded.n2, n3=excluded.n3,
+              n4=excluded.n4, n5=excluded.n5, n6=excluded.n6,
+              bn=excluded.bn, draw_date=excluded.draw_date
+        """, row)
+        conn.commit()
+        # sqlite3의 rowcount는 upsert 결과에 따라 1 또는 0일 수 있음
         return 1
-    return None
 
-def _clean_text(s: str) -> str:
-    return (s or "").replace("\xa0", " ").strip()
+def fetch_and_store_round(app, round_no: int, *, sleep_sec: float = 0.2) -> bool:
+    """단일 회차를 API에서 받아 DB에 upsert. 성공시 True"""
+    data = api_get_numbers(round_no)
+    if not data:
+        return False
+    row = parse_numbers(data)
+    if not row:
+        return False
+    upsert_numbers(app, row)
+    current_app.logger.info("[numbers] upsert round=%s %s", row["round"], row["draw_date"])
+    time.sleep(sleep_sec)
+    return True
 
-def _looks_like_noise(name: str, address: str, raw_html: str, a_count: int) -> bool:
-    text = f"{name} {address}".strip()
-    if not text:
-        return True
-    if "전체 지역" in text and "상호" in text:
-        return True
-    if ROUND_RANGE_RE.search(text):
-        return True
-    if MASS_DIGIT_RE.search(text):
-        return True
-    if a_count >= 10:
-        return True
-    if name in ("상호", "상호명") or address in ("소재지", "주소", "위치"):
-        return True
-    if MASS_DIGIT_RE.search(raw_html):
-        return True
-    return False
-
-def _score_headers(headers: List[str]) -> int:
-    score = 0
-    has_num = any("번호" in h for h in headers)
-    has_name = any(h.find("상호") >= 0 for h in headers)
-    has_addr = any(h.find("소재지") >= 0 or h.find("주소") >= 0 or h.find("위치") >= 0 for h in headers)
-    has_method = any(h.find("구분") >= 0 or h.find("판매구분") >= 0 or h.find("방식") >= 0 for h in headers)
-    if has_num: score += 5
-    if has_name: score += 5
-    if has_addr: score += 3
-    if has_method: score += 2
-    for h in headers:
-        if MASS_DIGIT_RE.search(h):
-            score -= 10
-    return score
-
-def _select_best_table(soup: BeautifulSoup) -> Optional[BeautifulSoup]:
-    candidates = soup.find_all("table")
-    best, best_score = None, -10**9
-    for t in candidates:
-        head = t.find("thead")
-        if head:
-            headers = [th.get_text(strip=True) for th in head.find_all("th")]
-        else:
-            first_tr = t.find("tr")
-            headers = [td.get_text(strip=True) for td in first_tr.find_all(["th", "td"])] if first_tr else []
-        sc = _score_headers(headers)
-        if sc > best_score:
-            best, best_score = t, sc
-    return best
-
-def _parse_shop_table(html: str, round_no: int, expected_rank: int) -> Tuple[List[Dict], Optional[int], int]:
-    soup = BeautifulSoup(html, "html.parser")
-    page_rank = _detect_page_rank(html)
-
-    table = soup.select_one("table.tbl_data") or _select_best_table(soup)
-    if not table:
-        return [], page_rank, 0
-
-    body = table.find("tbody") or table
-    trs = body.find_all("tr")
-    rows: List[Dict] = []
-    examined = 0
-
-    for tr in trs:
-        tds = tr.find_all("td")
-        if not tds:
-            continue
-        examined += 1
-        texts = [td.get_text(" ", strip=True) for td in tds]
-        texts = [t for t in texts if t]
-        raw_html = str(tr)
-        a_count = len(tr.find_all("a"))
-
-        rank, name, address, method = None, "", "", ""
-        if texts and texts[0].isdigit():
-            try:
-                rank = int(texts[0])
-            except:
-                rank = None
-            if len(texts) >= 2: name = texts[1]
-            if len(texts) >= 3: address = texts[2]
-            if len(texts) >= 4: method  = texts[3]
-        else:
-            if len(texts) >= 1: name = texts[0]
-            if len(texts) >= 2: address = texts[1]
-            if len(texts) >= 3: method  = texts[2]
-
-        name = _clean_text(name)
-        address = _clean_text(address)
-        method = _clean_text(method)
-
-        if _looks_like_noise(name, address, raw_html, a_count):
-            continue
-
-        row_rank = rank if rank is not None else (page_rank if page_rank is not None else expected_rank)
-        if row_rank != expected_rank:
-            continue
-
-        if method not in VALID_METHODS:
-            a = tr.find("a")
-            if a:
-                atxt = _clean_text(a.get_text(" ", strip=True))
-                if atxt in VALID_METHODS:
-                    method = atxt
-            if not method and (page_rank == 1 or expected_rank == 1):
-                method = "미상"
-
-        rows.append({
-            "round": round_no,
-            "rank": row_rank,
-            "name": name,
-            "address": address,
-            "method": method,
-        })
-
-    return rows, page_rank, examined
-
-def _build_shop_params(round_no: int, page: int, rank: int) -> List[Dict]:
-    bases = []
-    bases.append({"method": "topStore", "pageGubun": "L645", "rank": rank, "drwNo": round_no})
-    bases.append({"method": "topStore", "pageGubun": "L645", "drwNo": round_no})
-    bases.append({"method": "topStore", "pageGubun": "L645", "winRank": rank, "drwNo": round_no})
-    bases.append({"method": "topStore", "pageGubun": "L645", "grd": rank, "drwNo": round_no})
-
-    page_keys = ["pageNum", "nowPage", "currentPage", "pageIndex", "pgNo"]
-    params_list: List[Dict] = []
-    for base in bases:
-        for pk in page_keys:
-            d = dict(base); d[pk] = page
-            params_list.append(d)
-    params_list.append(bases[0])
-    params_list.append(bases[1])
-    return params_list
-
-def fetch_shops_all_pages(drw_no: int, rank: int = 1, max_pages: int = 20, sleep_sec: float = 0.2) -> List[Dict]:
-    all_rows: List[Dict] = []
-    seen = set()
-    last_detected_rank: Optional[int] = None
-    last_response_text: Optional[str] = None
-
-    for page in range(1, max_pages+1):
-        page_rows: List[Dict] = []
-        response_text_for_debug = None
-
-        for params in _build_shop_params(drw_no, page, rank):
-            r = session_cached.get(LOTTO_SHOP_BASE, params=params, timeout=20)
-            if r.status_code != 200:
-                continue
-
-            # 점검/안내 페이지 감지 → 저장 & 중단
-            if _is_maintenance_page(r.text):
-                _save_debug_html(r.text, drw_no, rank, page, tag="maintenance_shops")
-                log.warning("[fetch_shops] round=%s page=%s maintenance detected", drw_no, page)
-                return []  # 바로 종료
-
-            response_text_for_debug = r.text
-            last_response_text = r.text
-
-            rows, page_rank, examined = _parse_shop_table(r.text, drw_no, expected_rank=rank)
-            if page_rank is not None:
-                last_detected_rank = page_rank
-            if rows:
-                page_rows = rows
-                break
-
-        if last_detected_rank is not None and last_detected_rank != rank:
-            if response_text_for_debug:
-                _save_debug_html(response_text_for_debug, drw_no, rank, page, tag="rank_mismatch")
+def fetch_numbers_range(app, start_round: int, end_round: int, *, stop_on_fail: bool = False) -> int:
+    """start_round..end_round 범위를 순회하며 적재. 반환=성공(저장) 건수"""
+    if start_round > end_round:
+        start_round, end_round = end_round, start_round
+    saved = 0
+    for r in range(start_round, end_round + 1):
+        ok = fetch_and_store_round(app, r)
+        if ok:
+            saved += 1
+        elif stop_on_fail:
             break
+    return saved
 
-        if not page_rows:
-            if response_text_for_debug:
-                _save_debug_html(response_text_for_debug, drw_no, rank, page, tag="empty_page")
-            if page == 1:
-                continue
-            else:
-                break
+# ---------------------------------------------------------------------
+# 최신 회차 탐색 로직
+#   - DB에 있는 최대 회차 다음부터 1씩 올려가며 success 뜨는 최대 회차까지 수집
+#   - 실패가 연속으로 나타나면 중단
+# ---------------------------------------------------------------------
+
+def get_db_max_round(app) -> int:
+    path = _db_path(app)
+    if not os.path.exists(path):
+        return 0
+    with sqlite3.connect(path) as conn:
+        row = conn.execute("SELECT MAX(round) FROM numbers").fetchone()
+        return int(row[0]) if row and row[0] is not None else 0
+
+def fetch_latest_until_fail(app, *, max_probe: int = 10) -> Tuple[int, int]:
+    """
+    DB 내 최대회차+1부터 API success가 끊길 때까지 최대 max_probe 번 시도.
+    반환: (시작회차, 저장건수)
+    """
+    start = get_db_max_round(app) + 1
+    if start <= 0:
+        start = 1
+    saved = 0
+    fail_streak = 0
+    r = start
+    while fail_streak < 2 and (saved + fail_streak) < max_probe:
+        ok = fetch_and_store_round(app, r)
+        if ok:
+            saved += 1
+            fail_streak = 0
         else:
-            if len(page_rows) < 1 and response_text_for_debug:
-                _save_debug_html(response_text_for_debug, drw_no, rank, page, tag="only_noise")
+            fail_streak += 1
+        r += 1
+    return start, saved
 
-        for row in page_rows:
-            key = (row["round"], row["name"], row.get("address",""), row.get("method",""))
-            if key not in seen:
-                seen.add(key)
-                all_rows.append(row)
+# ---------------------------------------------------------------------
+# 대시보드에서 호출하는 “최근 N회” 갱신 도우미
+#   - DB의 최대 회차를 기준으로 거꾸로 recent개 만큼 채워넣음
+#   - 비어 있으면 최신까지 탐색 후 recent 개수 보장
+# ---------------------------------------------------------------------
 
-        time.sleep(sleep_sec)
+def update_recent_data(app, *, recent: int = 5) -> Dict[str, Any]:
+    """
+    최근 N회 데이터를 보장. (없으면 API로 채움)
+    반환: {"filled": 채운개수, "from": 시작회차, "to": 끝회차}
+    """
+    if recent <= 0:
+        recent = 5
 
-    if not all_rows and last_response_text:
-        _save_debug_html(last_response_text, drw_no, rank, 0, tag="no_results")
+    max_in_db = get_db_max_round(app)
+    filled = 0
+    start_round = max(1, max_in_db - recent + 1)
+    end_round = max_in_db
 
-    return all_rows
+    if max_in_db == 0:
+        # 비어 있으면 최신부터 먼저 찾아 넣음
+        _, got = fetch_latest_until_fail(app, max_probe=max(recent + 2, 6))
+        max_in_db = get_db_max_round(app)
+        start_round = max(1, max_in_db - recent + 1)
+        end_round = max_in_db
+        filled += got
 
-# 과거 호환
-def fetch_shops(drw_no: int) -> List[Dict]:
-    return fetch_shops_all_pages(drw_no, rank=1, max_pages=20)
+    # 최근 N회 구간 보장
+    if end_round >= start_round:
+        got2 = fetch_numbers_range(app, start_round, end_round)
+        filled += got2
 
-def iter_fetch_draws(start: int, stop_if_missing: int = 3, sleep_sec: float = 0.6):
-    misses = 0
-    cur = start
-    # 최초 루프 시작 전에 한 번 프라임(안정성)
-    prime_cookies()
-    while True:
-        d = fetch_draw(cur)
-        if d:
-            misses = 0
-            yield d
-        else:
-            misses += 1
-            if misses >= stop_if_missing:
-                break
-        cur += 1
-        time.sleep(sleep_sec)
+    current_app.logger.info("[numbers] update_recent_data recent=%s -> filled=%s (%s..%s)",
+                            recent, filled, start_round, end_round)
+    return {"filled": filled, "from": start_round, "to": end_round}

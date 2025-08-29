@@ -1,58 +1,111 @@
 {% extends "base.html" %}
 {% block content %}
-<div class="d-flex justify-content-between align-items-center mb-3">
-  <h3 class="m-0">당첨점 조회</h3>
+<div class="page-header">
+  <h2 class="title">당첨점 조회</h2>
+  <p class="hint">회차/등수로 조회하고, 데이터가 없으면 <strong>강제 크롤링</strong>으로 수집됩니다.</p>
 </div>
 
-<form class="row gy-2 gx-2 mb-3" method="get" action="{{ url_for('shops.shops_home') }}">
-  <div class="col-auto">
-    <input type="number" class="form-control" placeholder="회차" name="round" value="{{ round_no or '' }}" min="1" required>
+<!-- 조회 폼 -->
+<form class="form-row" method="get" action="{{ url_for('shops.shops_home') }}">
+  <div class="form-item">
+    <label for="round">회차</label>
+    <input id="round" type="number" name="round" value="{{ round_no or '' }}" min="1" required>
   </div>
-  <div class="col-auto">
-    <select class="form-select" name="rank">
+  <div class="form-item">
+    <label for="rank">등수</label>
+    <select id="rank" name="rank">
       <option value="1" {% if rank==1 %}selected{% endif %}>1등</option>
       <option value="2" {% if rank==2 %}selected{% endif %}>2등</option>
     </select>
   </div>
-  <div class="col-auto">
-    <input type="text" class="form-control" placeholder="상호/주소 검색 (옵션)" name="q" value="{{ q or '' }}">
+  <div class="form-item grow">
+    <label for="q">상호/주소 (선택)</label>
+    <input id="q" type="text" name="q" value="{{ q or '' }}" placeholder="예) 강남, 서울, 로또명당">
   </div>
-  <div class="col-auto">
-    <button class="btn btn-primary">조회</button>
+  <div class="form-item">
+    <label>&nbsp;</label>
+    <button class="btn primary">조회</button>
   </div>
 </form>
 
-<form class="mb-3" method="post" action="{{ url_for('shops.shops_home') }}">
+<!-- 강제 크롤링 -->
+<form class="force-form" method="post" action="{{ url_for('shops.shops_home') }}">
   <input type="hidden" name="round" value="{{ round_no or '' }}">
   <input type="hidden" name="rank" value="{{ rank or 1 }}">
-  <button class="btn btn-outline-secondary">강제 크롤링 (해당 회차/랭크)</button>
+  <button class="btn outline">강제 크롤링 (해당 회차/등수)</button>
 </form>
 
 {% if round_no %}
-  <div class="card">
-    <div class="card-body">
-      <h5 class="card-title">{{ round_no }}회 {{ rank }}등 당첨점 <span class="text-muted">({{ count }}건)</span></h5>
-      <div class="table-responsive">
-        <table class="table table-sm">
-          <thead><tr><th>#</th><th>상호명</th><th>소재지</th><th>판매구분</th></tr></thead>
-          <tbody>
-            {% for s in shops %}
-              <tr>
-                <td>{{ s.rank or '-' }}</td>
-                <td>{{ s.name }}</td>
-                <td>{{ s.address }}</td>
-                <td>{{ s.method or '미상' }}</td>
-              </tr>
-            {% endfor %}
-          </tbody>
-        </table>
-      </div>
-      {% if not shops %}
-        <div class="text-muted">데이터가 없습니다.</div>
-      {% endif %}
+  <!-- 요약 바 -->
+  <div class="summary">
+    <div class="summary-title">
+      <strong>{{ round_no }}회</strong> <span class="muted">/</span> <strong>{{ rank }}등</strong>
+      <span class="muted">결과</span> <span class="badge">{{ count }}건</span>
+      {% if q %}<span class="chip chip-info">검색: "{{ q }}"</span>{% endif %}
+    </div>
+    <div class="summary-badges">
+      {# 방법(method) 분포 배지: 1등엔 자동/수동/반자동 존재, 2등은 대부분 없음 #}
+      {% set auto = 0 %}{% set manual = 0 %}{% set semi = 0 %}{% set unknown = 0 %}
+      {% for s in shops %}
+        {% set m = (s.method or '').strip() %}
+        {% if m == '자동' %}{% set auto = auto + 1 %}
+        {% elif m == '수동' %}{% set manual = manual + 1 %}
+        {% elif m == '반자동' %}{% set semi = semi + 1 %}
+        {% else %}{% set unknown = unknown + 1 %}
+        {% endif %}
+      {% endfor %}
+      <span class="chip">자동 {{ auto }}</span>
+      <span class="chip">수동 {{ manual }}</span>
+      <span class="chip">반자동 {{ semi }}</span>
+      <span class="chip chip-muted">미상 {{ unknown }}</span>
     </div>
   </div>
+
+  <!-- 결과 테이블 -->
+  <div class="table-wrap">
+    <table class="table">
+      <thead>
+        <tr>
+          <th class="col-rank">#</th>
+          <th class="col-name">상호명</th>
+          <th class="col-addr">소재지</th>
+          <th class="col-method">판매구분</th>
+        </tr>
+      </thead>
+      <tbody>
+      {% if shops %}
+        {% for s in shops %}
+          <tr>
+            <td class="mono">{{ s.rank or '-' }}</td>
+            <td class="name">{{ s.name }}</td>
+            <td class="addr">{{ s.address }}</td>
+            <td class="method">
+              {% if s.method in ['자동','수동','반자동'] %}
+                <span class="tag">{{ s.method }}</span>
+              {% else %}
+                <span class="tag tag-muted">미상</span>
+              {% endif %}
+            </td>
+          </tr>
+        {% endfor %}
+      {% else %}
+        <tr>
+          <td colspan="4" class="empty">
+            <div class="empty-box">
+              <div class="empty-title">데이터가 없습니다.</div>
+              <div class="empty-sub">
+                상단에서 조건을 바꾸거나 <em>강제 크롤링</em>을 눌러 수집해 보세요.
+              </div>
+            </div>
+          </td>
+        </tr>
+      {% endif %}
+      </tbody>
+    </table>
+  </div>
 {% else %}
-  <div class="text-muted">상단에서 회차와 등수를 선택해 주세요.</div>
+  <div class="empty-page">
+    상단에서 <strong>회차</strong>와 <strong>등수</strong>를 선택해 주세요.
+  </div>
 {% endif %}
 {% endblock %}

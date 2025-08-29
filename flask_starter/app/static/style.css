@@ -1,0 +1,587 @@
+:root {
+  --bg: #0b1020;
+  --fg: #e6eefc;
+  --acc: #7cc4ff;
+  --muted: #9fb3d1;
+  --card: #121833;
+  --card-border: #223055;
+  --table-stripe: rgba(255,255,255,0.03);
+}
+
+html, body {
+  margin: 0;
+  padding: 0;
+  background: var(--bg);
+  color: var(--fg);
+  font-family: ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial, Noto Sans, "Apple Color Emoji", "Segoe UI Emoji";
+}
+
+main { padding: 24px 16px 48px; }
+
+.container { max-width: 1080px; margin: 0 auto; }
+
+h1 {
+  font-size: 2.2rem;
+  margin-bottom: 0.5rem;
+}
+
+h2 { font-size: 1.4rem; margin: 0 0 12px; }
+h3 { font-size: 1.1rem; margin: 12px 0 8px; }
+
+a { color: var(--acc); text-decoration: none; }
+a:hover { text-decoration: underline; }
+
+code { background: rgba(255,255,255,0.06); padding: 2px 6px; border-radius: 6px; }
+
+/* Layout */
+.header { display: flex; align-items: baseline; justify-content: space-between; margin-bottom: 16px; }
+.muted { color: var(--muted); }
+
+/* Main Content Layout */
+.main-content { display: flex; flex-direction: column; gap: 20px; }
+
+/* Enhanced Card Styling */
+.card-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 16px;
+  border-bottom: 1px solid var(--card-border);
+  padding-bottom: 12px;
+}
+
+.draw-date {
+  color: var(--muted);
+  font-size: 0.9rem;
+}
+
+.card {
+  background: linear-gradient(180deg, rgba(255,255,255,0.02), rgba(255,255,255,0.01));
+  border: 1px solid var(--card-border);
+  border-radius: 12px;
+  padding: 16px;
+}
+
+.stats { display: flex; gap: 12px; flex-wrap: wrap; }
+.stat { background: var(--card); border: 1px solid var(--card-border); padding: 8px 12px; border-radius: 8px; }
+
+/* Tables */
+table { width: 100%; border-collapse: collapse; font-size: 0.95rem; }
+thead th { text-align: left; color: var(--muted); font-weight: 600; border-bottom: 1px solid var(--card-border); padding: 10px 8px; }
+tbody td { border-bottom: 1px solid var(--card-border); padding: 10px 8px; }
+tbody tr:nth-child(odd) { background: var(--table-stripe); }
+
+/* Forms */
+form.inline { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+input[type="text"], input[type="number"] {
+  background: var(--card);
+  border: 1px solid var(--card-border);
+  color: var(--fg);
+  padding: 8px 10px;
+  border-radius: 8px;
+}
+button {
+  background: var(--acc);
+  color: #051023;
+  border: none;
+  padding: 8px 12px;
+  border-radius: 8px;
+  cursor: pointer;
+}
+button:hover { filter: brightness(1.05); }
+
+/* Special Card Types */
+.highlight-card {
+  background: linear-gradient(135deg, rgba(124, 196, 255, 0.08), rgba(124, 196, 255, 0.02));
+  border: 1px solid rgba(124, 196, 255, 0.2);
+}
+
+.error-card {
+  background: linear-gradient(135deg, rgba(255, 107, 107, 0.06), rgba(255, 107, 107, 0.02));
+  border: 1px solid rgba(255, 107, 107, 0.2);
+}
+
+.actions-card {
+  background: linear-gradient(135deg, rgba(255, 255, 255, 0.04), rgba(255, 255, 255, 0.01));
+  border: 1px solid var(--card-border);
+}
+
+.shops-header-card {
+  background: linear-gradient(135deg, rgba(255, 215, 0, 0.06), rgba(255, 215, 0, 0.02));
+  border: 1px solid rgba(255, 215, 0, 0.2);
+}
+
+/* Draw Result Styling */
+.draw-result {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  justify-content: center;
+  padding: 20px;
+  background: rgba(0, 0, 0, 0.2);
+  border-radius: 12px;
+  margin: 8px 0;
+}
+
+.numbers {
+  display: flex;
+  gap: 8px;
+}
+
+.number-ball, .bonus-ball {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  font-weight: bold;
+  font-size: 0.9rem;
+}
+
+.number-ball {
+  background: var(--acc);
+  color: var(--bg);
+}
+
+.bonus-ball {
+  background: #ff6b6b;
+  color: white;
+}
+
+.bonus-section {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.plus {
+  font-size: 1.2rem;
+  color: var(--muted);
+  font-weight: bold;
+}
+
+.bonus-label {
+  font-size: 0.8rem;
+  color: var(--muted);
+}
+
+/* Action Groups */
+.action-groups {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 24px;
+}
+
+@media (min-width: 768px) {
+  .action-groups {
+    grid-template-columns: 2fr 1fr;
+  }
+}
+
+.action-group {
+  padding: 16px;
+  background: rgba(255, 255, 255, 0.02);
+  border-radius: 8px;
+  border: 1px solid rgba(255, 255, 255, 0.05);
+}
+
+.action-group h3 {
+  margin: 0 0 12px 0;
+  font-size: 1rem;
+  color: var(--acc);
+}
+
+.button-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 8px;
+  flex-wrap: wrap;
+}
+
+.action-form {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex: 1;
+  min-width: 0;
+}
+
+.range-separator {
+  color: var(--muted);
+  font-weight: bold;
+}
+
+/* Enhanced Button Styles */
+.btn-primary {
+  background: var(--acc);
+  color: var(--bg);
+  border: none;
+  padding: 10px 16px;
+  border-radius: 8px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.btn-primary:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 4px 12px rgba(124, 196, 255, 0.3);
+}
+
+.btn-secondary {
+  background: var(--card);
+  color: var(--fg);
+  border: 1px solid var(--card-border);
+  padding: 8px 12px;
+  border-radius: 8px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.btn-secondary:hover {
+  background: var(--muted);
+  color: var(--bg);
+}
+
+.btn-accent {
+  background: linear-gradient(135deg, #ff6b6b, #ee5a52);
+  color: white;
+  border: none;
+  padding: 10px 16px;
+  border-radius: 8px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.btn-accent:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 4px 12px rgba(255, 107, 107, 0.3);
+}
+
+/* Winning Shops Styling */
+.info-box {
+  background: rgba(124, 196, 255, 0.1);
+  border: 1px solid rgba(124, 196, 255, 0.2);
+  border-radius: 8px;
+  padding: 12px;
+  margin-bottom: 12px;
+}
+
+.info-box p {
+  margin: 0;
+  color: var(--acc);
+  font-size: 0.9rem;
+}
+
+.badge-method {
+  background: var(--acc);
+  color: var(--bg);
+  padding: 4px 8px;
+  border-radius: 12px;
+  font-size: 0.85rem;
+  font-weight: 500;
+}
+
+/* Rank-specific styling */
+.card h2 {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+/* Make rank 1 shops stand out more */
+.card:has(h2:contains("1등")) {
+  background: linear-gradient(180deg, rgba(255, 215, 0, 0.03), rgba(255, 215, 0, 0.01));
+  border-color: rgba(255, 215, 0, 0.15);
+}
+
+.card:has(h2:contains("1등")) .badge-method {
+  background: #ffd700;
+  color: #000;
+}
+
+/* Pagination Styling */
+.pagination {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  margin-top: 16px;
+  padding: 16px 0;
+  border-top: 1px solid var(--card-border);
+}
+
+.page-btn {
+  background: var(--card);
+  border: 1px solid var(--card-border);
+  color: var(--fg);
+  padding: 8px 16px;
+  border-radius: 8px;
+  text-decoration: none;
+  transition: all 0.2s ease;
+}
+
+.page-btn:hover {
+  background: var(--acc);
+  color: var(--bg);
+  border-color: var(--acc);
+}
+
+.page-info {
+  color: var(--muted);
+  font-weight: 500;
+  padding: 0 8px;
+}
+
+.quick-pages {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  margin-top: 8px;
+  font-size: 0.9rem;
+}
+
+.quick-pages span {
+  color: var(--muted);
+  margin-right: 4px;
+}
+
+.quick-page-btn {
+  background: rgba(124, 196, 255, 0.1);
+  border: 1px solid rgba(124, 196, 255, 0.2);
+  color: var(--acc);
+  padding: 4px 8px;
+  border-radius: 6px;
+  text-decoration: none;
+  font-size: 0.85rem;
+  transition: all 0.2s ease;
+}
+
+.quick-page-btn:hover {
+  background: var(--acc);
+  color: var(--bg);
+  border-color: var(--acc);
+}
+
+/* Responsive table for mobile */
+@media (max-width: 600px) {
+  table {
+    font-size: 0.85rem;
+  }
+
+  thead th, tbody td {
+    padding: 8px 4px;
+  }
+
+  /* Hide sequence column on mobile for 2nd rank */
+  .card:has(h2:contains("2등")) th:first-child,
+  .card:has(h2:contains("2등")) td:first-child {
+    display: none;
+  }
+
+  /* Mobile pagination */
+  .pagination {
+    gap: 8px;
+  }
+
+  .page-btn {
+    padding: 6px 12px;
+    font-size: 0.9rem;
+  }
+
+  .quick-pages {
+    flex-wrap: wrap;
+    gap: 6px;
+  }
+}
+
+/* Shops Summary Styling */
+.shops-summary {
+  margin-top: 8px;
+}
+
+.summary-stats {
+  display: flex;
+  gap: 20px;
+  justify-content: center;
+}
+
+.stat-item {
+  text-align: center;
+  padding: 12px 16px;
+  background: rgba(255, 255, 255, 0.05);
+  border-radius: 8px;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.stat-number {
+  display: block;
+  font-size: 1.8rem;
+  font-weight: bold;
+  color: var(--acc);
+}
+
+.stat-label {
+  display: block;
+  font-size: 0.85rem;
+  color: var(--muted);
+  margin-top: 4px;
+}
+
+/* Recommendations Styling */
+.recommendations-card {
+  background: linear-gradient(135deg, rgba(153, 102, 255, 0.06), rgba(153, 102, 255, 0.02));
+  border: 1px solid rgba(153, 102, 255, 0.2);
+}
+
+.recommendation-controls {
+  margin-bottom: 24px;
+  padding: 16px;
+  background: rgba(255, 255, 255, 0.02);
+  border-radius: 8px;
+}
+
+.recommendation-form {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.input-group {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.input-group label {
+  font-weight: 500;
+  color: var(--fg);
+}
+
+.input-group input {
+  padding: 10px 12px;
+  border-radius: 8px;
+  border: 1px solid var(--card-border);
+  background: var(--card);
+  color: var(--fg);
+}
+
+.input-help {
+  font-size: 0.8rem;
+  color: var(--muted);
+}
+
+.recommendations-grid {
+  display: grid;
+  gap: 20px;
+}
+
+.recommendation-type h3 {
+  margin-bottom: 12px;
+  color: var(--acc);
+  font-size: 1.1rem;
+}
+
+.recommendation-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.recommendation-item {
+  padding: 12px;
+  background: rgba(255, 255, 255, 0.03);
+  border-radius: 8px;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.number-set {
+  display: flex;
+  gap: 6px;
+  justify-content: center;
+}
+
+.rec-number {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  background: var(--muted);
+  color: var(--bg);
+  font-weight: bold;
+  font-size: 0.9rem;
+}
+
+.rec-number.fixed-number {
+  background: #ff6b6b;
+  color: white;
+  box-shadow: 0 0 0 2px rgba(255, 107, 107, 0.3);
+}
+
+/* Table Enhancements */
+.table-container {
+  overflow-x: auto;
+}
+
+.numbers-cell {
+  font-family: 'Courier New', monospace;
+  font-weight: 500;
+}
+
+.bonus-cell {
+  font-weight: bold;
+  color: #ff6b6b;
+}
+
+/* Footer */
+.footer {
+  text-align: center;
+  padding: 24px 0;
+  color: var(--muted);
+  font-size: 0.9rem;
+  border-top: 1px solid var(--card-border);
+  margin-top: 20px;
+}
+
+/* Mobile Responsive */
+@media (max-width: 768px) {
+  .draw-result {
+    flex-direction: column;
+    gap: 12px;
+  }
+
+  .numbers {
+    flex-wrap: wrap;
+    justify-content: center;
+  }
+
+  .number-ball, .bonus-ball {
+    width: 32px;
+    height: 32px;
+    font-size: 0.8rem;
+  }
+
+  .action-groups {
+    grid-template-columns: 1fr;
+  }
+
+  .summary-stats {
+    flex-direction: column;
+    gap: 12px;
+  }
+
+  .recommendation-form {
+    gap: 12px;
+  }
+
+  .button-row {
+    flex-direction: column;
+    align-items: stretch;
+  }
+}

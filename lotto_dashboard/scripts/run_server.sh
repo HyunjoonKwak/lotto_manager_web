@@ -29,12 +29,27 @@ activate_venv() {
   fi
 }
 
+# --- 프로세스 탐지 도우미 ---
+
+# app.py 또는 wsgi.py로 실행된 Flask/Werkzeug까지 포착
 find_pids() {
-  # app.py 또는 wsgi.py로 실행된 Flask/Werkzeug까지 포착
   if command -v pgrep >/dev/null 2>&1; then
-    pgrep -f "$PYTHON .*app.py|$PYTHON .*wsgi.py" || true
+    # macOS pgrep은 ERE. 둘 다 잡도록 | 로 연결
+    pgrep -f "$PYTHON .*app\.py|$PYTHON .*wsgi\.py|flask run" || true
   else
-    ps aux | grep -E "$PYTHON .*app.py|$PYTHON .*wsgi.py" | grep -v grep | awk '{print $2}'
+    ps aux | grep -E "$PYTHON .*app\.py|$PYTHON .*wsgi\.py|flask run" | grep -v grep | awk '{print $2}'
+  fi
+}
+
+# 포트를 점유한 PID 찾기
+pids_on_port() {
+  if command -v lsof >/dev/null 2>&1; then
+    # macOS: LISTEN 중인 PID만, 혹시 여러 줄이면 모두 반환
+    lsof -nP -iTCP:"$PORT" -sTCP:LISTEN 2>/dev/null | awk 'NR>1 {print $2}' | sort -u
+  elif command -v netstat >/dev/null 2>&1; then
+    # macOS netstat에는 -p가 없어 PID 추출이 어려움 → 빈값 반환
+    # (리눅스라면 -pnltu 등으로 가능)
+    :
   fi
 }
 
@@ -56,7 +71,6 @@ status() {
   if command -v lsof >/dev/null 2>&1; then
     lsof -nP -iTCP:"$PORT" -sTCP:LISTEN || echo "$PORT 포트 리스닝 없음"
   elif command -v netstat >/dev/null 2>&1; then
-    # macOS netstat에는 -p 옵션이 없습니다.
     netstat -an | grep "\.$PORT " || echo "$PORT 포트 리스닝 없음"
   else
     echo "lsof/netstat 없음 - 포트 확인 불가"
@@ -90,6 +104,7 @@ stop_server() {
   echo "🛑 서버 중지"
   local KILLED=0
 
+  # 1) PID 파일의 PID 먼저 종료
   if [[ -s "$PID_FILE" ]]; then
     local PID_FROM_FILE
     PID_FROM_FILE="$(cat "$PID_FILE")"
@@ -105,14 +120,43 @@ stop_server() {
     rm -f "$PID_FILE"
   fi
 
+  # 2) 패턴으로 추적된 프로세스 종료 (app.py / wsgi.py / flask run)
   local PIDS
   PIDS="$(find_pids || true)"
   if [[ -n "${PIDS:-}" ]]; then
-    echo "$PIDS" | xargs -r kill 2>/dev/null || true
+    echo "$PIDS" | xargs -I{} kill {} 2>/dev/null || true
     sleep 1
-    echo "$PIDS" | xargs -r kill -9 2>/dev/null || true
+    # 남아있으면 강제 종료
+    for p in $PIDS; do
+      if kill -0 "$p" 2>/dev/null; then
+        kill -9 "$p" 2>/dev/null || true
+      fi
+    done
     KILLED=1
     echo "검색된 프로세스 종료: $PIDS"
+  fi
+
+  # 3) 포트 점유 프로세스도 종료 (요청사항)
+  local PORT_PIDS
+  PORT_PIDS="$(pids_on_port || true)"
+  if [[ -n "${PORT_PIDS:-}" ]]; then
+    echo "$PORT_PIDS" | xargs -I{} kill {} 2>/dev/null || true
+    sleep 1
+    for p in $PORT_PIDS; do
+      if kill -0 "$p" 2>/dev/null; then
+        kill -9 "$p" 2>/dev/null || true
+      fi
+    done
+    KILLED=1
+    echo "포트(:$PORT) 리스닝 프로세스 종료: $PORT_PIDS"
+  fi
+
+  # 4) 혹시 남은 flask run 직접 종료(보너스)
+  if command -v pkill >/dev/null 2>&1; then
+    if pkill -f "flask run" 2>/dev/null; then
+      KILLED=1
+      echo "추가: 'flask run' 프로세스 종료"
+    fi
   fi
 
   if [[ "$KILLED" -eq 0 ]]; then

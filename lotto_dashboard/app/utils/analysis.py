@@ -1,6 +1,6 @@
 from collections import Counter, defaultdict
 from itertools import combinations
-from typing import List, Tuple, Dict
+from typing import List, Dict, Any, Tuple
 from ..models import Draw
 
 def get_all_numbers(draws: List[Draw]) -> List[int]:
@@ -22,17 +22,39 @@ def last_seen_round(draws: List[Draw]) -> Dict[int, int]:
             last[n] = max(last[n], r)
     return last
 
-def cold_numbers(draws: List[Draw], top_k: int = 10):
-    """최근에 안 나온 숫자 TopK. (최근 회차 - 마지막 출현 회차) 큰 순."""
+def hot_numbers(draws: List[Dict[str, Any]], top_k: int = 10) -> Tuple[List[Tuple[int,int]], int | None]:
+    """
+    returns: ([(번호, 출현수), ...], latest_round)
+    """
     if not draws:
-        return []
-    latest = max(d.round for d in draws)
-    last = last_seen_round(draws)
-    # (번호, 마지막출현회차, 경과회차)
-    rows = [(n, last[n], latest - last[n] if last[n] else latest) for n in range(1,46)]
-    rows.sort(key=lambda x: (-x[2], x[0]))  # 가장 오래 안 나온 순
-    return rows[:top_k], latest
+        return ([], None)
 
+    freq = {i: 0 for i in range(1, 46)}
+    for d in draws:
+        for k in ("n1","n2","n3","n4","n5","n6"):
+            n = d.get(k)
+            if isinstance(n, int) and 1 <= n <= 45:
+                freq[n] += 1
+    items = sorted(freq.items(), key=lambda x: (-x[1], x[0]))[:top_k]
+    latest_round = max((d.get("round") for d in draws if d.get("round")), default=None)
+    return (items, latest_round)
+
+def cold_numbers(draws: List[Dict[str, Any]], top_k: int = 10) -> Tuple[List[Tuple[int,int]], int | None]:
+    """
+    returns: ([(번호, 출현수), ...], latest_round) – '가장 적게 나온 번호'
+    """
+    if not draws:
+        return ([], None)
+
+    freq = {i: 0 for i in range(1, 46)}
+    for d in draws:
+        for k in ("n1","n2","n3","n4","n5","n6"):
+            n = d.get(k)
+            if isinstance(n, int) and 1 <= n <= 45:
+                freq[n] += 1
+    items = sorted(freq.items(), key=lambda x: (x[1], x[0]))[:top_k]
+    latest_round = max((d.get("round") for d in draws if d.get("round")), default=None)
+    return (items, latest_round)
 def frequency_pairs(draws: List[Draw], top_k: int = 10):
     c = Counter()
     for d in draws:

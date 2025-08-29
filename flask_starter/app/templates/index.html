@@ -1,0 +1,287 @@
+<!doctype html>
+<html lang="ko">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Flask Starter</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}" />
+  </head>
+  <body>
+    <main>
+      <div class="container">
+      <div class="header">
+        <div>
+          <h1>로또 대시보드</h1>
+          <div class="muted">회차별 당첨번호, 당첨점, 추천번호(자동 3개/반자동 2개)</div>
+        </div>
+        <div class="stats">
+          <div class="stat">저장 회차: {{ total_rounds }}</div>
+          {% if latest %}<div class="stat">최근 회차: {{ latest.round }}</div>{% endif %}
+        </div>
+      </div>
+      <!-- Main Content Grid -->
+      <div class="main-content">
+
+        <!-- 1. Latest Draw Results - Most Important -->
+        {% if latest %}
+        <section class="card highlight-card">
+          <div class="card-header">
+            <h2>🎯 {{ latest.round }}회 최신 추첨결과</h2>
+            <span class="draw-date">{{ latest.draw_date if latest.draw_date else '' }}</span>
+          </div>
+          <div class="draw-result">
+            <div class="numbers">
+              {% for num in latest.numbers_list() %}
+                <span class="number-ball">{{ num }}</span>
+              {% endfor %}
+            </div>
+            <div class="bonus-section">
+              <span class="plus">+</span>
+              <span class="bonus-ball">{{ latest.bonus }}</span>
+              <span class="bonus-label">보너스</span>
+            </div>
+          </div>
+        </section>
+        {% else %}
+        <section class="card error-card">
+          <h2>⚠️ 데이터 없음</h2>
+          <p>추첨 결과 데이터가 없습니다. 아래에서 데이터를 업데이트해주세요.</p>
+        </section>
+        {% endif %}
+
+        <!-- 2. Quick Actions Panel -->
+        <section class="card actions-card">
+          <div class="card-header">
+            <h2>⚡ 빠른 작업</h2>
+          </div>
+
+          <div class="action-groups">
+            <div class="action-group">
+              <h3>데이터 업데이트</h3>
+              <div class="button-row">
+                <form class="action-form" method="post" action="/update-all">
+                  <button type="submit" class="btn-primary">🔄 전체 최신까지 업데이트</button>
+                </form>
+              </div>
+              <div class="button-row">
+                <form class="action-form" method="post" action="/update">
+                  <input type="number" name="round" min="1" placeholder="회차 번호" value="{{ latest.round if latest else '' }}" required />
+                  <button type="submit" class="btn-secondary">특정 회차 업데이트</button>
+                </form>
+              </div>
+              <div class="button-row">
+                <form class="action-form" method="post" action="/update-range">
+                  <input type="number" name="start" min="1" placeholder="시작" required />
+                  <span class="range-separator">~</span>
+                  <input type="number" name="end" min="1" placeholder="끝" required />
+                  <button type="submit" class="btn-secondary">범위 업데이트</button>
+                </form>
+              </div>
+            </div>
+
+            <div class="action-group">
+              <h3>당첨점 조회</h3>
+              <div class="button-row">
+                <form class="action-form" method="get" action="/">
+                  <input type="number" name="shops_round" min="1" placeholder="회차 선택" value="{{ shops_round if shops_round else latest.round if latest else '' }}" />
+                  {% if fixed %}
+                    <input type="hidden" name="fixed" value="{{ fixed|join(',') }}" />
+                  {% endif %}
+                  <button type="submit" class="btn-accent">🏪 당첨점 보기</button>
+                </form>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        <!-- 3. Recent Draws Table -->
+        <section class="card">
+          <div class="card-header">
+            <h2>📊 최근 20회 추첨 기록</h2>
+          </div>
+          <div class="table-container">
+            <table>
+              <thead>
+                <tr><th>회차</th><th>날짜</th><th>당첨번호</th><th>보너스</th></tr>
+              </thead>
+              <tbody>
+                {% for d in draws %}
+                <tr>
+                  <td><strong>{{ d.round }}회</strong></td>
+                  <td>{{ d.draw_date if d.draw_date else '-' }}</td>
+                  <td class="numbers-cell">{{ d.numbers }}</td>
+                  <td class="bonus-cell">{{ d.bonus }}</td>
+                </tr>
+                {% endfor %}
+              </tbody>
+            </table>
+          </div>
+        </section>
+
+      {% if shops_round is not none %}
+      <!-- 4. Winning Shops Header -->
+      <section class="card shops-header-card">
+        <div class="card-header">
+          <h2>🏪 {{ shops_round }}회 당첨점 현황</h2>
+        </div>
+        <div class="shops-summary">
+          <div class="summary-stats">
+            <div class="stat-item">
+              <span class="stat-number">{{ shops_rank1|length }}</span>
+              <span class="stat-label">1등 당첨점</span>
+            </div>
+            <div class="stat-item">
+              <span class="stat-number">{{ shops_rank2_total }}</span>
+              <span class="stat-label">2등 당첨점</span>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      {% if shops_rank1 %}
+      <section class="card">
+        <h2>🥇 {{ shops_round }}회 1등 당첨점 ({{ shops_rank1|length }}개)</h2>
+        <table>
+          <thead>
+            <tr><th>순번</th><th>상호</th><th>구분</th><th>주소</th></tr>
+          </thead>
+          <tbody>
+            {% for s in shops_rank1 %}
+            <tr>
+              <td>{{ s.sequence or '' }}</td>
+              <td><strong>{{ s.name }}</strong></td>
+              <td><span class="badge-method">{{ s.method or '구분없음' }}</span></td>
+              <td>{{ s.address }}</td>
+            </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </section>
+      {% endif %}
+
+      {% if shops_rank2_total > 0 %}
+      <section class="card">
+        <h2>🥈 {{ shops_round }}회 2등 당첨점 (총 {{ shops_rank2_total }}개)</h2>
+
+        {% if shops_rank2_total_pages > 1 %}
+        <div class="info-box">
+          <p>📌 페이지 {{ shops_rank2_page }}/{{ shops_rank2_total_pages }} ({{ (shops_rank2_page - 1) * shops_rank2_per_page + 1 }}~{{ (shops_rank2_page - 1) * shops_rank2_per_page + shops_rank2|length }}번째)</p>
+        </div>
+        {% endif %}
+
+        <table>
+          <thead>
+            <tr><th>순번</th><th>상호</th><th>주소</th></tr>
+          </thead>
+          <tbody>
+            {% for s in shops_rank2 %}
+            <tr>
+              <td>{{ s.sequence or '' }}</td>
+              <td>{{ s.name }}</td>
+              <td>{{ s.address }}</td>
+            </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+
+        {% if shops_rank2_total_pages > 1 %}
+        <div class="pagination">
+          {% set current_params = request.args.to_dict() %}
+          {% if shops_rank2_page > 1 %}
+            {% set prev_params = current_params.copy() %}
+            {% set _ = prev_params.update({'rank2_page': shops_rank2_page - 1}) %}
+            <a href="?{{ prev_params.items() | list | urlencode }}" class="page-btn">← 이전</a>
+          {% endif %}
+
+          <span class="page-info">{{ shops_rank2_page }} / {{ shops_rank2_total_pages }}</span>
+
+          {% if shops_rank2_page < shops_rank2_total_pages %}
+            {% set next_params = current_params.copy() %}
+            {% set _ = next_params.update({'rank2_page': shops_rank2_page + 1}) %}
+            <a href="?{{ next_params.items() | list | urlencode }}" class="page-btn">다음 →</a>
+          {% endif %}
+        </div>
+
+        <!-- Quick page jumps for large datasets -->
+        {% if shops_rank2_total_pages > 3 %}
+        <div class="quick-pages">
+          <span>빠른 이동:</span>
+          {% for page_num in [1, ((shops_rank2_total_pages + 1) // 2), shops_rank2_total_pages] %}
+            {% if page_num != shops_rank2_page and page_num <= shops_rank2_total_pages %}
+              {% set jump_params = current_params.copy() %}
+              {% set _ = jump_params.update({'rank2_page': page_num}) %}
+              <a href="?{{ jump_params.items() | list | urlencode }}" class="quick-page-btn">{{ page_num }}</a>
+            {% endif %}
+          {% endfor %}
+        </div>
+        {% endif %}
+        {% endif %}
+      </section>
+      {% endif %}
+      {% endif %}
+      <!-- Recommendation Section -->
+      <section class="card recommendations-card">
+        <div class="card-header">
+          <h2>🎲 AI 추천번호</h2>
+        </div>
+
+        <div class="recommendation-controls">
+          <form class="recommendation-form" method="get" action="/">
+            <div class="input-group">
+              <label for="fixed-numbers">반자동 고정번호 (최대 5개):</label>
+              <input type="text" id="fixed-numbers" name="fixed"
+                     value="{{ fixed|join(', ') if fixed else '' }}"
+                     placeholder="예: 7, 14, 21, 35" />
+              <span class="input-help">쉼표로 구분하여 입력</span>
+            </div>
+            {% if shops_round is not none %}
+              <input type="hidden" name="shops_round" value="{{ shops_round }}" />
+            {% endif %}
+            <button type="submit" class="btn-accent">🔄 새 추천번호 생성</button>
+          </form>
+        </div>
+
+        <div class="recommendations-grid">
+          <div class="recommendation-type">
+            <h3>🤖 완전자동 (3세트)</h3>
+            <div class="recommendation-list">
+              {% for rec in auto_recs %}
+                <div class="recommendation-item">
+                  <div class="number-set">
+                    {% for num in rec %}
+                      <span class="rec-number">{{ num }}</span>
+                    {% endfor %}
+                  </div>
+                </div>
+              {% endfor %}
+            </div>
+          </div>
+
+          {% if fixed %}
+          <div class="recommendation-type">
+            <h3>🎯 반자동 (2세트) - 고정: {{ fixed|join(', ') }}</h3>
+            <div class="recommendation-list">
+              {% for rec in semi_recs %}
+                <div class="recommendation-item">
+                  <div class="number-set">
+                    {% for num in rec %}
+                      <span class="rec-number {% if num in fixed %}fixed-number{% endif %}">{{ num }}</span>
+                    {% endfor %}
+                  </div>
+                </div>
+              {% endfor %}
+            </div>
+          </div>
+          {% endif %}
+        </div>
+      </section>
+
+      <!-- Footer -->
+      <div class="footer">
+        <p>헬스체크: <code><a href="/health">/health</a></code></p>
+      </div>
+
+      </div> <!-- End main-content -->
+    </main>
+  </body>
+  </html>
