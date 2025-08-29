@@ -55,41 +55,45 @@
             <h2>⚡ 빠른 작업</h2>
           </div>
 
-          <div class="action-groups">
+          <div class="action-groups-vertical">
             <div class="action-group">
-              <h3>데이터 업데이트</h3>
+              <h3>🔄 데이터 크롤링</h3>
               <div class="button-row">
-                <form class="action-form" method="post" action="/update-all">
-                  <button type="submit" class="btn-primary">🔄 전체 최신까지 업데이트</button>
+                <form class="action-form" method="post" action="/update-full">
+                  <button type="submit" class="btn-primary">전체 다시 크롤링</button>
+                </form>
+              </div>
+              <div class="button-row">
+                <form class="action-form" method="post" action="/update-missing">
+                  <button type="submit" class="btn-secondary">빠진회차 크롤링</button>
+                </form>
+              </div>
+              <div class="button-row">
+                <form class="action-form" method="post" action="/update-latest">
+                  <button type="submit" class="btn-secondary">최신회차 크롤링</button>
                 </form>
               </div>
               <div class="button-row">
                 <form class="action-form" method="post" action="/update">
-                  <input type="number" name="round" min="1" placeholder="회차 번호" value="{{ latest.round if latest else '' }}" required />
-                  <button type="submit" class="btn-secondary">특정 회차 업데이트</button>
-                </form>
-              </div>
-              <div class="button-row">
-                <form class="action-form" method="post" action="/update-range">
-                  <input type="number" name="start" min="1" placeholder="시작" required />
-                  <span class="range-separator">~</span>
-                  <input type="number" name="end" min="1" placeholder="끝" required />
-                  <button type="submit" class="btn-secondary">범위 업데이트</button>
+                  <input type="number" name="round" min="1" placeholder="회차 번호" required />
+                  <button type="submit" class="btn-secondary">특정 회차 크롤링</button>
                 </form>
               </div>
             </div>
 
             <div class="action-group">
-              <h3>당첨점 조회</h3>
-              <div class="button-row">
-                <form class="action-form" method="get" action="/">
-                  <input type="number" name="shops_round" min="1" placeholder="회차 선택" value="{{ shops_round if shops_round else latest.round if latest else '' }}" />
-                  {% if fixed %}
-                    <input type="hidden" name="fixed" value="{{ fixed|join(',') }}" />
-                  {% endif %}
-                  <button type="submit" class="btn-accent">🏪 당첨점 보기</button>
-                </form>
+              <h3>🏪 당첨정보 조회</h3>
+              <div class="round-input-container">
+                <div class="round-input-group">
+                  <button type="button" class="round-btn" onclick="changeRound(-1)">-</button>
+                  <input type="number" id="round-input" name="round" min="1" value="{{ latest.round if latest else 1 }}" />
+                  <button type="button" class="round-btn" onclick="changeRound(1)">+</button>
+                </div>
+                <button type="button" class="btn-accent" onclick="viewDrawInfo()">당첨정보 조회</button>
               </div>
+              {% if fixed %}
+                <input type="hidden" id="fixed-input" value="{{ fixed|join(',') }}" />
+              {% endif %}
             </div>
           </div>
         </section>
@@ -97,7 +101,7 @@
         <!-- 3. Recent Draws Table -->
         <section class="card">
           <div class="card-header">
-            <h2>📊 최근 20회 추첨 기록</h2>
+            <h2>📊 최근 10회 추첨 기록</h2>
           </div>
           <div class="table-container">
             <table>
@@ -283,5 +287,24 @@
 
       </div> <!-- End main-content -->
     </main>
+
+    <script>
+      function changeRound(delta) {
+        const input = document.getElementById('round-input');
+        const currentValue = parseInt(input.value) || {{ latest.round if latest else 1 }};
+        const newValue = Math.max(1, currentValue + delta);
+        input.value = newValue;
+      }
+
+      function viewDrawInfo() {
+        const round = document.getElementById('round-input').value;
+        const fixed = document.getElementById('fixed-input')?.value || '';
+        let url = `/?shops_round=${round}`;
+        if (fixed) {
+          url += `&fixed=${encodeURIComponent(fixed)}`;
+        }
+        window.location.href = url;
+      }
+    </script>
   </body>
   </html>

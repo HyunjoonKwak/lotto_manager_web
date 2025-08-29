@@ -3,7 +3,13 @@ from flask import Blueprint, render_template, request, jsonify, redirect, url_fo
 from .extensions import db
 from .models import Draw, WinningShop
 from .services.lotto_fetcher import fetch_draw, fetch_winning_shops
-from .services.updater import perform_update as svc_perform_update, update_range as svc_update_range, get_latest_round
+from .services.updater import (
+    perform_update as svc_perform_update,
+    update_range as svc_update_range,
+    get_latest_round,
+    update_missing_rounds,
+    update_to_latest
+)
 from .services.recommender import auto_recommend, semi_auto_recommend
 
 
@@ -28,7 +34,7 @@ def _parse_fixed_numbers(raw: str | None) -> list[int]:
 @main_bp.get("/")
 def index():
     latest = Draw.query.order_by(Draw.round.desc()).first()
-    draws = Draw.query.order_by(Draw.round.desc()).limit(20).all()
+    draws = Draw.query.order_by(Draw.round.desc()).limit(10).all()
     total_rounds = Draw.query.count()
     history = [d.numbers_list() for d in draws]
     auto = auto_recommend(history, count=3)
@@ -137,6 +143,30 @@ def update_range_api():
     return redirect(url_for("main.index"))
 
 
+@main_bp.post("/update-full")
+def update_full_api():
+    """Complete re-crawling from round 1 to latest."""
+    latest = get_latest_round()
+    if not latest:
+        return jsonify({"error": "cannot detect latest round"}), 400
+    stats = svc_update_range(1, latest)
+    return redirect(url_for("main.index"))
+
+
+@main_bp.post("/update-missing")
+def update_missing_api():
+    """Update only missing rounds."""
+    stats = update_missing_rounds()
+    return redirect(url_for("main.index"))
+
+
+@main_bp.post("/update-latest")
+def update_latest_api():
+    """Update to the latest available round."""
+    stats = update_to_latest()
+    return redirect(url_for("main.index"))
+
+
 @main_bp.post("/update-all")
 def update_all_api():
     latest = get_latest_round()
@@ -184,6 +214,24 @@ def api_shops(round_no: int):
         }
         for s in shops
     ])
+
+
+@main_bp.get("/draw-info")
+def draw_info():
+    try:
+        round_no = int(request.args.get("round", "").strip())
+    except Exception:
+        return redirect(url_for("main.index"))
+
+    draw = Draw.query.filter_by(round=round_no).first()
+    if not draw:
+        return redirect(url_for("main.index"))
+
+    return render_template(
+        "draw_info.html",
+        title=f"{round_no}회 당첨번호",
+        draw=draw
+    )
 
 
 @main_bp.get("/api/recommend")

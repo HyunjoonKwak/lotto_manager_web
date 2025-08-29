@@ -179,6 +179,65 @@ button:hover { filter: brightness(1.05); }
   }
 }
 
+.action-groups-vertical {
+  display: flex;
+  flex-direction: column;
+  gap: 24px;
+}
+
+/* Round input styling */
+.round-input-container {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  align-items: center;
+}
+
+.round-input-group {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  background: rgba(255, 255, 255, 0.05);
+  border-radius: 8px;
+  padding: 8px;
+}
+
+.round-btn {
+  background: var(--acc);
+  color: var(--bg);
+  border: none;
+  border-radius: 6px;
+  width: 32px;
+  height: 32px;
+  font-size: 18px;
+  font-weight: bold;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.round-btn:hover {
+  background: rgba(124, 196, 255, 0.8);
+  transform: scale(1.05);
+}
+
+#round-input {
+  background: rgba(255, 255, 255, 0.1);
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  border-radius: 6px;
+  padding: 8px 12px;
+  color: var(--fg);
+  font-size: 16px;
+  font-weight: bold;
+  text-align: center;
+  width: 80px;
+}
+
+#round-input:focus {
+  outline: none;
+  border-color: var(--acc);
+  box-shadow: 0 0 0 2px rgba(124, 196, 255, 0.3);
+}
+
 .action-group {
   padding: 16px;
   background: rgba(255, 255, 255, 0.02);

@@ -104,6 +104,77 @@ def update_range(start_round: int, end_round: int) -> dict:
     }
 
 
+def find_missing_rounds() -> list[int]:
+    """Find rounds that are missing from the database between 1 and the latest available round."""
+    latest_round = get_latest_round()
+    if not latest_round:
+        return []
+
+    # Get all existing rounds from database
+    existing_rounds = set(
+        row[0] for row in db.session.query(Draw.round).filter(Draw.round <= latest_round).all()
+    )
+
+    # Find missing rounds
+    all_rounds = set(range(1, latest_round + 1))
+    missing_rounds = sorted(all_rounds - existing_rounds)
+
+    return missing_rounds
+
+
+def update_missing_rounds() -> dict:
+    """Update all missing rounds between 1 and the latest available round."""
+    missing = find_missing_rounds()
+    if not missing:
+        return {
+            "status": "up_to_date",
+            "total_missing": 0,
+            "updated": 0,
+            "failed": 0
+        }
+
+    updated = 0
+    failed = 0
+
+    for round_no in missing:
+        try:
+            result = perform_update(round_no)
+            if result["status"] in ["updated", "partial"]:
+                updated += 1
+            else:
+                failed += 1
+        except Exception:
+            failed += 1
+
+    return {
+        "status": "completed",
+        "total_missing": len(missing),
+        "updated": updated,
+        "failed": failed,
+        "missing_rounds": missing[:10] if len(missing) > 10 else missing
+    }
+
+
+def update_to_latest() -> dict:
+    """Update from current max round + 1 to the latest available round."""
+    latest_round = get_latest_round()
+    if not latest_round:
+        return {"status": "error", "message": "Cannot detect latest round"}
+
+    # Find current max round in database
+    current_max = db.session.query(db.func.max(Draw.round)).scalar() or 0
+    start_round = current_max + 1
+
+    if start_round > latest_round:
+        return {
+            "status": "up_to_date",
+            "current_max": current_max,
+            "latest_available": latest_round
+        }
+
+    return update_range(start_round, latest_round)
+
+
 def get_latest_round() -> Optional[int]:
     """Find the latest available round by probing the official API.
 
