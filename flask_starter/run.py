@@ -128,16 +128,26 @@ def main() -> None:
     print(f"Starting Flask app in {env} mode")
     print(f"Debug mode: {debug}")
 
-    # 포트 충돌 확인 및 해결
+    # Flask reloader 재시작 시에는 포트 충돌 검사를 건너뛰기
+    is_reloader_process = os.environ.get('WERKZEUG_RUN_MAIN') == 'true'
+
     port = original_port
-    if not handle_port_conflict(host, port):
-        print(f"포트 {port}를 해제할 수 없습니다. 다른 포트를 찾고 있습니다...")
-        try:
-            port = find_available_port(host, original_port + 1)
-            print(f"사용 가능한 포트 {port}를 찾았습니다.")
-        except RuntimeError as e:
-            print(f"오류: {e}")
-            sys.exit(1)
+    if not is_reloader_process:
+        # 최초 실행 시에만 포트 충돌 확인 및 해결
+        if not handle_port_conflict(host, port):
+            print(f"포트 {port}를 해제할 수 없습니다. 다른 포트를 찾고 있습니다...")
+            try:
+                port = find_available_port(host, original_port + 1)
+                print(f"사용 가능한 포트 {port}를 찾았습니다.")
+                # 찾은 포트를 환경변수로 설정하여 reloader 프로세스에서도 사용
+                os.environ['FLASK_PORT_OVERRIDE'] = str(port)
+            except RuntimeError as e:
+                print(f"오류: {e}")
+                sys.exit(1)
+    else:
+        # reloader 프로세스에서는 저장된 포트 사용
+        if 'FLASK_PORT_OVERRIDE' in os.environ:
+            port = int(os.environ['FLASK_PORT_OVERRIDE'])
 
     print(f"Server will be available at: http://{host}:{port}")
 

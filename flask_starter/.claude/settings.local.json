@@ -6,7 +6,8 @@
       "Bash(source:*)",
       "Bash(pip install:*)",
       "Bash(python test:*)",
-      "Bash(python:*)"
+      "Bash(python:*)",
+      "Bash(FLASK_ENV=nas python run.py)"
     ],
     "deny": [],
     "ask": []
