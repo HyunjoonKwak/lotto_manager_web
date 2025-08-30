@@ -1,4 +1,4 @@
-Flask>=3.0.0,<4
-Flask-SQLAlchemy>=3.1,<4
-requests>=2.32
-beautifulsoup4>=4.12
+Flask>=2.3.0,<3.0.0
+Flask-SQLAlchemy>=3.0.0,<4.0.0
+requests>=2.28.0,<3.0.0
+beautifulsoup4>=4.11.0,<5.0.0
