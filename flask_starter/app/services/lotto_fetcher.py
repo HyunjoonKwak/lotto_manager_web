@@ -141,7 +141,7 @@ def fetch_winning_shops(round_no: int) -> List[Dict]:
         return []
 
 
-def _parse_shop_row(row, round_no: int, rank: int, has_method_col: bool) -> Dict | None:
+def _parse_shop_row(row, round_no: int, rank: int, has_method_col: bool) -> Optional[Dict]:
     """Parse a single shop row from the table."""
     tds = row.select("td")
     if not tds:
