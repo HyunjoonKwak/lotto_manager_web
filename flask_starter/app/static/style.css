@@ -185,21 +185,174 @@ button:hover { filter: brightness(1.05); }
   gap: 24px;
 }
 
-/* Round input styling */
-.round-input-container {
+/* New Crawling Grid Layout */
+.crawling-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+  gap: 16px;
+  margin-bottom: 16px;
+}
+
+.crawling-option {
+  background: rgba(255, 255, 255, 0.02);
+  border: 1px solid var(--card-border);
+  border-radius: 12px;
+  padding: 16px;
   display: flex;
   flex-direction: column;
   gap: 12px;
+  transition: all 0.2s ease;
+}
+
+.crawling-option:hover {
+  border-color: var(--acc);
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(124, 196, 255, 0.1);
+}
+
+.option-header {
+  display: flex;
   align-items: center;
+  gap: 8px;
+  margin-bottom: 8px;
+}
+
+.option-number {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 24px;
+  height: 24px;
+  background: var(--acc);
+  color: var(--bg);
+  border-radius: 50%;
+  font-size: 0.8rem;
+  font-weight: bold;
+  flex-shrink: 0;
+}
+
+.option-header h4 {
+  margin: 0;
+  font-size: 1rem;
+  color: var(--fg);
+}
+
+.option-desc {
+  color: var(--muted);
+  font-size: 0.85rem;
+  line-height: 1.4;
+  margin: 0;
+  flex-grow: 1;
+}
+
+.specific-round-input {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+}
+
+.specific-round-input input {
+  flex: 1;
+  min-width: 0;
+}
+
+@media (max-width: 768px) {
+  .crawling-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+/* Enhanced Draw Lookup Container */
+.draw-lookup-container {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.lookup-description {
+  padding: 12px;
+  background: rgba(124, 196, 255, 0.05);
+  border-left: 4px solid var(--acc);
+  border-radius: 6px;
+}
+
+.lookup-description p {
+  margin: 0;
+  color: var(--muted);
+  font-size: 0.9rem;
+}
+
+.round-selector {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  padding: 16px;
+  background: rgba(255, 255, 255, 0.02);
+  border-radius: 8px;
+  border: 1px solid var(--card-border);
+}
+
+.round-label {
+  font-weight: 500;
+  color: var(--fg);
+  margin-bottom: 8px;
 }
 
 .round-input-group {
   display: flex;
   align-items: center;
   gap: 8px;
-  background: rgba(255, 255, 255, 0.05);
+  justify-content: center;
+}
+
+.round-number-input {
+  background: rgba(255, 255, 255, 0.1);
+  border: 2px solid rgba(255, 255, 255, 0.2);
   border-radius: 8px;
-  padding: 8px;
+  padding: 12px 16px;
+  color: var(--fg);
+  font-size: 18px;
+  font-weight: bold;
+  text-align: center;
+  width: 100px;
+  transition: all 0.2s ease;
+}
+
+.round-number-input:focus {
+  outline: none;
+  border-color: var(--acc);
+  box-shadow: 0 0 0 3px rgba(124, 196, 255, 0.2);
+  background: rgba(255, 255, 255, 0.15);
+}
+
+.lookup-btn {
+  padding: 12px 24px;
+  font-size: 1rem;
+  font-weight: 600;
+}
+
+.lookup-shortcuts {
+  display: flex;
+  gap: 8px;
+  justify-content: center;
+  flex-wrap: wrap;
+}
+
+.shortcut-btn {
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid var(--card-border);
+  color: var(--muted);
+  padding: 6px 12px;
+  border-radius: 6px;
+  font-size: 0.8rem;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.shortcut-btn:hover {
+  background: var(--acc);
+  color: var(--bg);
+  border-color: var(--acc);
 }
 
 .round-btn {
@@ -642,5 +795,34 @@ button:hover { filter: brightness(1.05); }
   .button-row {
     flex-direction: column;
     align-items: stretch;
+  }
+
+  .round-selector {
+    padding: 12px;
+  }
+
+  .round-input-group {
+    flex-direction: column;
+    gap: 12px;
+  }
+
+  .round-number-input {
+    width: 100%;
+    max-width: 200px;
+  }
+
+  .lookup-btn {
+    width: 100%;
+    max-width: 300px;
+    align-self: center;
+  }
+
+  .lookup-shortcuts {
+    flex-direction: column;
+    gap: 8px;
+  }
+
+  .shortcut-btn {
+    padding: 8px 12px;
   }
 }

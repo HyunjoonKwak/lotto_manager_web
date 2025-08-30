@@ -1,0 +1,161 @@
+{% extends "base.html" %}
+{% block content %}
+
+<div class="container">
+  <h2 class="mb-4">정보 조회</h2>
+
+  <!-- 데이터 수집 현황 -->
+  <div class="card mb-4">
+    <div class="card-body">
+      <h4 class="card-title">데이터 수집 현황</h4>
+      <p class="text-muted">로또 데이터 크롤링 및 관리</p>
+
+      <div class="row g-3">
+        <!-- 단일 회차 수집 -->
+        <div class="col-md-6">
+          <div class="card border-primary">
+            <div class="card-body">
+              <h5 class="card-title">단일 회차 수집</h5>
+              <form method="post" action="{{ url_for('dashboard.fetch_numbers_action') }}">
+                <input type="hidden" name="mode" value="single">
+                <div class="mb-3">
+                  <label class="form-label">회차 번호</label>
+                  <input type="number" class="form-control" name="round" min="1" required>
+                </div>
+                <button type="submit" class="btn btn-primary">수집하기</button>
+              </form>
+            </div>
+          </div>
+        </div>
+
+        <!-- 범위 수집 -->
+        <div class="col-md-6">
+          <div class="card border-success">
+            <div class="card-body">
+              <h5 class="card-title">범위 수집</h5>
+              <form method="post" action="{{ url_for('dashboard.fetch_numbers_action') }}">
+                <input type="hidden" name="mode" value="range">
+                <div class="mb-3">
+                  <label class="form-label">시작 회차</label>
+                  <input type="number" class="form-control" name="start" min="1" required>
+                </div>
+                <div class="mb-3">
+                  <label class="form-label">끝 회차</label>
+                  <input type="number" class="form-control" name="end" min="1" required>
+                </div>
+                <button type="submit" class="btn btn-success">수집하기</button>
+              </form>
+            </div>
+          </div>
+        </div>
+
+        <!-- 최신 회차 탐색 -->
+        <div class="col-md-6">
+          <div class="card border-info">
+            <div class="card-body">
+              <h5 class="card-title">최신 회차 탐색</h5>
+              <p class="small text-muted">최신 회차부터 역순으로 탐색하여 누락된 데이터 수집</p>
+              <form method="post" action="{{ url_for('dashboard.fetch_numbers_action') }}">
+                <input type="hidden" name="mode" value="latest">
+                <button type="submit" class="btn btn-info">최신 데이터 수집</button>
+              </form>
+            </div>
+          </div>
+        </div>
+
+        <!-- 최근 N회 보장 -->
+        <div class="col-md-6">
+          <div class="card border-warning">
+            <div class="card-body">
+              <h5 class="card-title">최근 N회 보장</h5>
+              <form method="post" action="{{ url_for('dashboard.fetch_numbers_action') }}">
+                <input type="hidden" name="mode" value="recent">
+                <div class="mb-3">
+                  <label class="form-label">회차 수</label>
+                  <input type="number" class="form-control" name="n" value="5" min="1" required>
+                </div>
+                <button type="submit" class="btn btn-warning">수집하기</button>
+              </form>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- 당첨점 데이터 수집 -->
+  <div class="card mb-4">
+    <div class="card-body">
+      <h4 class="card-title">당첨점 정보 수집</h4>
+      <p class="text-muted">1등 당첨점 정보를 수집합니다</p>
+
+      <div class="row">
+        <div class="col-md-6">
+          <form>
+            <div class="mb-3">
+              <label class="form-label">수집할 회차 범위</label>
+              <div class="input-group">
+                <input type="number" class="form-control" placeholder="시작 회차" min="1">
+                <span class="input-group-text">~</span>
+                <input type="number" class="form-control" placeholder="끝 회차" min="1">
+              </div>
+            </div>
+            <button type="button" class="btn btn-outline-primary">당첨점 정보 수집</button>
+          </form>
+        </div>
+        <div class="col-md-6">
+          <div class="alert alert-info">
+            <strong>주의사항:</strong>
+            <ul class="mb-0">
+              <li>당첨점 정보는 공식 사이트에서 제공되는 데이터입니다</li>
+              <li>대량 수집 시 서버 부하를 고려하여 적절한 간격을 두고 요청합니다</li>
+              <li>이미 수집된 회차는 건너뜁니다</li>
+            </ul>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- 데이터베이스 상태 -->
+  <div class="card">
+    <div class="card-body">
+      <h4 class="card-title">데이터베이스 상태</h4>
+
+      <div class="row">
+        <div class="col-md-4">
+          <div class="text-center p-3 bg-light rounded">
+            <h5 class="text-primary">{{ rows|length if rows else 0 }}</h5>
+            <p class="mb-0">수집된 회차 수</p>
+          </div>
+        </div>
+        <div class="col-md-4">
+          <div class="text-center p-3 bg-light rounded">
+            <h5 class="text-success">{{ latest_round if latest_round else 0 }}</h5>
+            <p class="mb-0">최신 회차</p>
+          </div>
+        </div>
+        <div class="col-md-4">
+          <div class="text-center p-3 bg-light rounded">
+            <h5 class="text-info">{{ shops_latest|length if shops_latest else 0 }}</h5>
+            <p class="mb-0">당첨점 정보</p>
+          </div>
+        </div>
+      </div>
+
+      <!-- 데이터베이스 초기화 경고 -->
+      <div class="mt-4">
+        <div class="alert alert-danger">
+          <h6 class="alert-heading">위험한 작업</h6>
+          <p>데이터베이스를 초기화하면 모든 수집된 데이터가 삭제됩니다.</p>
+          <hr>
+          <button type="button" class="btn btn-danger" onclick="if(confirm('정말로 모든 데이터를 삭제하시겠습니까?')) alert('초기화 기능은 아직 구현되지 않았습니다.')">
+            데이터베이스 초기화
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+{% endblock %}

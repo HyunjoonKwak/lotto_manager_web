@@ -1,0 +1,343 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="header">
+  <div>
+    <h1>🎲 로또 전략 분석</h1>
+    <div class="muted">전체 데이터 기반 빈도 분석 및 AI 추천번호</div>
+  </div>
+  <div class="stats">
+    <div class="stat">분석 대상: 전체 {{ total_draws }}회</div>
+  </div>
+</div>
+
+<!-- Main Content Grid -->
+<div class="main-content">
+
+  <!-- AI Recommendation Section -->
+  <section class="card">
+    <div class="card-header">
+      <h2>🤖 AI 추천번호 (5세트)</h2>
+      <button type="button" class="refresh-btn" onclick="refreshPage()" title="새로고침">🔄 새로고침</button>
+    </div>
+
+    <div class="table-container">
+      <table>
+        <thead>
+          <tr>
+            <th>세트</th>
+            <th>추천번호</th>
+            <th>선택 이유</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for rec in auto_recs %}
+          <tr>
+            <td><strong>{{ loop.index }}</strong></td>
+            <td class="numbers-cell">
+              {% for num in rec %}
+                <span class="number-text">{{ num }}</span>{% if not loop.last %}, {% endif %}
+              {% endfor %}
+            </td>
+            <td class="reasons-cell">
+              {% if recommendation_reasons[loop.index0] %}
+                {% for reason in recommendation_reasons[loop.index0][:2] %}
+                  {{ reason }}{% if not loop.last %}; {% endif %}
+                {% endfor %}
+              {% endif %}
+            </td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </section>
+
+  <!-- Analysis Section -->
+  <section class="card">
+    <div class="card-header">
+      <h2>📊 빈도 분석</h2>
+    </div>
+
+    <div class="analysis-tables">
+      <!-- Most Frequent Numbers -->
+      <div class="analysis-table-section">
+        <h4>🔥 최다 빈출번호 TOP 10</h4>
+        <div class="table-container">
+          <table class="compact-table">
+            <thead>
+              <tr><th>순위</th><th>번호</th><th>출현횟수</th></tr>
+            </thead>
+            <tbody>
+              {% for num, count in most_frequent %}
+              <tr>
+                <td>{{ loop.index }}</td>
+                <td><strong>{{ num }}</strong></td>
+                <td>{{ count }}회</td>
+              </tr>
+              {% endfor %}
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      <!-- Least Frequent Numbers -->
+      <div class="analysis-table-section">
+        <h4>❄️ 최소 출현번호 TOP 10</h4>
+        <div class="table-container">
+          <table class="compact-table">
+            <thead>
+              <tr><th>순위</th><th>번호</th><th>출현횟수</th></tr>
+            </thead>
+            <tbody>
+              {% for num, count in least_frequent %}
+              <tr>
+                <td>{{ loop.index }}</td>
+                <td><strong>{{ num }}</strong></td>
+                <td>{{ count }}회</td>
+              </tr>
+              {% endfor %}
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+
+    <!-- Top combinations -->
+    <div class="combinations-table-section">
+      <h4>🔗 인기 번호조합 TOP 10</h4>
+      <div class="table-container">
+        <table class="combo-table">
+          <thead>
+            <tr><th>순위</th><th>번호조합</th><th>출현횟수</th></tr>
+          </thead>
+          <tbody>
+            {% for combination, count in top_combinations %}
+            <tr>
+              <td>{{ loop.index }}</td>
+              <td><strong>{{ combination[0] }} - {{ combination[1] }}</strong></td>
+              <td>{{ count }}회</td>
+            </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </section>
+
+  <!-- Compact Recent Draws -->
+  <section class="card">
+    <div class="card-header">
+      <h2>📈 최근 5회 추첨 기록</h2>
+    </div>
+    <div class="compact-draws">
+      {% for d in draws[:5] %}
+      <div class="compact-draw-item">
+        <div class="draw-info">
+          <strong>{{ d.round }}회</strong>
+          <span class="draw-date">{{ d.draw_date.strftime('%m/%d') if d.draw_date else '-' }}</span>
+        </div>
+        <div class="draw-numbers">
+          {% for num in d.numbers_list() %}
+            <span class="mini-ball">{{ num }}</span>
+          {% endfor %}
+          <span class="mini-bonus">+{{ d.bonus }}</span>
+        </div>
+      </div>
+      {% endfor %}
+    </div>
+  </section>
+
+</div> <!-- End main-content -->
+
+<style>
+/* Clean text-based styles */
+.card-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.refresh-btn {
+  background: #667eea;
+  color: white;
+  border: none;
+  padding: 0.5rem 1rem;
+  border-radius: 0.25rem;
+  cursor: pointer;
+  font-size: 0.9rem;
+  font-weight: 500;
+  transition: background-color 0.2s ease;
+}
+
+.refresh-btn:hover {
+  background: #5a67d8;
+}
+
+.numbers-cell {
+  font-family: monospace;
+  font-weight: bold;
+  color: #333;
+}
+
+.number-text {
+  color: #667eea;
+  font-weight: bold;
+}
+
+.reasons-cell {
+  font-size: 0.9rem;
+  color: #666;
+  line-height: 1.4;
+}
+
+/* Analysis Tables */
+.analysis-tables {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 2rem;
+  margin-top: 1rem;
+}
+
+.analysis-table-section h4 {
+  margin-bottom: 0.75rem;
+  color: #333;
+  font-size: 1rem;
+}
+
+.compact-table {
+  font-size: 0.9rem;
+}
+
+.compact-table th {
+  background: #f8f9fa;
+  font-weight: 600;
+}
+
+.compact-table td {
+  padding: 0.5rem;
+}
+
+.combinations-table-section {
+  margin-top: 1.5rem;
+}
+
+.combinations-table-section h4 {
+  margin-bottom: 0.75rem;
+  color: #333;
+  font-size: 1rem;
+}
+
+.combo-table {
+  font-size: 0.9rem;
+  max-width: 400px;
+}
+
+.combo-table th {
+  background: #f8f9fa;
+  font-weight: 600;
+}
+
+.combo-table td {
+  padding: 0.5rem;
+}
+
+/* Compact Draws Styles */
+.compact-draws {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+  margin-top: 1rem;
+}
+
+.compact-draw-item {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 0.75rem;
+  background: #f8f9fa;
+  border-radius: 0.5rem;
+  border-left: 3px solid #667eea;
+}
+
+.draw-info {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+}
+
+.draw-date {
+  font-size: 0.8rem;
+  color: #666;
+}
+
+.draw-numbers {
+  display: flex;
+  gap: 0.25rem;
+  align-items: center;
+}
+
+.mini-ball {
+  display: inline-block;
+  width: 24px;
+  height: 24px;
+  border-radius: 50%;
+  background: linear-gradient(135deg, #667eea, #764ba2);
+  color: white;
+  font-size: 0.7rem;
+  font-weight: bold;
+  text-align: center;
+  line-height: 24px;
+}
+
+.mini-bonus {
+  font-size: 0.8rem;
+  color: #e67e22;
+  font-weight: bold;
+  margin-left: 0.25rem;
+}
+
+@media (max-width: 768px) {
+  .analysis-tables {
+    grid-template-columns: 1fr;
+    gap: 1rem;
+  }
+
+  .card-header {
+    flex-direction: column;
+    gap: 0.5rem;
+    align-items: flex-start;
+  }
+
+  .compact-draw-item {
+    flex-direction: column;
+    gap: 0.5rem;
+    align-items: flex-start;
+  }
+
+  .combo-table {
+    max-width: 100%;
+  }
+}
+</style>
+
+<script>
+function refreshPage() {
+  // Save current scroll position
+  const scrollPos = window.pageYOffset;
+  sessionStorage.setItem('scrollPosition', scrollPos);
+
+  // Reload page
+  window.location.reload();
+}
+
+// Restore scroll position after page load
+document.addEventListener('DOMContentLoaded', function() {
+  const savedPos = sessionStorage.getItem('scrollPosition');
+  if (savedPos) {
+    window.scrollTo(0, parseInt(savedPos));
+    sessionStorage.removeItem('scrollPosition');
+  }
+});
+</script>
+{% endblock %}

@@ -1,76 +1,142 @@
-<!doctype html>
-<html lang="ko">
-  <head>
-    <meta charset="utf-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <title>{{ title }}</title>
-    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}" />
-  </head>
-  <body>
-    <main>
-      <div class="container">
-        <div class="header">
-          <div>
-            <h1>{{ title }}</h1>
-            <div class="muted">특정 회차 당첨번호 정보</div>
-          </div>
-          <div class="stats">
-            <a href="{{ url_for('main.index') }}" class="btn-secondary">← 메인으로</a>
-          </div>
+{% extends "base.html" %}
+
+{% block content %}
+<div class="header">
+  <div>
+    <h1>🎯 {{ draw.round }}회 당첨정보</h1>
+    <div class="muted">{{ draw.draw_date if draw.draw_date else '추첨일 미상' }}</div>
+  </div>
+  <div class="stats">
+    <a href="{{ url_for('main.info_page') }}" class="btn-secondary">← 정보조회</a>
+  </div>
+</div>
+
+<div class="main-content">
+
+  <!-- Draw Result Card -->
+  <section class="card highlight-card">
+    <div class="card-header">
+      <h2>🎲 {{ draw.round }}회 당첨번호</h2>
+      <span class="draw-date">{{ draw.draw_date if draw.draw_date else '' }}</span>
+    </div>
+    <div class="draw-result">
+      <div class="numbers">
+        {% for num in draw.numbers_list() %}
+          <span class="number-ball">{{ num }}</span>
+        {% endfor %}
+      </div>
+      <div class="bonus-section">
+        <span class="plus">+</span>
+        <span class="bonus-ball">{{ draw.bonus }}</span>
+        <span class="bonus-label">보너스</span>
+      </div>
+    </div>
+  </section>
+
+  <!-- Navigation -->
+  <section class="card">
+    <div style="display: flex; justify-content: space-between; align-items: center; padding: 1rem 0;">
+      <div style="display: flex; align-items: center; gap: 1rem;">
+        {% if draw.round > 1 %}
+          <a href="{{ url_for('main.draw_info') }}?round={{ draw.round - 1 }}" class="btn-secondary">
+            ← {{ draw.round - 1 }}회
+          </a>
+        {% endif %}
+        <div style="font-size: 1.2rem; font-weight: bold; color: #667eea; padding: 0 1rem;">
+          {{ draw.round }}회
         </div>
+        <a href="{{ url_for('main.draw_info') }}?round={{ draw.round + 1 }}" class="btn-secondary">
+          {{ draw.round + 1 }}회 →
+        </a>
+      </div>
 
-        <!-- Draw Result Card -->
-        <section class="card highlight-card">
-          <div class="card-header">
-            <h2>🎯 {{ draw.round }}회 당첨번호</h2>
-            <span class="draw-date">{{ draw.draw_date if draw.draw_date else '' }}</span>
-          </div>
-          <div class="draw-result">
-            <div class="numbers">
-              {% for num in draw.numbers_list() %}
-                <span class="number-ball">{{ num }}</span>
+      <form method="get" action="{{ url_for('main.draw_info') }}" style="display: flex; gap: 0.5rem; align-items: center;">
+        <input type="number" name="round" min="1" max="9999" value="{{ draw.round }}" placeholder="회차" style="width: 80px; padding: 0.5rem; border: 1px solid #ddd; border-radius: 0.25rem;" />
+        <button type="submit" class="btn-accent">이동</button>
+      </form>
+    </div>
+  </section>
+
+  <!-- Number Analysis -->
+  <section class="card">
+    <div class="card-header">
+      <h2>📊 번호 분석</h2>
+    </div>
+
+    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 2rem;">
+      <div>
+        <h3 style="margin-bottom: 1rem; color: #333;">홀/짝 분포</h3>
+        {% set numbers = draw.numbers_list() %}
+        {% set odd_numbers = [] %}
+        {% set even_numbers = [] %}
+        {% for num in numbers %}
+          {% if num % 2 == 1 %}{% set _ = odd_numbers.append(num) %}
+          {% else %}{% set _ = even_numbers.append(num) %}
+          {% endif %}
+        {% endfor %}
+        <div style="display: flex; flex-direction: column; gap: 1rem;">
+          <div style="display: flex; align-items: center; gap: 1rem;">
+            <span style="min-width: 40px; font-weight: 500;">홀수:</span>
+            <span style="min-width: 30px; font-size: 0.9rem; color: #666;">{{ odd_numbers | length }}개</span>
+            <span style="display: flex; gap: 0.25rem;">
+              {% for num in odd_numbers %}
+                <span style="display: inline-block; width: 24px; height: 24px; border-radius: 50%; color: white; font-size: 0.7rem; font-weight: bold; text-align: center; line-height: 24px; background: #e74c3c;">{{ num }}</span>
               {% endfor %}
-            </div>
-            <div class="bonus-section">
-              <span class="plus">+</span>
-              <span class="bonus-ball">{{ draw.bonus }}</span>
-              <span class="bonus-label">보너스</span>
-            </div>
+            </span>
           </div>
-        </section>
-
-        <!-- Quick Actions -->
-        <section class="card">
-          <div class="card-header">
-            <h2>⚡ 빠른 작업</h2>
+          <div style="display: flex; align-items: center; gap: 1rem;">
+            <span style="min-width: 40px; font-weight: 500;">짝수:</span>
+            <span style="min-width: 30px; font-size: 0.9rem; color: #666;">{{ even_numbers | length }}개</span>
+            <span style="display: flex; gap: 0.25rem;">
+              {% for num in even_numbers %}
+                <span style="display: inline-block; width: 24px; height: 24px; border-radius: 50%; color: white; font-size: 0.7rem; font-weight: bold; text-align: center; line-height: 24px; background: #3498db;">{{ num }}</span>
+              {% endfor %}
+            </span>
           </div>
-          <div class="action-groups">
-            <div class="action-group">
-              <h3>🔍 다른 회차 조회</h3>
-              <div class="button-row">
-                <form class="action-form" method="get" action="/draw-info">
-                  <input type="number" name="round" min="1" placeholder="회차 번호" required />
-                  <button type="submit" class="btn-primary">당첨번호 조회</button>
-                </form>
-              </div>
-            </div>
-            <div class="action-group">
-              <h3>🏪 당첨점포 보기</h3>
-              <div class="button-row">
-                <form class="action-form" method="get" action="/">
-                  <input type="hidden" name="shops_round" value="{{ draw.round }}" />
-                  <button type="submit" class="btn-accent">{{ draw.round }}회 당첨점포 보기</button>
-                </form>
-              </div>
-            </div>
-          </div>
-        </section>
-
-        <!-- Footer -->
-        <div class="footer">
-          <p><a href="{{ url_for('main.index') }}">← 메인 대시보드로 돌아가기</a></p>
         </div>
       </div>
-    </main>
-  </body>
-</html>
+
+      <div>
+        <h3 style="margin-bottom: 1rem; color: #333;">세부 정보</h3>
+        <div style="display: grid; gap: 0.5rem;">
+          <div style="display: flex; justify-content: space-between; padding: 0.5rem; background: #f8f9fa; border-radius: 0.25rem;">
+            <span style="font-weight: 500; color: #666;">합계:</span>
+            <span style="font-weight: bold; color: #333;">{{ numbers | sum }}</span>
+          </div>
+          <div style="display: flex; justify-content: space-between; padding: 0.5rem; background: #f8f9fa; border-radius: 0.25rem;">
+            <span style="font-weight: 500; color: #666;">평균:</span>
+            <span style="font-weight: bold; color: #333;">{{ "%.1f" | format(numbers | sum / 6) }}</span>
+          </div>
+          <div style="display: flex; justify-content: space-between; padding: 0.5rem; background: #f8f9fa; border-radius: 0.25rem;">
+            <span style="font-weight: 500; color: #666;">범위:</span>
+            <span style="font-weight: bold; color: #333;">{{ numbers | min }} ~ {{ numbers | max }}</span>
+          </div>
+          <div style="display: flex; justify-content: space-between; padding: 0.5rem; background: #f8f9fa; border-radius: 0.25rem;">
+            <span style="font-weight: 500; color: #666;">보너스:</span>
+            <span style="font-weight: bold; color: #333;">{{ draw.bonus }}</span>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- Quick Actions -->
+  <section class="card">
+    <div class="card-header">
+      <h2>⚡ 빠른 작업</h2>
+    </div>
+    <div class="action-groups">
+      <div class="action-group">
+        <h3>🏪 당첨점포 보기</h3>
+        <div class="button-row">
+          <form class="action-form" method="get" action="/">
+            <input type="hidden" name="shops_round" value="{{ draw.round }}" />
+            <button type="submit" class="btn-accent">{{ draw.round }}회 당첨점포 보기</button>
+          </form>
+        </div>
+      </div>
+    </div>
+  </section>
+
+</div>
+{% endblock %}

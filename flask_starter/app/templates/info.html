@@ -1,0 +1,386 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="header">
+  <div>
+    <h1>🔍 로또 정보조회</h1>
+    <div class="muted">회차별 당첨번호 및 당첨점포 정보 조회</div>
+  </div>
+  <div class="stats">
+    <div class="stat">저장 회차: {{ total_rounds }}</div>
+    {% if latest %}<div class="stat">최근 회차: {{ latest.round }}</div>{% endif %}
+  </div>
+</div>
+
+<!-- Main Content Grid -->
+<div class="main-content">
+
+  <!-- Latest Draw Results with Winning Shops -->
+  {% if latest %}
+  <section class="card highlight-card">
+    <div class="card-header">
+      <h2>🎯 {{ latest.round }}회 최신 추첨결과</h2>
+      <span class="draw-date">{{ latest.draw_date if latest.draw_date else '' }}</span>
+    </div>
+    <div class="draw-result">
+      <div class="numbers">
+        {% for num in latest.numbers_list() %}
+          <span class="number-ball">{{ num }}</span>
+        {% endfor %}
+      </div>
+      <div class="bonus-section">
+        <span class="plus">+</span>
+        <span class="bonus-ball">{{ latest.bonus }}</span>
+        <span class="bonus-label">보너스</span>
+      </div>
+    </div>
+  </section>
+
+  <!-- Latest Winning Shops -->
+  <section class="card">
+    <div class="card-header">
+      <h2>🏪 {{ latest.round }}회 당첨점 정보</h2>
+    </div>
+
+    {% if shops_rank1 %}
+    <div class="shops-section">
+      <h4>🥇 1등 당첨점 ({{ shops_rank1|length }}개)</h4>
+      <div class="table-container">
+        <table>
+          <thead>
+            <tr><th>순번</th><th>상호</th><th>구분</th><th>주소</th></tr>
+          </thead>
+          <tbody>
+            {% for shop in shops_rank1 %}
+            <tr>
+              <td>{{ shop.sequence or '' }}</td>
+              <td><strong>{{ shop.name }}</strong></td>
+              <td><span class="badge-method">{{ shop.method or '구분없음' }}</span></td>
+              <td>{{ shop.address }}</td>
+            </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    </div>
+    {% endif %}
+
+    {% if shops_rank2_total > 0 %}
+    <div id="rank2-section" class="shops-section">
+      <div class="section-header">
+        <h4>🥈 2등 당첨점 (총 {{ shops_rank2_total }}개)</h4>
+        {% if shops_rank2_total_pages > 1 %}
+        <div class="page-info">
+          <span>페이지 {{ shops_rank2_page }}/{{ shops_rank2_total_pages }}</span>
+        </div>
+        {% endif %}
+      </div>
+
+      <div class="table-container">
+        <table>
+          <thead>
+            <tr><th>순번</th><th>상호</th><th>주소</th></tr>
+          </thead>
+          <tbody>
+            {% for shop in shops_rank2 %}
+            <tr>
+              <td>{{ shop.sequence or '' }}</td>
+              <td>{{ shop.name }}</td>
+              <td>{{ shop.address }}</td>
+            </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+
+      {% if shops_rank2_total_pages > 1 %}
+      <div class="pagination-controls">
+        <button
+          type="button"
+          class="page-btn prev-btn"
+          onclick="changeRank2Page({{ shops_rank2_page - 1 }})"
+          {% if shops_rank2_page <= 1 %}disabled{% endif %}>
+          ◀ 이전
+        </button>
+
+        <span class="page-display">{{ shops_rank2_page }} / {{ shops_rank2_total_pages }}</span>
+
+        <button
+          type="button"
+          class="page-btn next-btn"
+          onclick="changeRank2Page({{ shops_rank2_page + 1 }})"
+          {% if shops_rank2_page >= shops_rank2_total_pages %}disabled{% endif %}>
+          다음 ▶
+        </button>
+      </div>
+
+      {% if shops_rank2_total_pages > 3 %}
+      <div class="quick-jump">
+        <span>빠른 이동:</span>
+        <button type="button" class="jump-btn" onclick="changeRank2Page(1)">1</button>
+        {% if shops_rank2_total_pages > 2 %}
+          <button type="button" class="jump-btn" onclick="changeRank2Page({{ (shops_rank2_total_pages + 1) // 2 }})">{{ (shops_rank2_total_pages + 1) // 2 }}</button>
+        {% endif %}
+        <button type="button" class="jump-btn" onclick="changeRank2Page({{ shops_rank2_total_pages }})">{{ shops_rank2_total_pages }}</button>
+      </div>
+      {% endif %}
+      {% endif %}
+    </div>
+    {% endif %}
+
+    {% if not shops_rank1 and not shops_rank2 %}
+    <div class="info-box">
+      <p>아직 당첨점 정보가 수집되지 않았습니다.</p>
+    </div>
+    {% endif %}
+  </section>
+  {% else %}
+  <section class="card error-card">
+    <h2>⚠️ 데이터 없음</h2>
+    <p>추첨 결과 데이터가 없습니다. <a href="{{ url_for('main.crawling_page') }}">크롤링 페이지</a>에서 데이터를 업데이트해주세요.</p>
+  </section>
+  {% endif %}
+
+
+  <!-- Draw Info Lookup Panel -->
+  <section class="card">
+    <div class="card-header">
+      <h2>🎯 당첨정보 조회</h2>
+    </div>
+
+    <div class="lookup-panel">
+      <div class="lookup-description">
+        <p>회차별 당첨번호와 당첨점포 정보를 상세히 조회할 수 있습니다</p>
+      </div>
+
+      <div class="round-selector">
+        <label for="round-input" class="round-label">조회할 회차:</label>
+        <div class="round-input-group">
+          <button type="button" class="round-btn" onclick="changeRound(-1)" title="이전 회차">◀</button>
+          <input type="number" id="round-input" name="round" min="1" max="9999" value="{{ latest.round if latest else 1 }}" class="round-number-input" />
+          <button type="button" class="round-btn" onclick="changeRound(1)" title="다음 회차">▶</button>
+        </div>
+        <button type="button" class="btn-accent lookup-btn" onclick="viewDrawInfo()">📊 상세 조회</button>
+      </div>
+
+      <div class="lookup-shortcuts">
+        <button type="button" class="shortcut-btn" onclick="setRound({{ latest.round if latest else 1 }})">최신회차</button>
+        <button type="button" class="shortcut-btn" onclick="setRound(1000)">1000회</button>
+        <button type="button" class="shortcut-btn" onclick="setRound(500)">500회</button>
+      </div>
+    </div>
+  </section>
+
+  <!-- Recent draws table -->
+  <section class="card">
+    <div class="card-header">
+      <h2>📊 최근 10회 추첨 기록</h2>
+    </div>
+    <div class="table-container">
+      <table>
+        <thead>
+          <tr><th>회차</th><th>날짜</th><th>당첨번호</th><th>보너스</th></tr>
+        </thead>
+        <tbody>
+          {% for d in draws %}
+          <tr>
+            <td><strong>{{ d.round }}회</strong></td>
+            <td>{{ d.draw_date if d.draw_date else '-' }}</td>
+            <td class="numbers-cell">
+              {% for num in d.numbers_list() %}
+                <span class="small-number-ball">{{ num }}</span>
+              {% endfor %}
+            </td>
+            <td class="bonus-cell">{{ d.bonus }}</td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </section>
+
+  <!-- Footer -->
+  <div class="footer">
+    <p>헬스체크: <code><a href="/health">/health</a></code></p>
+  </div>
+
+</div> <!-- End main-content -->
+
+<script>
+  function changeRound(delta) {
+    const input = document.getElementById('round-input');
+    const currentValue = parseInt(input.value) || {{ latest.round if latest else 1 }};
+    const newValue = Math.max(1, Math.min(9999, currentValue + delta));
+    input.value = newValue;
+  }
+
+  function setRound(roundNumber) {
+    const input = document.getElementById('round-input');
+    input.value = Math.max(1, Math.min(9999, roundNumber));
+  }
+
+  function viewDrawInfo() {
+    const round = document.getElementById('round-input').value;
+    if (!round || parseInt(round) < 1) {
+      alert('올바른 회차 번호를 입력해주세요.');
+      return;
+    }
+
+    window.location.href = `/draw-info?round=${round}`;
+  }
+
+  function changeRank2Page(newPage) {
+    if (newPage < 1) return;
+
+    // Save current scroll position
+    const currentScroll = window.pageYOffset;
+    sessionStorage.setItem('infoScrollPosition', currentScroll);
+
+    // Get current URL parameters
+    const urlParams = new URLSearchParams(window.location.search);
+    urlParams.set('rank2_page', newPage);
+
+    // Navigate with new page parameter
+    window.location.href = `${window.location.pathname}?${urlParams.toString()}#rank2-section`;
+  }
+
+  // Initialize round input
+  document.addEventListener('DOMContentLoaded', function() {
+    // Add enter key support for round input
+    const roundInput = document.getElementById('round-input');
+    if (roundInput) {
+      roundInput.addEventListener('keypress', function(e) {
+        if (e.key === 'Enter') {
+          viewDrawInfo();
+        }
+      });
+    }
+
+    // Restore scroll position for pagination
+    const savedScroll = sessionStorage.getItem('infoScrollPosition');
+    if (savedScroll && window.location.hash === '#rank2-section') {
+      setTimeout(() => {
+        window.scrollTo(0, parseInt(savedScroll));
+        sessionStorage.removeItem('infoScrollPosition');
+      }, 100);
+    }
+  });
+</script>
+
+<style>
+/* Simple table-based shops styles */
+.shops-section {
+  margin-bottom: 1.5rem;
+}
+
+.shops-section h4 {
+  margin-bottom: 0.75rem;
+  color: #333;
+  font-size: 1.1rem;
+}
+
+.section-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 1rem;
+}
+
+.page-info {
+  font-size: 0.9rem;
+  color: #666;
+  background: #f8f9fa;
+  padding: 0.5rem 0.75rem;
+  border-radius: 0.25rem;
+}
+
+.pagination-controls {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  gap: 1rem;
+  margin-top: 1rem;
+  padding-top: 1rem;
+  border-top: 1px solid #eee;
+}
+
+.page-btn {
+  background: #667eea;
+  color: white;
+  border: none;
+  padding: 0.5rem 1rem;
+  border-radius: 0.25rem;
+  cursor: pointer;
+  font-weight: 500;
+  transition: background-color 0.2s ease;
+}
+
+.page-btn:hover:not(:disabled) {
+  background: #5a67d8;
+}
+
+.page-btn:disabled {
+  background: #e2e8f0;
+  color: #a0aec0;
+  cursor: not-allowed;
+}
+
+.page-display {
+  font-weight: 500;
+  color: #333;
+  padding: 0.5rem 1rem;
+  background: #f8f9fa;
+  border-radius: 0.25rem;
+}
+
+.quick-jump {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  gap: 0.5rem;
+  margin-top: 0.75rem;
+  font-size: 0.9rem;
+}
+
+.jump-btn {
+  background: #f8f9fa;
+  border: 1px solid #e2e8f0;
+  color: #667eea;
+  padding: 0.25rem 0.5rem;
+  border-radius: 0.25rem;
+  cursor: pointer;
+  font-weight: 500;
+  transition: all 0.2s ease;
+}
+
+.jump-btn:hover {
+  background: #667eea;
+  color: white;
+}
+
+.lookup-panel {
+  margin-top: 1rem;
+}
+
+.lookup-description {
+  margin-bottom: 1.5rem;
+}
+
+@media (max-width: 768px) {
+  .section-header {
+    flex-direction: column;
+    gap: 0.5rem;
+    align-items: flex-start;
+  }
+
+  .pagination-controls {
+    gap: 0.5rem;
+  }
+
+  .page-btn {
+    padding: 0.5rem 0.75rem;
+    font-size: 0.9rem;
+  }
+}
+</style>
+{% endblock %}
