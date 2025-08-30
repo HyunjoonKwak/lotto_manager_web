@@ -1,6 +1,7 @@
 from flask import Blueprint, render_template, request, jsonify, redirect, url_for, current_app
 import threading
 import time
+from typing import Optional, List
 
 from .extensions import db
 from .models import Draw, WinningShop
@@ -65,11 +66,11 @@ def _perform_update_with_progress(round_no: int):
         raise
 
 
-def _parse_fixed_numbers(raw: str | None) -> list[int]:
+def _parse_fixed_numbers(raw: Optional[str]) -> List[int]:
     if not raw:
         return []
     parts = [p.strip() for p in raw.replace("/", ",").replace(" ", ",").split(",") if p.strip()]
-    result: list[int] = []
+    result: List[int] = []
     for p in parts:
         try:
             n = int(p)

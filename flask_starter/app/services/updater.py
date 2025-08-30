@@ -1,13 +1,12 @@
-from __future__ import annotations
-
-from typing import Optional
+import requests
+import time
+from typing import Dict, List, Optional
 
 from flask import Flask
 
 from ..extensions import db
 from ..models import Draw, WinningShop
 from .lotto_fetcher import fetch_draw, fetch_winning_shops, NUMBERS_URL, DEFAULT_HEADERS, DEFAULT_TIMEOUT
-import requests
 
 
 def perform_update(round_no: int) -> dict:
@@ -104,7 +103,7 @@ def update_range(start_round: int, end_round: int) -> dict:
     }
 
 
-def find_missing_rounds() -> list[int]:
+def find_missing_rounds() -> List[int]:
     """Find rounds that are missing from the database between 1 and the latest available round."""
     latest_round = get_latest_round()
     if not latest_round:

@@ -1,6 +1,5 @@
-from __future__ import annotations
-
 from datetime import datetime
+from typing import List
 
 from .extensions import db
 
@@ -23,7 +22,7 @@ class Draw(db.Model):
     bonus = db.Column(db.Integer, nullable=False)
     created_at = db.Column(db.DateTime, nullable=False, default=datetime.utcnow)
 
-    def numbers_list(self) -> list[int]:
+    def numbers_list(self) -> List[int]:
         return [int(x) for x in self.numbers.split(",") if x]
 
 

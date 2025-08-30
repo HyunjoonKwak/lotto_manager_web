@@ -1,7 +1,8 @@
 from flask import Flask
+from typing import Optional
 
 
-def create_app(config_object: str | None = None) -> Flask:
+def create_app(config_object: Optional[str] = None) -> Flask:
     """Application factory for the Flask app.
 
     Optionally loads a config object path (e.g., "app.config.Config").

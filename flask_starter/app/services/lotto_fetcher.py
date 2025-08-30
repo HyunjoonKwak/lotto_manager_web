@@ -1,7 +1,5 @@
-from __future__ import annotations
-
 from datetime import datetime
-from typing import Iterable, Callable, TypeVar
+from typing import Iterable, Callable, TypeVar, Optional, List, Dict
 
 import requests
 from bs4 import BeautifulSoup
@@ -15,7 +13,7 @@ T = TypeVar("T")
 
 
 def _with_retries(fn: Callable[[], T], retries: int = 3) -> T:
-    last_exc: Exception | None = None
+    last_exc: Optional[Exception] = None
     for _ in range(retries):
         try:
             return fn()
@@ -25,12 +23,12 @@ def _with_retries(fn: Callable[[], T], retries: int = 3) -> T:
     raise last_exc
 
 
-def fetch_draw(round_no: int) -> dict:
+def fetch_draw(round_no: int) -> Dict:
     """Fetch lotto draw info by round. Replace URL/parsing with real source later."""
     # Example placeholder using official API-like JSON endpoint if available.
     # Here we structure a mock example for wiring. Replace with actual endpoint.
     url = NUMBERS_URL.format(round=round_no)
-    def _req() -> dict:
+    def _req() -> Dict:
         resp = requests.get(url, timeout=DEFAULT_TIMEOUT, headers=DEFAULT_HEADERS)
         resp.raise_for_status()
         return resp.json()
@@ -49,14 +47,14 @@ def fetch_draw(round_no: int) -> dict:
     }
 
 
-def fetch_winning_shops(round_no: int) -> list[dict]:
+def fetch_winning_shops(round_no: int) -> List[Dict]:
     """Fetch 1st/2nd winning shops by scraping with pagination support.
 
     Note: This HTML structure may change; adjust selectors accordingly.
     2nd rank shops may span multiple pages using nowPage parameter.
     """
     try:
-        result: list[dict] = []
+        result: List[Dict] = []
 
         # First, get page 1 to parse 1st rank shops and first page of 2nd rank
         url = SHOPS_URL.format(round=round_no)
@@ -143,7 +141,7 @@ def fetch_winning_shops(round_no: int) -> list[dict]:
         return []
 
 
-def _parse_shop_row(row, round_no: int, rank: int, has_method_col: bool) -> dict | None:
+def _parse_shop_row(row, round_no: int, rank: int, has_method_col: bool) -> Dict | None:
     """Parse a single shop row from the table."""
     tds = row.select("td")
     if not tds:
