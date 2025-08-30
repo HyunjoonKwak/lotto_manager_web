@@ -1,8 +1,8 @@
 from flask import Flask
-from typing import Optional
+from typing import Optional, Type
 
 
-def create_app(config_object: Optional[str] = None) -> Flask:
+def create_app(config_class: Optional[Type] = None) -> Flask:
     """Application factory for the Flask app.
 
     Optionally loads a config object path (e.g., "app.config.Config").
@@ -19,8 +19,8 @@ def create_app(config_object: Optional[str] = None) -> Flask:
     app.config.setdefault("SQLALCHEMY_TRACK_MODIFICATIONS", False)
 
     # Load extra config if provided
-    if config_object:
-        app.config.from_object(config_object)
+    if config_class:
+        app.config.from_object(config_class)
 
     # Ensure instance folder exists
     try:

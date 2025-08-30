@@ -46,11 +46,29 @@ python scripts/init_db.py
 ```
 
 ### 5. 애플리케이션 실행
-```bash
-python run.py
-```
 
-애플리케이션이 `http://127.0.0.1:8080`에서 실행됩니다.
+#### 로컬 개발 환경 (맥/윈도우)
+```bash
+# 기본값 (development 모드)
+python run.py
+
+# 또는 명시적으로 development 모드 지정
+FLASK_ENV=development python run.py
+```
+애플리케이션이 `http://127.0.0.1:5000`에서 실행됩니다.
+
+#### NAS 환경 (외부 접속 허용)
+```bash
+# NAS 모드로 실행
+FLASK_ENV=nas python run.py
+```
+애플리케이션이 `http://0.0.0.0:8080`에서 실행됩니다.
+
+#### 프로덕션 환경
+```bash
+# 프로덕션 모드로 실행
+FLASK_ENV=production python run.py
+```
 
 ## 프로젝트 구조
 
