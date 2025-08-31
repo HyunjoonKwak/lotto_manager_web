@@ -9,56 +9,62 @@ from ..models import Draw, WinningShop
 from .lotto_fetcher import fetch_draw, fetch_winning_shops, NUMBERS_URL, DEFAULT_HEADERS, DEFAULT_TIMEOUT
 
 
-def perform_update(round_no: int) -> dict:
-    """Update both draw data and winning shops for a round.
+def perform_update(round_no: int, data_type: str = 'both') -> dict:
+    """Update draw data and/or winning shops for a round based on data_type.
 
-    Handles draw and shops independently - if draw exists, only updates missing shops.
+    Args:
+        round_no: Round number to update
+        data_type: 'both', 'numbers', or 'shops'
+
+    Handles draw and shops independently - if draw exists, only updates missing data.
     """
     draw_updated = False
     shops_updated = False
 
-    # Check if draw already exists
-    existing_draw = Draw.query.filter_by(round=round_no).first()
+    # Update draw data if requested
+    if data_type in ['both', 'numbers']:
+        existing_draw = Draw.query.filter_by(round=round_no).first()
 
-    if not existing_draw:
-        # Fetch and save draw data
-        data = fetch_draw(round_no)
-        numbers = ",".join(str(n) for n in data["numbers"])
-        draw = Draw(
-            round=round_no,
-            draw_date=data["draw_date"],
-            numbers=numbers,
-            bonus=data["bonus"]
-        )
-        db.session.add(draw)
-        db.session.commit()
-        draw_updated = True
-
-    # Check if shops exist for this round
-    existing_shops_count = WinningShop.query.filter_by(round=round_no).count()
-
-    if existing_shops_count == 0:
-        # Fetch and save winning shops
-        shops = fetch_winning_shops(round_no)
-        if shops:
-            # Clear any existing shops first (safety measure)
-            WinningShop.query.filter_by(round=round_no).delete()
-
-            # Add new shops
-            for s in shops:
-                db.session.add(
-                    WinningShop(
-                        round=round_no,
-                        rank=s["rank"],
-                        sequence=s.get("sequence"),
-                        name=s["name"],
-                        method=s.get("method"),
-                        address=s.get("address"),
-                        winners_count=s.get("winners_count"),
-                    )
-                )
+        if not existing_draw:
+            # Fetch and save draw data
+            data = fetch_draw(round_no)
+            numbers = ",".join(str(n) for n in data["numbers"])
+            draw = Draw(
+                round=round_no,
+                draw_date=data["draw_date"],
+                numbers=numbers,
+                bonus=data["bonus"]
+            )
+            db.session.add(draw)
             db.session.commit()
-            shops_updated = True
+            draw_updated = True
+
+    # Update shops data if requested
+    if data_type in ['both', 'shops']:
+        existing_shops_count = WinningShop.query.filter_by(round=round_no).count()
+
+        if existing_shops_count == 0:
+            # Fetch and save winning shops
+            shops = fetch_winning_shops(round_no)
+            if shops:
+                # Clear any existing shops first (safety measure)
+                WinningShop.query.filter_by(round=round_no).delete()
+
+                # Add new shops
+                for s in shops:
+                    db.session.add(
+                        WinningShop(
+                            round=round_no,
+                            rank=s["rank"],
+                            sequence=s.get("sequence"),
+                            name=s["name"],
+                            method=s.get("method"),
+                            address=s.get("address"),
+                            winners_count=s.get("winners_count"),
+                        )
+                    )
+                db.session.commit()
+                shops_updated = True
 
     # Determine status
     if draw_updated and shops_updated:
@@ -77,11 +83,11 @@ def perform_update(round_no: int) -> dict:
     }
 
 
-def update_range(start_round: int, end_round: int) -> dict:
-    """Update a range of rounds, handling draws and shops independently."""
+def update_range(start_round: int, end_round: int, data_type: str = 'both') -> dict:
+    """Update a range of rounds, handling draws and shops based on data_type."""
     results: list[dict] = []
     for r in range(start_round, end_round + 1):
-        results.append(perform_update(r))
+        results.append(perform_update(r, data_type))
 
     # Count different statuses
     updated = sum(1 for x in results if x["status"] == "updated")

@@ -18,75 +18,108 @@
     </div>
 
     <div class="action-groups-vertical">
+      <!-- Progress Status - 위쪽으로 이동 -->
+      <section class="card progress-card" id="progress-section">
+        <div class="card-header">
+          <h3>⚡ 크롤링 진행 상태</h3>
+        </div>
+        <div id="progress-container">
+          <div class="progress-status">
+            <div class="status-text" id="status-text">대기중</div>
+            <div class="operation-type" id="operation-type"></div>
+          </div>
+          <div class="progress-details" id="progress-details" style="display: none;">
+            <div class="progress-bar-container">
+              <div class="progress-bar">
+                <div class="progress-fill" id="progress-fill"></div>
+              </div>
+              <div class="progress-text" id="progress-text">0%</div>
+            </div>
+            <div class="round-info">
+              <span id="current-round-info">현재: -</span>
+              <span id="total-rounds-info">전체: -</span>
+            </div>
+            <div class="time-info">
+              <span id="elapsed-time">경과: 0초</span>
+              <span id="remaining-time" style="display: none;">예상 남은 시간: -</span>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- 크롤링 옵션 선택 -->
+      <div class="crawling-type-selector">
+        <h4>크롤링 데이터 선택</h4>
+        <div class="radio-group">
+          <label class="radio-option">
+            <input type="radio" name="crawling-type" value="both" checked>
+            <span class="radio-label">당첨번호 + 판매점 (전체)</span>
+          </label>
+          <label class="radio-option">
+            <input type="radio" name="crawling-type" value="numbers">
+            <span class="radio-label">당첨번호만</span>
+          </label>
+          <label class="radio-option">
+            <input type="radio" name="crawling-type" value="shops">
+            <span class="radio-label">판매점만</span>
+          </label>
+        </div>
+      </div>
+
       <div class="action-group">
         <div class="crawling-grid">
-          <form class="crawling-option" method="post" action="/update-full">
+          <div class="crawling-option">
             <div class="option-header">
               <span class="option-number">1</span>
               <h4>전체 다시 크롤링</h4>
             </div>
             <p class="option-desc">1회차부터 최신회차까지 모든 데이터를 다시 수집합니다</p>
-            <button type="submit" class="btn-primary">실행</button>
-          </form>
+            <button type="button" class="btn-primary" onclick="startCrawling('full')">실행</button>
+          </div>
 
-          <form class="crawling-option" method="post" action="/update-missing">
+          <div class="crawling-option">
             <div class="option-header">
               <span class="option-number">2</span>
               <h4>빠진회차 크롤링</h4>
             </div>
             <p class="option-desc">누락된 회차만 선별하여 데이터를 수집합니다</p>
-            <button type="submit" class="btn-secondary">실행</button>
-          </form>
+            <button type="button" class="btn-secondary" onclick="startCrawling('missing')">실행</button>
+          </div>
 
-          <form class="crawling-option" method="post" action="/update-latest">
+          <div class="crawling-option">
             <div class="option-header">
               <span class="option-number">3</span>
               <h4>최신회차 크롤링</h4>
             </div>
             <p class="option-desc">가장 최근 추첨회차 데이터만 업데이트합니다</p>
-            <button type="submit" class="btn-secondary">실행</button>
-          </form>
+            <button type="button" class="btn-secondary" onclick="startCrawling('latest')">실행</button>
+          </div>
 
-          <form class="crawling-option" method="post" action="/update">
+          <div class="crawling-option">
             <div class="option-header">
               <span class="option-number">4</span>
+              <h4>범위 크롤링</h4>
+            </div>
+            <p class="option-desc">지정한 회차 범위의 데이터를 수집합니다</p>
+            <div class="range-input">
+              <input type="number" id="startRound" min="1" placeholder="시작 회차" />
+              <span>~</span>
+              <input type="number" id="endRound" min="1" placeholder="끝 회차" />
+            </div>
+            <button type="button" class="btn-secondary" onclick="startRangeCrawling()">실행</button>
+          </div>
+
+          <div class="crawling-option">
+            <div class="option-header">
+              <span class="option-number">5</span>
               <h4>특정회차 크롤링</h4>
             </div>
             <p class="option-desc">원하는 회차를 지정하여 해당 데이터만 수집합니다</p>
             <div class="specific-round-input">
-              <input type="number" name="round" min="1" placeholder="회차 번호" required />
-              <button type="submit" class="btn-secondary">실행</button>
+              <input type="number" id="specificRound" min="1" placeholder="회차 번호" />
+              <button type="button" class="btn-secondary" onclick="startSpecificCrawling()">실행</button>
             </div>
-          </form>
-        </div>
-      </div>
-    </div>
-  </section>
-
-  <!-- Progress Status -->
-  <section class="card" id="progress-section">
-    <div class="card-header">
-      <h2>⚡ 크롤링 진행 상태</h2>
-    </div>
-    <div id="progress-container">
-      <div class="progress-status">
-        <div class="status-text" id="status-text">대기중</div>
-        <div class="operation-type" id="operation-type"></div>
-      </div>
-      <div class="progress-details" id="progress-details" style="display: none;">
-        <div class="progress-bar-container">
-          <div class="progress-bar">
-            <div class="progress-fill" id="progress-fill"></div>
           </div>
-          <div class="progress-text" id="progress-text">0%</div>
-        </div>
-        <div class="round-info">
-          <span id="current-round-info">현재: -</span>
-          <span id="total-rounds-info">전체: -</span>
-        </div>
-        <div class="time-info">
-          <span id="elapsed-time">경과: 0초</span>
-          <span id="remaining-time" style="display: none;">예상 남은 시간: -</span>
         </div>
       </div>
     </div>
@@ -114,18 +147,53 @@
 </div> <!-- End main-content -->
 
 <style>
+.crawling-type-selector {
+  background: #f8f9fa;
+  border: 2px solid #e9ecef;
+  border-radius: 0.5rem;
+  padding: 1rem;
+  margin-bottom: 1.5rem;
+}
+
+.crawling-type-selector h4 {
+  margin-bottom: 0.8rem;
+  color: #333;
+  font-size: 1.1rem;
+  font-weight: 600;
+}
+
+.radio-group {
+  display: flex;
+  gap: 2rem;
+  flex-wrap: wrap;
+}
+
+.radio-option {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  cursor: pointer;
+  font-weight: 600;
+  color: #333;
+}
+
+.radio-option input[type="radio"] {
+  margin: 0;
+  transform: scale(1.1);
+}
+
 .crawling-grid {
   display: grid;
   grid-template-columns: 1fr 1fr;
-  gap: 2rem;
+  gap: 1.5rem;
   margin-top: 1rem;
 }
 
 .crawling-option {
   background: #f8f9fa;
   border: 2px solid #e9ecef;
-  border-radius: 0.75rem;
-  padding: 2rem;
+  border-radius: 0.5rem;
+  padding: 1.2rem;
   transition: all 0.3s ease;
 }
 
@@ -145,58 +213,79 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  width: 2.5rem;
-  height: 2.5rem;
-  background: #667eea;
+  width: 2rem;
+  height: 2rem;
+  background: linear-gradient(135deg, #667eea, #764ba2);
   color: white;
-  border-radius: 50%;
   font-weight: bold;
-  font-size: 1.1rem;
+  border-radius: 50%;
+  font-size: 1rem;
 }
 
 .option-header h4 {
   margin: 0;
   color: #333;
-  font-size: 1.2rem;
+  font-size: 1.1rem;
 }
 
 .option-desc {
-  margin: 0 0 1.5rem 0;
   color: #666;
+  margin-bottom: 1.2rem;
   line-height: 1.4;
+  font-size: 0.9rem;
+}
+
+.range-input {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  margin-bottom: 1rem;
+}
+
+.range-input input {
+  flex: 1;
+  padding: 0.5rem;
+  border: 1px solid #ddd;
+  border-radius: 0.25rem;
+}
+
+.range-input span {
+  font-weight: bold;
+  color: #666;
 }
 
 .specific-round-input {
   display: flex;
-  gap: 0.75rem;
+  gap: 0.5rem;
   align-items: center;
 }
 
 .specific-round-input input {
   flex: 1;
-  padding: 0.75rem;
+  padding: 0.5rem;
   border: 1px solid #ddd;
-  border-radius: 0.5rem;
-  font-size: 1rem;
+  border-radius: 0.25rem;
 }
 
 .btn-primary, .btn-secondary {
-  padding: 0.75rem 1.5rem;
+  width: 100%;
+  padding: 0.8rem 1.2rem;
   border: none;
-  border-radius: 0.5rem;
+  border-radius: 0.4rem;
   font-weight: 600;
   cursor: pointer;
   transition: all 0.3s ease;
-  font-size: 1rem;
+  font-size: 0.95rem;
 }
 
 .btn-primary {
-  background: #667eea;
+  background: linear-gradient(135deg, #667eea, #764ba2);
   color: white;
 }
 
 .btn-primary:hover {
-  background: #5a67d8;
+  transform: translateY(-2px);
+  box-shadow: 0 4px 15px rgba(102, 126, 234, 0.3);
 }
 
 .btn-secondary {
@@ -206,6 +295,13 @@
 
 .btn-secondary:hover {
   background: #5a6268;
+  transform: translateY(-2px);
+  box-shadow: 0 4px 15px rgba(108, 117, 125, 0.3);
+}
+
+.specific-round-input .btn-secondary {
+  width: auto;
+  padding: 0.5rem 1rem;
 }
 
 .info-grid {
@@ -235,10 +331,22 @@
   color: #333;
 }
 
+/* Progress Card Styles */
+.progress-card {
+  background: #fff;
+  margin-bottom: 1.5rem;
+}
+
+.progress-card .card-header h3 {
+  margin: 0;
+  font-size: 1.3rem;
+  color: #333;
+}
+
 /* Progress Status Styles */
 .progress-status {
   text-align: center;
-  margin-bottom: 1.5rem;
+  margin-bottom: 1rem;
 }
 
 .status-text {
@@ -278,7 +386,7 @@
   height: 100%;
   background: linear-gradient(90deg, #667eea, #764ba2);
   border-radius: 10px;
-  transition: width 0.3s ease;
+  transition: width 0.5s ease;
   width: 0%;
 }
 
@@ -303,22 +411,55 @@
 @media (max-width: 768px) {
   .crawling-grid {
     grid-template-columns: 1fr;
-    gap: 1.5rem;
+    gap: 1rem;
+  }
+
+  .radio-group {
+    flex-direction: column;
+    gap: 0.8rem;
   }
 
   .crawling-option {
-    padding: 1.5rem;
+    padding: 1rem;
   }
 
   .info-grid {
     grid-template-columns: 1fr;
     gap: 1rem;
   }
+
+  .range-input {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 0.5rem;
+  }
+
+  .specific-round-input {
+    flex-direction: column;
+    gap: 0.5rem;
+  }
+
+  .specific-round-input .btn-secondary {
+    width: 100%;
+  }
+
+  .crawling-type-selector {
+    padding: 0.8rem;
+  }
+
+  .progress-card .card-header h3 {
+    font-size: 1.2rem;
+  }
+
+  .status-text {
+    font-size: 1.3rem;
+  }
 }
 </style>
 
 <script>
 let progressInterval;
+let lastUpdateTime = 0;
 
 function formatTime(seconds) {
   if (seconds < 60) return `${seconds}초`;
@@ -327,7 +468,130 @@ function formatTime(seconds) {
   return `${minutes}분 ${remainingSeconds}초`;
 }
 
+function getCrawlingType() {
+  const checkedRadio = document.querySelector('input[name="crawling-type"]:checked');
+  return checkedRadio ? checkedRadio.value : 'both';
+}
+
+function startCrawling(type) {
+  const crawlingType = getCrawlingType();
+  const url = `/update-${type}`;
+
+  const formData = new FormData();
+  formData.append('data_type', crawlingType);
+
+  fetch(url, {
+    method: 'POST',
+    body: formData
+  })
+  .then(response => {
+    if (response.redirected) {
+      window.location.href = response.url;
+    }
+    return response.json();
+  })
+  .then(data => {
+    if (data.error) {
+      alert(`오류: ${data.error}`);
+    }
+  })
+  .catch(error => {
+    console.error('Crawling error:', error);
+    startProgressMonitoring();
+  });
+
+  startProgressMonitoring();
+}
+
+function startRangeCrawling() {
+  const startRound = document.getElementById('startRound').value;
+  const endRound = document.getElementById('endRound').value;
+  const crawlingType = getCrawlingType();
+
+  if (!startRound || !endRound) {
+    alert('시작 회차와 끝 회차를 모두 입력해주세요.');
+    return;
+  }
+
+  if (parseInt(startRound) > parseInt(endRound)) {
+    alert('시작 회차가 끝 회차보다 클 수 없습니다.');
+    return;
+  }
+
+  const formData = new FormData();
+  formData.append('start', startRound);
+  formData.append('end', endRound);
+  formData.append('data_type', crawlingType);
+
+  fetch('/update-range', {
+    method: 'POST',
+    body: formData
+  })
+  .then(response => {
+    if (response.redirected) {
+      window.location.href = response.url;
+    }
+    return response.json();
+  })
+  .then(data => {
+    if (data.error) {
+      alert(`오류: ${data.error}`);
+    }
+  })
+  .catch(error => {
+    console.error('Range crawling error:', error);
+    startProgressMonitoring();
+  });
+
+  startProgressMonitoring();
+}
+
+function startSpecificCrawling() {
+  const round = document.getElementById('specificRound').value;
+  const crawlingType = getCrawlingType();
+
+  if (!round) {
+    alert('회차 번호를 입력해주세요.');
+    return;
+  }
+
+  const formData = new FormData();
+  formData.append('round', round);
+  formData.append('data_type', crawlingType);
+
+  fetch('/update', {
+    method: 'POST',
+    body: formData
+  })
+  .then(response => {
+    if (response.redirected) {
+      window.location.href = response.url;
+    }
+    return response.json();
+  })
+  .then(data => {
+    if (data.error) {
+      alert(`오류: ${data.error}`);
+    }
+  })
+  .catch(error => {
+    console.error('Specific crawling error:', error);
+    startProgressMonitoring();
+  });
+
+  startProgressMonitoring();
+}
+
 function updateProgress() {
+  const currentTime = Date.now();
+
+  // 너무 빈번한 업데이트 방지 (최소 500ms 간격)
+  if (currentTime - lastUpdateTime < 500) {
+    return;
+  }
+
+  lastUpdateTime = currentTime;
+
   fetch('/api/crawling-progress')
     .then(response => response.json())
     .then(data => {
@@ -341,90 +605,103 @@ function updateProgress() {
       const elapsedTime = document.getElementById('elapsed-time');
       const remainingTime = document.getElementById('remaining-time');
 
-      // Update status text
-      statusText.textContent = data.status;
-      operationType.textContent = data.operation_type ? `[${data.operation_type}]` : '';
+      // 상태 텍스트 업데이트 (깜빡임 방지)
+      if (statusText.textContent !== data.status) {
+        statusText.textContent = data.status;
+      }
+
+      const operationText = data.operation_type ? `[${data.operation_type}]` : '';
+      if (operationType.textContent !== operationText) {
+        operationType.textContent = operationText;
+      }
 
       if (data.is_running) {
-        // Show progress details
+        // 진행 상황 표시
         progressDetails.style.display = 'block';
 
-        // Update progress bar
+        // 진행률 계산 및 업데이트
         const percentage = data.total_rounds > 0 ?
           Math.round((data.completed_rounds / data.total_rounds) * 100) : 0;
+
         progressFill.style.width = `${percentage}%`;
         progressText.textContent = `${percentage}%`;
 
-        // Update round info
+        // 회차 정보 업데이트
         currentRoundInfo.textContent = `현재: ${data.current_round}회`;
-        totalRoundsInfo.textContent = `전체: ${data.total_rounds}회`;
+        totalRoundsInfo.textContent = `전체: ${data.total_rounds}회 (완료: ${data.completed_rounds})`;
 
-        // Update time info
-        elapsedTime.textContent = `경과: ${formatTime(data.elapsed_seconds)}`;
+        // 시간 정보 업데이트
+        if (data.elapsed_seconds) {
+          elapsedTime.textContent = `경과: ${formatTime(data.elapsed_seconds)}`;
+        }
 
-        if (data.estimated_remaining_seconds > 0) {
+        if (data.estimated_remaining_seconds && data.estimated_remaining_seconds > 0) {
           remainingTime.textContent = `예상 남은 시간: ${formatTime(data.estimated_remaining_seconds)}`;
           remainingTime.style.display = 'inline';
         } else {
           remainingTime.style.display = 'none';
         }
-
-        // Change status color based on running state
-        statusText.style.color = '#667eea';
       } else {
-        // Hide progress details when not running
-        progressDetails.style.display = 'none';
-        statusText.style.color = data.status.includes('오류') ? '#dc3545' :
-                                data.status.includes('완료') ? '#28a745' : '#333';
+        // 크롤링 완료 또는 대기 상태
+        if (data.status !== '대기중') {
+          // 완료 상태 잠시 표시 후 숨김
+          setTimeout(() => {
+            if (!document.querySelector('#status-text').textContent.includes('진행중')) {
+              progressDetails.style.display = 'none';
+            }
+          }, 3000);
+        } else {
+          progressDetails.style.display = 'none';
+        }
 
-        // Stop polling if completed or error
-        if (data.status.includes('완료') || data.status.includes('오류')) {
-          if (progressInterval) {
-            clearInterval(progressInterval);
-            progressInterval = null;
-          }
-
-          // Reload page data after completion
-          if (data.status.includes('완료')) {
-            setTimeout(() => {
-              location.reload();
-            }, 2000);
-          }
+        // 크롤링 완료시 진행 모니터링 중지
+        if (data.status.includes('완료') || data.status === '대기중') {
+          stopProgressMonitoring();
         }
       }
     })
     .catch(error => {
-      console.error('Progress update failed:', error);
+      console.error('Progress update error:', error);
+      // 에러 발생시 잠시 후 재시도
+      setTimeout(updateProgress, 2000);
     });
 }
 
-// Start progress monitoring when page loads
-document.addEventListener('DOMContentLoaded', function() {
-  // Initial progress check
-  updateProgress();
-
-  // Set up polling interval (every 1 second)
-  progressInterval = setInterval(updateProgress, 1000);
-
-  // Add form submit handlers to start polling
-  const forms = document.querySelectorAll('form[method="post"]');
-  forms.forEach(form => {
-    form.addEventListener('submit', function() {
-      // Start polling after form submission
-      setTimeout(() => {
-        if (!progressInterval) {
-          progressInterval = setInterval(updateProgress, 1000);
-        }
-      }, 500);
-    });
-  });
-});
-
-// Clean up interval when page is unloaded
-window.addEventListener('beforeunload', function() {
+function startProgressMonitoring() {
   if (progressInterval) {
     clearInterval(progressInterval);
   }
+
+  // 즉시 한 번 업데이트
+  updateProgress();
+
+  // 주기적 업데이트 (1초 간격)
+  progressInterval = setInterval(updateProgress, 1000);
+}
+
+function stopProgressMonitoring() {
+  if (progressInterval) {
+    clearInterval(progressInterval);
+    progressInterval = null;
+  }
+}
+
+// 페이지 로드시 진행 상태 확인
+document.addEventListener('DOMContentLoaded', function() {
+  updateProgress();
+
+  // 진행 중인 작업이 있으면 모니터링 시작
+  setTimeout(() => {
+    const statusText = document.getElementById('status-text').textContent;
+    if (statusText.includes('진행중') || statusText.includes('수집중')) {
+      startProgressMonitoring();
+    }
+  }, 500);
+});
+
+// 페이지 언로드시 정리
+window.addEventListener('beforeunload', function() {
+  stopProgressMonitoring();
 });
 </script>
 {% endblock %}

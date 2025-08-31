@@ -4,7 +4,7 @@ import time
 from typing import Optional, List
 
 from .extensions import db
-from .models import Draw, WinningShop
+from .models import Draw, WinningShop, Purchase
 from .services.lotto_fetcher import fetch_draw, fetch_winning_shops
 from .services.updater import (
     perform_update as svc_perform_update,
@@ -18,6 +18,10 @@ from .services.analyzer import (
     get_most_frequent_numbers, get_least_frequent_numbers,
     get_number_combinations, get_recommendation_reasons,
     get_hot_cold_analysis
+)
+from .services.lottery_checker import (
+    check_all_pending_results, get_purchase_statistics,
+    get_recent_purchases_with_results, update_purchase_results
 )
 
 
@@ -54,15 +58,21 @@ def _reset_progress():
     _update_progress(0, 0, 0, "대기중", "", False)
 
 
-def _perform_update_with_progress(round_no: int):
+def _perform_update_with_progress(round_no: int, data_type: str = 'both'):
     """Wrapper for single round update with progress tracking"""
     try:
-        _update_progress(round_no, 1, 0, f"{round_no}회 수집중", "특정회차", True)
-        result = svc_perform_update(round_no)
-        _update_progress(round_no, 1, 1, f"{round_no}회 완료", "특정회차", False)
+        operation_name = "특정회차"
+        if data_type == "numbers":
+            operation_name = "당첨번호만"
+        elif data_type == "shops":
+            operation_name = "판매점만"
+
+        _update_progress(round_no, 1, 0, f"{round_no}회 수집중", operation_name, True)
+        result = svc_perform_update(round_no, data_type)
+        _update_progress(round_no, 1, 1, f"{round_no}회 완료", operation_name, False)
         return result
     except Exception as e:
-        _update_progress(round_no, 1, 0, f"오류: {str(e)}", "특정회차", False)
+        _update_progress(round_no, 1, 0, f"오류: {str(e)}", operation_name if 'operation_name' in locals() else "특정회차", False)
         raise
 
 
@@ -117,16 +127,16 @@ def update_round(round_no: int):
         return {"status": "error", "round": round_no, "message": str(exc)}, 400
 
 
-def _run_single_update_background(round_no: int, app):
+def _run_single_update_background(round_no: int, app, data_type: str = 'both'):
     """Run single round update in background with progress tracking"""
     try:
         with app.app_context():
-            _perform_update_with_progress(round_no)
+            _perform_update_with_progress(round_no, data_type)
     except Exception as e:
         print(f"Background update failed: {e}")
 
 
-def _run_range_update_background(start_round: int, end_round: int, operation_type: str, app):
+def _run_range_update_background(start_round: int, end_round: int, operation_type: str, app, data_type: str = 'both'):
     """Run range update in background with progress tracking"""
     try:
         with app.app_context():
@@ -135,7 +145,7 @@ def _run_range_update_background(start_round: int, end_round: int, operation_typ
 
             for i, round_no in enumerate(range(start_round, end_round + 1)):
                 _update_progress(round_no, total_rounds, i, f"{round_no}회 수집중", operation_type, True)
-                svc_perform_update(round_no)
+                svc_perform_update(round_no, data_type)
                 _update_progress(round_no, total_rounds, i + 1, f"{round_no}회 완료", operation_type, True)
                 time.sleep(0.1)  # Small delay to prevent overwhelming the server
 
@@ -178,14 +188,15 @@ def _run_missing_update_background(app):
 def update_round_from_form():
     try:
         round_no = int(request.form.get("round", "").strip())
+        data_type = request.form.get("data_type", "both")  # both, numbers, shops
     except Exception:
         return jsonify({"error": "invalid round"}), 400
 
     if crawling_progress["is_running"]:
         return jsonify({"error": "크롤링이 이미 실행중입니다"}), 400
 
-    # Start background update
-    threading.Thread(target=_run_single_update_background, args=(round_no, current_app._get_current_object()), daemon=True).start()
+    # Start background update with data type
+    threading.Thread(target=_run_single_update_background, args=(round_no, current_app._get_current_object(), data_type), daemon=True).start()
 
     return redirect(url_for("main.crawling_page"))
 
@@ -195,11 +206,27 @@ def update_range_api():
     try:
         start_round = int(request.form.get("start", "").strip())
         end_round = int(request.form.get("end", "").strip())
+        data_type = request.form.get("data_type", "both")
     except Exception:
         return jsonify({"error": "invalid range"}), 400
+
+    if crawling_progress["is_running"]:
+        return jsonify({"error": "크롤링이 이미 실행중입니다"}), 400
+
     if start_round > end_round:
         start_round, end_round = end_round, start_round
-    svc_update_range(start_round, end_round)
+
+    # Start background range update
+    operation_name = "범위크롤링"
+    if data_type == "numbers":
+        operation_name = "범위(당첨번호만)"
+    elif data_type == "shops":
+        operation_name = "범위(판매점만)"
+
+    threading.Thread(target=_run_range_update_background,
+                     args=(start_round, end_round, operation_name, current_app._get_current_object(), data_type),
+                     daemon=True).start()
+
     return redirect(url_for("main.crawling_page"))
 
 
@@ -213,8 +240,17 @@ def update_full_api():
     if not latest:
         return jsonify({"error": "cannot detect latest round"}), 400
 
+    data_type = request.form.get("data_type", "both")
+    operation_name = "전체크롤링"
+    if data_type == "numbers":
+        operation_name = "전체(당첨번호만)"
+    elif data_type == "shops":
+        operation_name = "전체(판매점만)"
+
     # Start background update
-    threading.Thread(target=_run_range_update_background, args=(1, latest, "전체크롤링", current_app._get_current_object()), daemon=True).start()
+    threading.Thread(target=_run_range_update_background,
+                     args=(1, latest, operation_name, current_app._get_current_object(), data_type),
+                     daemon=True).start()
 
     return redirect(url_for("main.crawling_page"))
 
@@ -241,8 +277,12 @@ def update_latest_api():
     if not latest:
         return jsonify({"error": "cannot detect latest round"}), 400
 
+    data_type = request.form.get("data_type", "both")
+
     # Start background update for just the latest round
-    threading.Thread(target=_run_single_update_background, args=(latest, current_app._get_current_object()), daemon=True).start()
+    threading.Thread(target=_run_single_update_background,
+                     args=(latest, current_app._get_current_object(), data_type),
+                     daemon=True).start()
 
     return redirect(url_for("main.crawling_page"))
 
@@ -449,3 +489,183 @@ def api_recommend():
         "semi": semi_auto_recommend(fixed_numbers=fixed),
         "fixed": fixed,
     })
+
+
+# 구매 기록 관련 라우트
+@main_bp.post("/purchase")
+def purchase_lottery():
+    """로또 구매 기록"""
+    try:
+        numbers = request.form.get("numbers", "").strip()
+        method = request.form.get("method", "추천").strip()
+
+        # 번호 검증
+        number_list = [int(x) for x in numbers.split(",") if x.strip()]
+        if len(number_list) != 6:
+            return jsonify({"error": "6개의 번호를 입력해주세요"}), 400
+
+        if not all(1 <= n <= 45 for n in number_list):
+            return jsonify({"error": "번호는 1~45 사이여야 합니다"}), 400
+
+        if len(set(number_list)) != 6:
+            return jsonify({"error": "중복된 번호는 선택할 수 없습니다"}), 400
+
+        # 다음 회차 계산 (현재 최대 회차 + 1)
+        latest_draw = Draw.query.order_by(Draw.round.desc()).first()
+        purchase_round = (latest_draw.round + 1) if latest_draw else 1
+
+        # 구매 기록 저장
+        purchase = Purchase(
+            purchase_round=purchase_round,
+            numbers=",".join(map(str, sorted(number_list))),
+            purchase_method=method
+        )
+
+        db.session.add(purchase)
+        db.session.commit()
+
+        return jsonify({
+            "success": True,
+            "message": f"{purchase_round}회 구매가 기록되었습니다",
+            "purchase_id": purchase.id,
+            "purchase_round": purchase_round,
+            "numbers": number_list
+        })
+
+    except Exception as e:
+        db.session.rollback()
+        return jsonify({"error": str(e)}), 400
+
+
+@main_bp.get("/purchases")
+def purchase_history():
+    """구매 이력 페이지"""
+    page = int(request.args.get('page', '1'))
+    per_page = 20
+
+    purchases = Purchase.query.order_by(Purchase.purchase_date.desc()).paginate(
+        page=page, per_page=per_page, error_out=False
+    )
+
+    stats = get_purchase_statistics()
+
+    return render_template(
+        "purchases.html",
+        title="구매 이력",
+        purchases=purchases,
+        stats=stats
+    )
+
+
+@main_bp.post("/check-results")
+def check_results():
+    """당첨 결과 확인"""
+    try:
+        results = check_all_pending_results()
+        return jsonify({
+            "success": True,
+            "message": f"{results['total_updated']}건의 결과가 업데이트되었습니다",
+            "total_updated": results['total_updated'],
+            "updated_rounds": results['updated_rounds']
+        })
+    except Exception as e:
+        return jsonify({"error": str(e)}), 400
+
+
+@main_bp.post("/check-round-result/<int:round_no>")
+def check_round_result(round_no: int):
+    """특정 회차 결과 확인"""
+    try:
+        updated = update_purchase_results(round_no)
+        if updated == 0:
+            return jsonify({
+                "success": False,
+                "message": f"{round_no}회 당첨번호가 없거나 확인할 구매 기록이 없습니다"
+            })
+
+        return jsonify({
+            "success": True,
+            "message": f"{round_no}회 {updated}건의 결과가 업데이트되었습니다",
+            "updated_count": updated
+        })
+    except Exception as e:
+        return jsonify({"error": str(e)}), 400
+
+
+@main_bp.get("/api/purchase-stats")
+def api_purchase_stats():
+    """구매 통계 API"""
+    return jsonify(get_purchase_statistics())
+
+
+@main_bp.get("/api/check-new-draw")
+def api_check_new_draw():
+    """새로운 추첨 회차가 있는지 확인"""
+    try:
+        # 현재 DB의 최신 회차
+        latest_draw = Draw.query.order_by(Draw.round.desc()).first()
+        current_round = latest_draw.round if latest_draw else 0
+
+        # 공식 사이트의 최신 회차
+        latest_available = get_latest_round()
+
+        if not latest_available:
+            return jsonify({
+                "has_new_draw": False,
+                "message": "최신 회차 정보를 가져올 수 없습니다"
+            })
+
+        has_new = latest_available > current_round
+
+        return jsonify({
+            "has_new_draw": has_new,
+            "current_round": current_round,
+            "latest_round": latest_available,
+            "message": f"새로운 회차가 {'있습니다' if has_new else '없습니다'}"
+        })
+
+    except Exception as e:
+        return jsonify({
+            "has_new_draw": False,
+            "error": str(e)
+        }), 400
+
+
+@main_bp.post("/api/update-new-draw")
+def api_update_new_draw():
+    """새로운 회차 데이터 업데이트"""
+    try:
+        data = request.get_json()
+        round_no = data.get("round")
+
+        if not round_no:
+            return jsonify({"success": False, "message": "회차 번호가 필요합니다"}), 400
+
+        # 해당 회차가 이미 있는지 확인
+        existing = Draw.query.filter_by(round=round_no).first()
+        if existing:
+            return jsonify({
+                "success": False,
+                "message": f"{round_no}회 데이터가 이미 존재합니다"
+            })
+
+        # 데이터 업데이트 수행
+        result = svc_perform_update(round_no, 'both')
+
+        if result["status"] in ["updated", "partial"]:
+            return jsonify({
+                "success": True,
+                "message": f"{round_no}회 데이터 업데이트 완료",
+                "result": result
+            })
+        else:
+            return jsonify({
+                "success": False,
+                "message": f"{round_no}회 데이터 업데이트 실패"
+            })
+
+    except Exception as e:
+        return jsonify({
+            "success": False,
+            "message": str(e)
+        }), 400

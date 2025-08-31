@@ -64,6 +64,7 @@
         <li><a href="{{ url_for('main.index') }}" class="nav-link">대시보드</a></li>
         <li><a href="{{ url_for('main.info_page') }}" class="nav-link">정보조회</a></li>
         <li><a href="{{ url_for('main.strategy') }}" class="nav-link">전략분석</a></li>
+        <li><a href="{{ url_for('main.purchase_history') }}" class="nav-link">구매이력</a></li>
         <li><a href="{{ url_for('main.crawling_page') }}" class="nav-link">크롤링</a></li>
       </ul>
     </div>
@@ -84,6 +85,7 @@
             (currentPath === '/' && link.getAttribute('href') === '{{ url_for("main.index") }}') ||
             (currentPath.includes('/info') && link.textContent.includes('정보조회')) ||
             (currentPath.includes('/strategy') && link.textContent.includes('전략분석')) ||
+            (currentPath.includes('/purchases') && link.textContent.includes('구매이력')) ||
             (currentPath.includes('/crawling') && link.textContent.includes('크롤링'))) {
           link.classList.add('active');
         }

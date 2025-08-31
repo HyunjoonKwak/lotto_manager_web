@@ -1,0 +1,229 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="container mt-4">
+    <h2>{{ title }}</h2>
+
+    <!-- 통계 카드 -->
+    <div class="row mb-4">
+        <div class="col-md-3">
+            <div class="card bg-primary text-white">
+                <div class="card-body">
+                    <h5 class="card-title">총 구매</h5>
+                    <h3>{{ stats.total_purchases }}건</h3>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="card bg-warning text-dark">
+                <div class="card-body">
+                    <h5 class="card-title">결과 대기</h5>
+                    <h3>{{ stats.unchecked_purchases }}건</h3>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="card bg-success text-white">
+                <div class="card-body">
+                    <h5 class="card-title">당첨</h5>
+                    <h3>{{ stats.winning_stats.rank_1 + stats.winning_stats.rank_2 + stats.winning_stats.rank_3 + stats.winning_stats.rank_4 + stats.winning_stats.rank_5 }}건</h3>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="card bg-info text-white">
+                <div class="card-body">
+                    <h5 class="card-title">총 당첨금</h5>
+                    <h3>{{ "{:,}".format(stats.total_prize) }}원</h3>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- 당첨 등수별 통계 -->
+    <div class="row mb-4">
+        <div class="col-12">
+            <div class="card">
+                <div class="card-header">
+                    <h5>등수별 당첨 현황</h5>
+                </div>
+                <div class="card-body">
+                    <div class="row">
+                        <div class="col-md-2">
+                            <strong>1등:</strong> {{ stats.winning_stats.rank_1 }}건
+                        </div>
+                        <div class="col-md-2">
+                            <strong>2등:</strong> {{ stats.winning_stats.rank_2 }}건
+                        </div>
+                        <div class="col-md-2">
+                            <strong>3등:</strong> {{ stats.winning_stats.rank_3 }}건
+                        </div>
+                        <div class="col-md-2">
+                            <strong>4등:</strong> {{ stats.winning_stats.rank_4 }}건
+                        </div>
+                        <div class="col-md-2">
+                            <strong>5등:</strong> {{ stats.winning_stats.rank_5 }}건
+                        </div>
+                        <div class="col-md-2">
+                            <strong>낙첨:</strong> {{ stats.losing_count }}건
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- 결과 확인 버튼 -->
+    <div class="row mb-3">
+        <div class="col-12">
+            <button id="checkAllResults" class="btn btn-success">
+                <i class="bi bi-check-circle"></i> 모든 결과 확인
+            </button>
+            <span id="checkResultsStatus" class="ms-2"></span>
+        </div>
+    </div>
+
+    <!-- 구매 이력 테이블 -->
+    <div class="table-responsive">
+        <table class="table table-striped">
+            <thead class="table-dark">
+                <tr>
+                    <th>구매일</th>
+                    <th>회차</th>
+                    <th>번호</th>
+                    <th>구매방법</th>
+                    <th>결과</th>
+                    <th>맞춘개수</th>
+                    <th>보너스</th>
+                    <th>당첨금</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for purchase in purchases.items %}
+                <tr>
+                    <td>{{ purchase.purchase_date.strftime('%Y-%m-%d %H:%M') }}</td>
+                    <td>{{ purchase.purchase_round }}회</td>
+                    <td>
+                        <span class="badge bg-light text-dark">
+                            {{ purchase.numbers }}
+                        </span>
+                    </td>
+                    <td>{{ purchase.purchase_method }}</td>
+                    <td>
+                        {% if not purchase.result_checked %}
+                            <span class="badge bg-warning">결과 대기</span>
+                        {% elif purchase.winning_rank %}
+                            <span class="badge bg-success">{{ purchase.winning_rank }}등</span>
+                        {% else %}
+                            <span class="badge bg-secondary">낙첨</span>
+                        {% endif %}
+                    </td>
+                    <td>
+                        {% if purchase.result_checked %}
+                            {{ purchase.matched_count }}개
+                        {% else %}
+                            -
+                        {% endif %}
+                    </td>
+                    <td>
+                        {% if purchase.result_checked %}
+                            {% if purchase.bonus_matched %}
+                                <span class="badge bg-warning">일치</span>
+                            {% else %}
+                                <span class="badge bg-light text-dark">불일치</span>
+                            {% endif %}
+                        {% else %}
+                            -
+                        {% endif %}
+                    </td>
+                    <td>
+                        {% if purchase.prize_amount %}
+                            <strong>{{ "{:,}".format(purchase.prize_amount) }}원</strong>
+                        {% else %}
+                            -
+                        {% endif %}
+                    </td>
+                </tr>
+                {% else %}
+                <tr>
+                    <td colspan="8" class="text-center">구매 기록이 없습니다.</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+
+    <!-- 페이지네이션 -->
+    {% if purchases.pages > 1 %}
+    <nav>
+        <ul class="pagination justify-content-center">
+            {% if purchases.has_prev %}
+            <li class="page-item">
+                <a class="page-link" href="{{ url_for('main.purchase_history', page=purchases.prev_num) }}">이전</a>
+            </li>
+            {% endif %}
+
+            {% for page_num in purchases.iter_pages() %}
+                {% if page_num %}
+                    {% if page_num != purchases.page %}
+                    <li class="page-item">
+                        <a class="page-link" href="{{ url_for('main.purchase_history', page=page_num) }}">{{ page_num }}</a>
+                    </li>
+                    {% else %}
+                    <li class="page-item active">
+                        <span class="page-link">{{ page_num }}</span>
+                    </li>
+                    {% endif %}
+                {% else %}
+                <li class="page-item disabled">
+                    <span class="page-link">...</span>
+                </li>
+                {% endif %}
+            {% endfor %}
+
+            {% if purchases.has_next %}
+            <li class="page-item">
+                <a class="page-link" href="{{ url_for('main.purchase_history', page=purchases.next_num) }}">다음</a>
+            </li>
+            {% endif %}
+        </ul>
+    </nav>
+    {% endif %}
+</div>
+
+<script>
+document.getElementById('checkAllResults').addEventListener('click', function() {
+    const button = this;
+    const status = document.getElementById('checkResultsStatus');
+
+    button.disabled = true;
+    button.innerHTML = '<span class="spinner-border spinner-border-sm" role="status"></span> 확인 중...';
+    status.innerHTML = '';
+
+    fetch('/check-results', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/x-www-form-urlencoded',
+        }
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            status.innerHTML = `<span class="text-success">${data.message}</span>`;
+            if (data.total_updated > 0) {
+                setTimeout(() => location.reload(), 1000);
+            }
+        } else {
+            status.innerHTML = `<span class="text-danger">오류: ${data.message}</span>`;
+        }
+    })
+    .catch(error => {
+        status.innerHTML = `<span class="text-danger">오류가 발생했습니다: ${error}</span>`;
+    })
+    .finally(() => {
+        button.disabled = false;
+        button.innerHTML = '<i class="bi bi-check-circle"></i> 모든 결과 확인';
+    });
+});
+</script>
+{% endblock %}

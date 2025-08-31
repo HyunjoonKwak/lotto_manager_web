@@ -9,7 +9,7 @@ if str(PROJECT_ROOT) not in sys.path:
 
 from app import create_app
 from app.extensions import db
-from app.models import Example
+from app.models import Example, Draw, WinningShop, Purchase
 
 
 def main() -> None:
@@ -21,7 +21,14 @@ def main() -> None:
         if not Example.query.first():
             db.session.add(Example(name="hello"))
             db.session.commit()
+
+        # 테이블 생성 확인
+        from sqlalchemy import inspect
+        inspector = inspect(db.engine)
+        tables_created = inspector.get_table_names()
+
         print(f"Database initialized at: {app.config['SQLALCHEMY_DATABASE_URI']}")
+        print(f"Tables created: {', '.join(tables_created)}")
 
 
 if __name__ == "__main__":

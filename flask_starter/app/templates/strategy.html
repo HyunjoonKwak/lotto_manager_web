@@ -28,6 +28,7 @@
             <th>세트</th>
             <th>추천번호</th>
             <th>선택 이유</th>
+            <th>구매</th>
           </tr>
         </thead>
         <tbody>
@@ -45,6 +46,13 @@
                   {{ reason }}{% if not loop.last %}; {% endif %}
                 {% endfor %}
               {% endif %}
+            </td>
+            <td>
+              <button class="btn btn-primary btn-sm purchase-btn"
+                      data-numbers="{{ rec | join(',') }}"
+                      data-method="AI추천">
+                구매 기록
+              </button>
             </td>
           </tr>
           {% endfor %}
@@ -338,6 +346,52 @@ document.addEventListener('DOMContentLoaded', function() {
     window.scrollTo(0, parseInt(savedPos));
     sessionStorage.removeItem('scrollPosition');
   }
+
+  // 구매 버튼 이벤트 리스너 추가
+  document.querySelectorAll('.purchase-btn').forEach(button => {
+    button.addEventListener('click', function() {
+      const numbers = this.getAttribute('data-numbers');
+      const method = this.getAttribute('data-method');
+
+      if (confirm(`${numbers} 번호를 구매 기록하시겠습니까?`)) {
+        purchaseLottery(numbers, method, this);
+      }
+    });
+  });
 });
+
+// 구매 기록 함수
+function purchaseLottery(numbers, method, button) {
+  const originalText = button.innerHTML;
+  button.disabled = true;
+  button.innerHTML = '<span class="spinner-border spinner-border-sm" role="status"></span> 기록중...';
+
+  const formData = new FormData();
+  formData.append('numbers', numbers);
+  formData.append('method', method);
+
+  fetch('/purchase', {
+    method: 'POST',
+    body: formData
+  })
+  .then(response => response.json())
+  .then(data => {
+    if (data.success) {
+      alert(`구매 기록 완료!\n${data.purchase_round}회 - ${numbers}`);
+      button.innerHTML = '✓ 기록됨';
+      button.classList.remove('btn-primary');
+      button.classList.add('btn-success');
+    } else {
+      alert(`오류: ${data.error}`);
+      button.disabled = false;
+      button.innerHTML = originalText;
+    }
+  })
+  .catch(error => {
+    alert(`오류가 발생했습니다: ${error}`);
+    button.disabled = false;
+    button.innerHTML = originalText;
+  });
+}
 </script>
 {% endblock %}

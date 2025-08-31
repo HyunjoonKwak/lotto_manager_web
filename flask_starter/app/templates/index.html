@@ -9,7 +9,12 @@
   <section class="card highlight-card">
     <div class="card-header">
       <h2>🎯 {{ latest.round }}회 최신 추첨결과</h2>
-      <span class="draw-date">{{ latest.draw_date if latest.draw_date else '' }}</span>
+      <div class="header-actions">
+        <span class="draw-date">{{ latest.draw_date if latest.draw_date else '' }}</span>
+        <button id="checkNewDrawBtn" class="btn-update" onclick="checkForNewDraw()">
+          새 회차 확인
+        </button>
+      </div>
     </div>
     <div class="draw-result">
       <div class="numbers">
@@ -71,5 +76,108 @@
   {% endif %}
 
 </div> <!-- End main-content -->
+
+<style>
+.header-actions {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+}
+
+.btn-update {
+  background: linear-gradient(135deg, #28a745, #20c997);
+  color: white;
+  border: none;
+  padding: 0.5rem 1rem;
+  border-radius: 0.5rem;
+  font-size: 0.9rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  white-space: nowrap;
+}
+
+.btn-update:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 4px 15px rgba(40, 167, 69, 0.3);
+}
+
+.btn-update:disabled {
+  background: #6c757d;
+  cursor: not-allowed;
+  transform: none;
+  box-shadow: none;
+}
+
+@media (max-width: 768px) {
+  .header-actions {
+    flex-direction: column;
+    gap: 0.5rem;
+    align-items: flex-start;
+  }
+
+  .draw-date {
+    order: 2;
+  }
+
+  .btn-update {
+    order: 1;
+    align-self: flex-end;
+  }
+}
+</style>
+
+<script>
+async function checkForNewDraw() {
+  const button = document.getElementById('checkNewDrawBtn');
+  const originalText = button.innerHTML;
+
+  button.disabled = true;
+  button.innerHTML = '<span class="spinner">⏳</span> 확인중...';
+
+  try {
+    // 새로운 회차가 있는지 확인
+    const response = await fetch('/api/check-new-draw');
+    const data = await response.json();
+
+    if (data.has_new_draw) {
+      const confirmed = confirm(`새로운 ${data.latest_round}회 추첨 결과가 있습니다. 업데이트하시겠습니까?`);
+
+      if (confirmed) {
+        button.innerHTML = '<span class="spinner">⏳</span> 업데이트중...';
+
+        // 최신 회차 데이터 업데이트
+        const updateResponse = await fetch('/api/update-new-draw', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json'
+          },
+          body: JSON.stringify({
+            round: data.latest_round
+          })
+        });
+
+        const updateData = await updateResponse.json();
+
+        if (updateData.success) {
+          alert(`${data.latest_round}회 추첨 결과가 업데이트되었습니다!`);
+          // 페이지 새로고침
+          window.location.reload();
+        } else {
+          alert(`업데이트 실패: ${updateData.message}`);
+        }
+      }
+    } else {
+      alert('새로운 추첨 결과가 없습니다.');
+    }
+  } catch (error) {
+    console.error('Error checking for new draw:', error);
+    alert('확인 중 오류가 발생했습니다.');
+  } finally {
+    button.disabled = false;
+    button.innerHTML = originalText;
+  }
+}
+</script>
 
 {% endblock %}
