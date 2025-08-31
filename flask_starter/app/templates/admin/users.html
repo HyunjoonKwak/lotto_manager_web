@@ -1,0 +1,625 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="admin-container">
+  <div class="admin-header">
+    <h1>👥 회원 관리</h1>
+    <p>시스템 사용자 관리 및 권한 설정</p>
+  </div>
+
+  <div class="admin-toolbar">
+    <a href="{{ url_for('main.admin_dashboard') }}" class="admin-btn secondary">← 대시보드</a>
+
+    <form method="GET" class="search-form">
+      <input type="text" name="search" value="{{ search }}"
+             placeholder="사용자명 또는 이메일로 검색...">
+      <button type="submit">🔍 검색</button>
+    </form>
+  </div>
+
+  <div class="users-container">
+    {% if users.items %}
+    <div class="users-stats">
+      <span class="stats-info">총 {{ users.total }}명 중 {{ users.items|length }}명 표시</span>
+    </div>
+
+    <div class="users-table">
+      <table>
+        <thead>
+          <tr>
+            <th>사용자 정보</th>
+            <th>권한</th>
+            <th>상태</th>
+            <th>가입일</th>
+            <th>로그인 실패</th>
+            <th>관리</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for user in users.items %}
+          <tr id="user-{{ user.id }}">
+            <td>
+              <div class="user-info">
+                <div class="username">{{ user.username }}</div>
+                <div class="email">{{ user.email }}</div>
+              </div>
+            </td>
+            <td>
+              <span class="role-badge {{ 'admin' if user.is_admin else 'user' }}">
+                {{ '관리자' if user.is_admin else '일반사용자' }}
+              </span>
+            </td>
+            <td>
+              <span class="status-badge {{ 'active' if user.is_active else 'inactive' }}">
+                {{ '활성' if user.is_active else '비활성' }}
+              </span>
+              {% if user.is_account_locked() %}
+              <span class="lock-badge">🔒 잠김</span>
+              {% endif %}
+            </td>
+            <td>{{ user.created_at.strftime('%Y-%m-%d') }}</td>
+            <td>
+              {% if user.failed_login_attempts > 0 %}
+                <span class="fail-count">{{ user.failed_login_attempts }}회</span>
+              {% else %}
+                <span class="no-fail">0회</span>
+              {% endif %}
+            </td>
+            <td>
+              <div class="action-buttons">
+                {% if current_user.id != user.id %}
+                <button class="action-btn toggle-admin"
+                        data-user-id="{{ user.id }}"
+                        data-is-admin="{{ user.is_admin|lower }}">
+                  {{ '👤 일반화' if user.is_admin else '🔧 관리자' }}
+                </button>
+
+                <button class="action-btn toggle-active"
+                        data-user-id="{{ user.id }}"
+                        data-is-active="{{ user.is_active|lower }}">
+                  {{ '🚫 비활성' if user.is_active else '✅ 활성화' }}
+                </button>
+
+                <button class="action-btn reset-password"
+                        data-user-id="{{ user.id }}"
+                        data-username="{{ user.username }}">
+                  🔑 비밀번호
+                </button>
+
+                <button class="action-btn delete-user"
+                        data-user-id="{{ user.id }}"
+                        data-username="{{ user.username }}">
+                  🗑️ 삭제
+                </button>
+                {% else %}
+                <span class="self-indicator">본인</span>
+                {% endif %}
+              </div>
+            </td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+
+    <!-- Pagination -->
+    {% if users.pages > 1 %}
+    <div class="pagination">
+      {% if users.has_prev %}
+        <a href="{{ url_for('main.admin_users', page=users.prev_num, search=search) }}" class="page-btn">이전</a>
+      {% endif %}
+
+      {% for page in users.iter_pages() %}
+        {% if page %}
+          {% if page != users.page %}
+            <a href="{{ url_for('main.admin_users', page=page, search=search) }}" class="page-btn">{{ page }}</a>
+          {% else %}
+            <span class="page-btn active">{{ page }}</span>
+          {% endif %}
+        {% else %}
+          <span class="page-btn disabled">…</span>
+        {% endif %}
+      {% endfor %}
+
+      {% if users.has_next %}
+        <a href="{{ url_for('main.admin_users', page=users.next_num, search=search) }}" class="page-btn">다음</a>
+      {% endif %}
+    </div>
+    {% endif %}
+
+    {% else %}
+    <div class="no-users">
+      <p>조건에 맞는 사용자가 없습니다.</p>
+    </div>
+    {% endif %}
+  </div>
+</div>
+
+<!-- Modal for password reset -->
+<div id="passwordModal" class="modal">
+  <div class="modal-content">
+    <h3>🔑 비밀번호 재설정</h3>
+    <p id="passwordModalText"></p>
+    <div id="tempPasswordDisplay" style="display: none;">
+      <strong>임시 비밀번호:</strong>
+      <code id="tempPasswordValue" style="background: #f8f9fa; padding: 0.5rem; border-radius: 0.25rem;"></code>
+      <button onclick="copyPassword()" class="copy-btn">📋 복사</button>
+    </div>
+    <div class="modal-actions">
+      <button onclick="closeModal()" class="modal-btn secondary">취소</button>
+      <button onclick="confirmPasswordReset()" class="modal-btn primary">재설정</button>
+    </div>
+  </div>
+</div>
+
+<style>
+body {
+  background-color: #f8f9fa;
+  color: #212529;
+}
+
+.admin-container {
+  max-width: 1400px;
+  margin: 0 auto;
+  padding: 2rem;
+  background-color: #f8f9fa;
+}
+
+.admin-header {
+  text-align: center;
+  margin-bottom: 2rem;
+}
+
+.admin-header h1 {
+  color: #1a202c;
+  font-size: 2.2rem;
+  margin-bottom: 0.5rem;
+  font-weight: 700;
+}
+
+.admin-header p {
+  color: #4a5568;
+  font-size: 1rem;
+  font-weight: 500;
+}
+
+.admin-toolbar {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 2rem;
+  gap: 1rem;
+}
+
+.search-form {
+  display: flex;
+  gap: 0.5rem;
+}
+
+.search-form input {
+  padding: 0.75rem 1rem;
+  border: 1px solid #ddd;
+  border-radius: 0.5rem;
+  min-width: 300px;
+  font-size: 1rem;
+}
+
+.search-form button {
+  padding: 0.75rem 1.5rem;
+  background: #667eea;
+  color: white;
+  border: none;
+  border-radius: 0.5rem;
+  cursor: pointer;
+}
+
+.admin-btn {
+  padding: 0.75rem 1.5rem;
+  border-radius: 0.5rem;
+  text-decoration: none;
+  font-weight: 600;
+  transition: all 0.3s ease;
+}
+
+.admin-btn.secondary {
+  background: #e2e8f0;
+  color: #2d3748;
+  border: 1px solid #cbd5e0;
+}
+
+.users-container {
+  background: white;
+  border-radius: 1rem;
+  box-shadow: 0 4px 15px rgba(0,0,0,0.1);
+  overflow: hidden;
+}
+
+.users-stats {
+  padding: 1rem 2rem;
+  background: #f8f9fa;
+  border-bottom: 1px solid #e9ecef;
+}
+
+.stats-info {
+  color: #4a5568;
+  font-size: 0.9rem;
+  font-weight: 500;
+}
+
+.users-table {
+  overflow-x: auto;
+}
+
+.users-table table {
+  width: 100%;
+  border-collapse: collapse;
+}
+
+.users-table th,
+.users-table td {
+  padding: 1rem;
+  text-align: left;
+  border-bottom: 1px solid #e9ecef;
+}
+
+.users-table th {
+  background: #edf2f7;
+  font-weight: 600;
+  color: #2d3748;
+  font-size: 0.9rem;
+  border-bottom: 2px solid #cbd5e0;
+}
+
+.user-info .username {
+  font-weight: 600;
+  color: #1a202c;
+}
+
+.user-info .email {
+  font-size: 0.85rem;
+  color: #4a5568;
+}
+
+.role-badge, .status-badge {
+  padding: 0.25rem 0.75rem;
+  border-radius: 1rem;
+  font-size: 0.8rem;
+  font-weight: 500;
+}
+
+.role-badge.admin {
+  background: #dc2626;
+  color: white;
+  font-weight: 600;
+}
+
+.role-badge.user {
+  background: #2563eb;
+  color: white;
+  font-weight: 600;
+}
+
+.status-badge.active {
+  background: #d1fae5;
+  color: #065f46;
+  font-weight: 600;
+}
+
+.status-badge.inactive {
+  background: #fee2e2;
+  color: #991b1b;
+  font-weight: 600;
+}
+
+.lock-badge {
+  background: #fd7e14;
+  color: white;
+  padding: 0.2rem 0.5rem;
+  border-radius: 0.25rem;
+  font-size: 0.7rem;
+  margin-left: 0.5rem;
+}
+
+.fail-count {
+  color: #dc2626;
+  font-weight: 600;
+}
+
+.no-fail {
+  color: #059669;
+  font-weight: 500;
+}
+
+.action-buttons {
+  display: flex;
+  gap: 0.5rem;
+  flex-wrap: wrap;
+}
+
+.action-btn {
+  padding: 0.4rem 0.8rem;
+  border: none;
+  border-radius: 0.25rem;
+  font-size: 0.8rem;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.action-btn:hover {
+  transform: translateY(-1px);
+}
+
+.toggle-admin { background: #9b59b6; color: white; }
+.toggle-active { background: #27ae60; color: white; }
+.reset-password { background: #f39c12; color: white; }
+.delete-user { background: #e74c3c; color: white; }
+
+.self-indicator {
+  color: #4a5568;
+  font-style: italic;
+  font-weight: 500;
+}
+
+.pagination {
+  padding: 1.5rem 2rem;
+  display: flex;
+  justify-content: center;
+  gap: 0.5rem;
+}
+
+.page-btn {
+  padding: 0.5rem 1rem;
+  text-decoration: none;
+  border: 1px solid #dee2e6;
+  color: #495057;
+  border-radius: 0.25rem;
+  transition: all 0.2s ease;
+}
+
+.page-btn:hover:not(.disabled) {
+  background: #e9ecef;
+}
+
+.page-btn.active {
+  background: #667eea;
+  color: white;
+  border-color: #667eea;
+}
+
+.page-btn.disabled {
+  color: #6c757d;
+  cursor: not-allowed;
+}
+
+.no-users {
+  padding: 3rem;
+  text-align: center;
+  color: #4a5568;
+  font-weight: 500;
+}
+
+/* Modal Styles */
+.modal {
+  display: none;
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background: rgba(0,0,0,0.5);
+  z-index: 1000;
+}
+
+.modal-content {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  background: white;
+  padding: 2rem;
+  border-radius: 1rem;
+  max-width: 500px;
+  width: 90%;
+}
+
+.modal h3 {
+  margin-top: 0;
+  color: #2c3e50;
+}
+
+.modal-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 1rem;
+  margin-top: 2rem;
+}
+
+.modal-btn {
+  padding: 0.75rem 1.5rem;
+  border: none;
+  border-radius: 0.5rem;
+  cursor: pointer;
+  font-weight: 600;
+}
+
+.modal-btn.primary {
+  background: #667eea;
+  color: white;
+}
+
+.modal-btn.secondary {
+  background: #e9ecef;
+  color: #495057;
+}
+
+.copy-btn {
+  margin-left: 1rem;
+  padding: 0.25rem 0.75rem;
+  background: #28a745;
+  color: white;
+  border: none;
+  border-radius: 0.25rem;
+  cursor: pointer;
+  font-size: 0.8rem;
+}
+
+@media (max-width: 768px) {
+  .admin-toolbar {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .search-form input {
+    min-width: auto;
+  }
+
+  .action-buttons {
+    flex-direction: column;
+  }
+
+  .action-btn {
+    text-align: center;
+  }
+}
+</style>
+
+<script>
+let currentUserId = null;
+
+// Toggle admin role
+document.querySelectorAll('.toggle-admin').forEach(btn => {
+  btn.addEventListener('click', function() {
+    const userId = this.dataset.userId;
+    const isAdmin = this.dataset.isAdmin === 'true';
+    const action = isAdmin ? '일반사용자로' : '관리자로';
+
+    if (confirm(`정말 ${action} 변경하시겠습니까?`)) {
+      fetch(`/admin/users/${userId}/toggle-admin`, {
+        method: 'POST',
+        headers: {
+          'X-CSRFToken': '{{ csrf_token() }}',
+          'Content-Type': 'application/json'
+        }
+      })
+      .then(response => response.json())
+      .then(data => {
+        if (data.success) {
+          location.reload();
+        } else {
+          alert(data.message);
+        }
+      });
+    }
+  });
+});
+
+// Toggle active status
+document.querySelectorAll('.toggle-active').forEach(btn => {
+  btn.addEventListener('click', function() {
+    const userId = this.dataset.userId;
+    const isActive = this.dataset.isActive === 'true';
+    const action = isActive ? '비활성화' : '활성화';
+
+    if (confirm(`정말 ${action}하시겠습니까?`)) {
+      fetch(`/admin/users/${userId}/toggle-active`, {
+        method: 'POST',
+        headers: {
+          'X-CSRFToken': '{{ csrf_token() }}',
+          'Content-Type': 'application/json'
+        }
+      })
+      .then(response => response.json())
+      .then(data => {
+        if (data.success) {
+          location.reload();
+        } else {
+          alert(data.message);
+        }
+      });
+    }
+  });
+});
+
+// Reset password
+document.querySelectorAll('.reset-password').forEach(btn => {
+  btn.addEventListener('click', function() {
+    currentUserId = this.dataset.userId;
+    const username = this.dataset.username;
+
+    document.getElementById('passwordModalText').textContent =
+      `${username}님의 비밀번호를 재설정하시겠습니까? 임시 비밀번호가 생성됩니다.`;
+    document.getElementById('tempPasswordDisplay').style.display = 'none';
+    document.getElementById('passwordModal').style.display = 'block';
+  });
+});
+
+function confirmPasswordReset() {
+  if (!currentUserId) return;
+
+  fetch(`/admin/users/${currentUserId}/reset-password`, {
+    method: 'POST',
+    headers: {
+      'X-CSRFToken': '{{ csrf_token() }}',
+      'Content-Type': 'application/json'
+    }
+  })
+  .then(response => response.json())
+  .then(data => {
+    if (data.success) {
+      document.getElementById('tempPasswordValue').textContent = data.temp_password;
+      document.getElementById('tempPasswordDisplay').style.display = 'block';
+      document.getElementById('passwordModalText').textContent = data.message;
+    } else {
+      alert(data.message);
+      closeModal();
+    }
+  });
+}
+
+function copyPassword() {
+  const tempPassword = document.getElementById('tempPasswordValue').textContent;
+  navigator.clipboard.writeText(tempPassword).then(() => {
+    alert('임시 비밀번호가 클립보드에 복사되었습니다.');
+  });
+}
+
+function closeModal() {
+  document.getElementById('passwordModal').style.display = 'none';
+  currentUserId = null;
+}
+
+// Delete user
+document.querySelectorAll('.delete-user').forEach(btn => {
+  btn.addEventListener('click', function() {
+    const userId = this.dataset.userId;
+    const username = this.dataset.username;
+
+    if (confirm(`정말 ${username}님의 계정을 삭제하시겠습니까?\n\n이 작업은 되돌릴 수 없습니다.`)) {
+      fetch(`/admin/users/${userId}/delete`, {
+        method: 'POST',
+        headers: {
+          'X-CSRFToken': '{{ csrf_token() }}',
+          'Content-Type': 'application/json'
+        }
+      })
+      .then(response => response.json())
+      .then(data => {
+        if (data.success) {
+          document.getElementById(`user-${userId}`).remove();
+          alert(data.message);
+        } else {
+          alert(data.message);
+        }
+      });
+    }
+  });
+});
+
+// Close modal when clicking outside
+document.getElementById('passwordModal').addEventListener('click', function(e) {
+  if (e.target === this) {
+    closeModal();
+  }
+});
+</script>
+{% endblock %}

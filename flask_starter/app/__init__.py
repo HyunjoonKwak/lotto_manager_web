@@ -32,9 +32,19 @@ def create_app(config_class: Optional[Type] = None) -> Flask:
         pass
 
     # Init extensions
-    from .extensions import db
+    from .extensions import db, login_manager, csrf
 
     db.init_app(app)
+    login_manager.init_app(app)
+    csrf.init_app(app)
+    login_manager.login_view = 'main.login'
+    login_manager.login_message = '로그인이 필요합니다.'
+
+    # User loader for Flask-Login
+    @login_manager.user_loader
+    def load_user(user_id):
+        from .models import User
+        return User.query.get(int(user_id))
 
     # Register blueprints
     from .routes import main_bp

@@ -17,17 +17,24 @@ def get_or_create_session_id() -> str:
     return session['recommendation_session_id']
 
 
-def get_stored_recommendations() -> Optional[Tuple[List[List[int]], List[List[str]]]]:
-    """저장된 추천번호와 이유를 가져옴"""
-    session_id = get_or_create_session_id()
-
+def get_stored_recommendations(user_id: int = None) -> Optional[Tuple[List[List[int]], List[List[str]]]]:
+    """저장된 추천번호와 이유를 가져옴 (사용자별 또는 세션별)"""
     # 24시간 이내의 추천번호만 유효하다고 가정
     cutoff_time = datetime.utcnow() - timedelta(hours=24)
 
-    recommendation_set = RecommendationSet.query.filter(
-        RecommendationSet.session_id == session_id,
-        RecommendationSet.created_at > cutoff_time
-    ).order_by(RecommendationSet.created_at.desc()).first()
+    if user_id:
+        # 로그인한 사용자의 추천번호 조회
+        recommendation_set = RecommendationSet.query.filter(
+            RecommendationSet.user_id == user_id,
+            RecommendationSet.created_at > cutoff_time
+        ).order_by(RecommendationSet.created_at.desc()).first()
+    else:
+        # 세션 기반 추천번호 조회 (하위 호환성)
+        session_id = get_or_create_session_id()
+        recommendation_set = RecommendationSet.query.filter(
+            RecommendationSet.session_id == session_id,
+            RecommendationSet.created_at > cutoff_time
+        ).order_by(RecommendationSet.created_at.desc()).first()
 
     if recommendation_set:
         try:
@@ -42,29 +49,45 @@ def get_stored_recommendations() -> Optional[Tuple[List[List[int]], List[List[st
     return None
 
 
-def store_recommendations(numbers_sets: List[List[int]], reasons_sets: List[List[str]]):
-    """추천번호와 이유를 저장"""
-    session_id = get_or_create_session_id()
+def store_recommendations(numbers_sets: List[List[int]], reasons_sets: List[List[str]], user_id: int = None):
+    """추천번호와 이유를 저장 (사용자별 또는 세션별)"""
 
-    # 기존 추천번호 삭제 (세션별로 하나만 유지)
-    old_recommendations = RecommendationSet.query.filter_by(session_id=session_id).all()
-    for old_rec in old_recommendations:
-        db.session.delete(old_rec)
+    if user_id:
+        # 로그인한 사용자의 기존 추천번호 삭제
+        old_recommendations = RecommendationSet.query.filter_by(user_id=user_id).all()
+        for old_rec in old_recommendations:
+            db.session.delete(old_rec)
 
-    # 새 추천번호 저장
-    new_recommendation = RecommendationSet(
-        session_id=session_id,
-        numbers_set=json.dumps(numbers_sets),
-        reasons_set=json.dumps(reasons_sets)
-    )
+        # 새 추천번호 저장 (사용자별)
+        new_recommendation = RecommendationSet(
+            user_id=user_id,
+            session_id=get_or_create_session_id(),  # 하위 호환성
+            numbers_set=json.dumps(numbers_sets),
+            reasons_set=json.dumps(reasons_sets)
+        )
+    else:
+        # 세션 기반 저장 (하위 호환성)
+        session_id = get_or_create_session_id()
+
+        # 기존 추천번호 삭제 (세션별로 하나만 유지)
+        old_recommendations = RecommendationSet.query.filter_by(session_id=session_id).all()
+        for old_rec in old_recommendations:
+            db.session.delete(old_rec)
+
+        # 새 추천번호 저장
+        new_recommendation = RecommendationSet(
+            session_id=session_id,
+            numbers_set=json.dumps(numbers_sets),
+            reasons_set=json.dumps(reasons_sets)
+        )
 
     db.session.add(new_recommendation)
     db.session.commit()
 
 
-def get_persistent_recommendations(draws: List) -> Tuple[List[List[int]], List[List[str]]]:
+def get_persistent_recommendations(draws: List, user_id: int = None) -> Tuple[List[List[int]], List[List[str]]]:
     """지속적인 추천번호를 가져오거나 새로 생성"""
-    stored_data = get_stored_recommendations()
+    stored_data = get_stored_recommendations(user_id)
 
     if stored_data is not None:
         # 저장된 추천번호가 있으면 반환
@@ -80,12 +103,12 @@ def get_persistent_recommendations(draws: List) -> Tuple[List[List[int]], List[L
         recommendation_reasons.append(get_recommendation_reasons(rec, limit=None))
 
     # 새로 생성한 추천번호 저장
-    store_recommendations(auto_recs, recommendation_reasons)
+    store_recommendations(auto_recs, recommendation_reasons, user_id)
 
     return auto_recs, recommendation_reasons
 
 
-def refresh_recommendations(draws: List) -> Tuple[List[List[int]], List[List[str]]]:
+def refresh_recommendations(draws: List, user_id: int = None) -> Tuple[List[List[int]], List[List[str]]]:
     """강제로 새로운 추천번호 생성"""
     history = [d.numbers_list() for d in draws]
     auto_recs = auto_recommend(history, count=5)
@@ -95,7 +118,7 @@ def refresh_recommendations(draws: List) -> Tuple[List[List[int]], List[List[str
     for rec in auto_recs:
         recommendation_reasons.append(get_recommendation_reasons(rec, limit=None))
 
-    store_recommendations(auto_recs, recommendation_reasons)
+    store_recommendations(auto_recs, recommendation_reasons, user_id)
     return auto_recs, recommendation_reasons
 
 

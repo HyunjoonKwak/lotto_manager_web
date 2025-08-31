@@ -4,7 +4,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project Overview
 
-This is a Flask starter template for Korean lottery (로또) analysis applications. It provides a foundation for building lottery data scraping, analysis, and recommendation services with a web interface.
+This is a Flask starter template for Korean lottery (로또) analysis applications. It provides a foundation for building lottery data scraping, analysis, and recommendation services with user authentication and a web interface.
 
 ## Common Development Commands
 
@@ -43,8 +43,11 @@ python scripts/migrate.py       # Database migrations
 - **Service Layer**: Business logic separated into `app/services/` modules
 
 ### Core Models
+- `User`: User authentication with Flask-Login integration
 - `Draw`: Lottery round results with numbers (comma-separated), bonus, and draw date
 - `WinningShop`: Shop information where winning tickets were sold (ranks 1-2)
+- `Purchase`: User lottery purchases with winning result tracking
+- `RecommendationSet`: Persistent user recommendation storage
 - `Example`: Sample model for testing database functionality
 
 ### Services Architecture
@@ -52,12 +55,16 @@ python scripts/migrate.py       # Database migrations
 - `updater.py`: Orchestrates data updates with background processing and progress tracking
 - `recommender.py`: Number recommendation algorithms (auto and semi-auto modes)
 - `analyzer.py`: Statistical analysis for frequency, combinations, and recommendation reasons
+- `lottery_checker.py`: Purchase result checking and statistics
+- `recommendation_manager.py`: Persistent recommendation management
 
 ### Key Features
+- **User Authentication**: Flask-Login integration with password hashing
 - **Background Processing**: Threading-based crawling with progress tracking for web interface
 - **Retry Logic**: Robust HTTP request handling with configurable retries using `_with_retries()`
 - **SQLite with Instance Path**: Database stored in Flask instance folder at `instance/lotto.db`
 - **Multi-environment Config**: Development, NAS, and production configurations in `app/config.py`
+- **Port Conflict Resolution**: Automatic port conflict detection and resolution in `run.py`
 - **Pagination Support**: 2nd rank shop pagination handling in HTML scraping
 - **JSON API Endpoints**: RESTful APIs for draws, shops, recommendations, and crawling progress
 
@@ -77,3 +84,9 @@ The application includes a sophisticated background crawling system with real-ti
 - Thread-safe progress tracking with status, current/total rounds, elapsed time
 - Multiple operation types: single round, range update, missing rounds, full crawling
 - Web interface shows real-time progress via `/api/crawling-progress` endpoint
+
+### Authentication System
+- User registration and login with Flask-Login
+- Password hashing using Werkzeug security
+- User-specific purchase tracking and recommendation management
+- Session-based authentication with Korean language support

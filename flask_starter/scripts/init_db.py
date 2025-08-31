@@ -9,7 +9,7 @@ if str(PROJECT_ROOT) not in sys.path:
 
 from app import create_app
 from app.extensions import db
-from app.models import Example, Draw, WinningShop, Purchase, RecommendationSet
+from app.models import Example, Draw, WinningShop, Purchase, RecommendationSet, User
 
 
 def main() -> None:

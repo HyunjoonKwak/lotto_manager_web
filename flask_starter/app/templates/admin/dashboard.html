@@ -1,0 +1,263 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="admin-container">
+  <div class="admin-header">
+    <h1>🔧 관리자 대시보드</h1>
+    <p>시스템 관리 및 회원 관리</p>
+  </div>
+
+  <div class="admin-stats">
+    <div class="stat-card">
+      <div class="stat-icon">👥</div>
+      <div class="stat-info">
+        <div class="stat-number">{{ total_users }}</div>
+        <div class="stat-label">총 회원수</div>
+      </div>
+    </div>
+
+    <div class="stat-card">
+      <div class="stat-icon">✅</div>
+      <div class="stat-info">
+        <div class="stat-number">{{ active_users }}</div>
+        <div class="stat-label">활성 회원</div>
+      </div>
+    </div>
+
+    <div class="stat-card">
+      <div class="stat-icon">🔧</div>
+      <div class="stat-info">
+        <div class="stat-number">{{ admin_users }}</div>
+        <div class="stat-label">관리자</div>
+      </div>
+    </div>
+  </div>
+
+  <div class="admin-actions">
+    <a href="{{ url_for('main.admin_users') }}" class="admin-btn primary">👥 회원 관리</a>
+    <a href="{{ url_for('main.index') }}" class="admin-btn secondary">📊 메인으로</a>
+  </div>
+
+  {% if recent_users %}
+  <div class="recent-users">
+    <h3>📝 최근 가입 회원</h3>
+    <div class="users-table">
+      <table>
+        <thead>
+          <tr>
+            <th>사용자명</th>
+            <th>이메일</th>
+            <th>가입일</th>
+            <th>상태</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for user in recent_users %}
+          <tr>
+            <td>
+              {{ user.username }}
+              {% if user.is_admin %}<span class="admin-badge">관리자</span>{% endif %}
+            </td>
+            <td>{{ user.email }}</td>
+            <td>{{ user.created_at.strftime('%Y-%m-%d %H:%M') }}</td>
+            <td>
+              <span class="status-badge {{ 'active' if user.is_active else 'inactive' }}">
+                {{ '활성' if user.is_active else '비활성' }}
+              </span>
+            </td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+  {% endif %}
+</div>
+
+<style>
+body {
+  background-color: #f8f9fa;
+  color: #212529;
+}
+
+.admin-container {
+  max-width: 1200px;
+  margin: 0 auto;
+  padding: 2rem;
+  background-color: #f8f9fa;
+}
+
+.admin-header {
+  text-align: center;
+  margin-bottom: 3rem;
+}
+
+.admin-header h1 {
+  color: #1a202c;
+  font-size: 2.5rem;
+  margin-bottom: 0.5rem;
+  font-weight: 700;
+}
+
+.admin-header p {
+  color: #4a5568;
+  font-size: 1.1rem;
+  font-weight: 500;
+}
+
+.admin-stats {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+  gap: 2rem;
+  margin-bottom: 3rem;
+}
+
+.stat-card {
+  background: white;
+  border-radius: 1rem;
+  padding: 2rem;
+  box-shadow: 0 4px 15px rgba(0,0,0,0.1);
+  display: flex;
+  align-items: center;
+  gap: 1.5rem;
+}
+
+.stat-icon {
+  font-size: 3rem;
+  width: 80px;
+  height: 80px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  border-radius: 1rem;
+}
+
+.stat-number {
+  font-size: 2.5rem;
+  font-weight: bold;
+  color: #1a202c;
+}
+
+.stat-label {
+  color: #4a5568;
+  font-size: 1rem;
+  font-weight: 500;
+}
+
+.admin-actions {
+  display: flex;
+  justify-content: center;
+  gap: 1.5rem;
+  margin-bottom: 3rem;
+}
+
+.admin-btn {
+  padding: 1rem 2rem;
+  border-radius: 0.5rem;
+  text-decoration: none;
+  font-weight: 600;
+  font-size: 1.1rem;
+  transition: all 0.3s ease;
+}
+
+.admin-btn.primary {
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  color: white;
+}
+
+.admin-btn.secondary {
+  background: #e2e8f0;
+  color: #2d3748;
+  border: 1px solid #cbd5e0;
+}
+
+.admin-btn:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 5px 20px rgba(0,0,0,0.2);
+}
+
+.recent-users {
+  background: white;
+  border-radius: 1rem;
+  padding: 2rem;
+  box-shadow: 0 4px 15px rgba(0,0,0,0.1);
+}
+
+.recent-users h3 {
+  color: #1a202c;
+  margin-bottom: 1.5rem;
+  font-size: 1.5rem;
+  font-weight: 600;
+}
+
+.users-table table {
+  width: 100%;
+  border-collapse: collapse;
+}
+
+.users-table th,
+.users-table td {
+  padding: 1rem;
+  text-align: left;
+  border-bottom: 1px solid #ecf0f1;
+}
+
+.users-table th {
+  background: #edf2f7;
+  font-weight: 600;
+  color: #2d3748;
+  border-bottom: 2px solid #cbd5e0;
+}
+
+.admin-badge {
+  background: #dc2626;
+  color: white;
+  padding: 0.25rem 0.5rem;
+  border-radius: 0.25rem;
+  font-size: 0.75rem;
+  margin-left: 0.5rem;
+  font-weight: 600;
+}
+
+.status-badge {
+  padding: 0.25rem 0.75rem;
+  border-radius: 1rem;
+  font-size: 0.85rem;
+  font-weight: 500;
+}
+
+.status-badge.active {
+  background: #d1fae5;
+  color: #065f46;
+  font-weight: 600;
+}
+
+.status-badge.inactive {
+  background: #fee2e2;
+  color: #991b1b;
+  font-weight: 600;
+}
+
+@media (max-width: 768px) {
+  .admin-container {
+    padding: 1rem;
+  }
+
+  .admin-stats {
+    grid-template-columns: 1fr;
+  }
+
+  .admin-actions {
+    flex-direction: column;
+    align-items: center;
+  }
+
+  .admin-btn {
+    width: 100%;
+    max-width: 300px;
+    text-align: center;
+  }
+}
+</style>
+{% endblock %}

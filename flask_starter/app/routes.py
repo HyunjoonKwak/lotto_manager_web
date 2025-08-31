@@ -1,10 +1,14 @@
-from flask import Blueprint, render_template, request, jsonify, redirect, url_for, current_app
+from flask import Blueprint, render_template, request, jsonify, redirect, url_for, current_app, flash, abort
+from flask_login import login_user, logout_user, login_required, current_user
+from functools import wraps
 import threading
 import time
+import secrets
+from datetime import timedelta, datetime
 from typing import Optional, List
 
 from .extensions import db
-from .models import Draw, WinningShop, Purchase
+from .models import Draw, WinningShop, Purchase, User, PasswordResetToken, RecommendationSet
 from .services.lotto_fetcher import fetch_draw, fetch_winning_shops
 from .services.updater import (
     perform_update as svc_perform_update,
@@ -29,6 +33,18 @@ from .services.recommendation_manager import (
 
 
 main_bp = Blueprint("main", __name__)
+
+
+def admin_required(f):
+    """Decorator to require admin privileges"""
+    @wraps(f)
+    def decorated_function(*args, **kwargs):
+        if not current_user.is_authenticated:
+            return redirect(url_for('main.login'))
+        if not current_user.has_admin_role():
+            abort(403)  # Forbidden
+        return f(*args, **kwargs)
+    return decorated_function
 
 # Progress tracking storage
 crawling_progress = {
@@ -122,6 +138,7 @@ def _perform_update(round_no: int) -> None:
 
 
 @main_bp.post("/update/<int:round_no>")
+@login_required
 def update_round(round_no: int):
     try:
         res = svc_perform_update(round_no)
@@ -188,6 +205,7 @@ def _run_missing_update_background(app):
 
 
 @main_bp.post("/update")
+@login_required
 def update_round_from_form():
     try:
         round_no = int(request.form.get("round", "").strip())
@@ -205,6 +223,7 @@ def update_round_from_form():
 
 
 @main_bp.post("/update-range")
+@login_required
 def update_range_api():
     try:
         start_round = int(request.form.get("start", "").strip())
@@ -234,6 +253,7 @@ def update_range_api():
 
 
 @main_bp.post("/update-full")
+@login_required
 def update_full_api():
     """Complete re-crawling from round 1 to latest."""
     if crawling_progress["is_running"]:
@@ -259,6 +279,7 @@ def update_full_api():
 
 
 @main_bp.post("/update-missing")
+@login_required
 def update_missing_api():
     """Update only missing rounds."""
     if crawling_progress["is_running"]:
@@ -271,6 +292,7 @@ def update_missing_api():
 
 
 @main_bp.post("/update-latest")
+@login_required
 def update_latest_api():
     """Update to the latest available round."""
     if crawling_progress["is_running"]:
@@ -291,6 +313,7 @@ def update_latest_api():
 
 
 @main_bp.post("/update-all")
+@login_required
 def update_all_api():
     latest = get_latest_round()
     if not latest:
@@ -340,6 +363,7 @@ def api_shops(round_no: int):
 
 
 @main_bp.get("/strategy")
+@login_required
 def strategy():
     # Get recent draws for display
     draws = Draw.query.order_by(Draw.round.desc()).limit(10).all()
@@ -349,7 +373,7 @@ def strategy():
     all_draws = Draw.query.order_by(Draw.round.desc()).all()
 
     # Get persistent recommendations (or create new ones if none exist)
-    auto_recs, recommendation_reasons = get_persistent_recommendations(all_draws)
+    auto_recs, recommendation_reasons = get_persistent_recommendations(all_draws, current_user.id)
 
     # Frequency analysis based on all data (no limit = all data)
     most_frequent = get_most_frequent_numbers(10, limit=None)
@@ -358,13 +382,17 @@ def strategy():
 
     # Get user's manual numbers from Purchase table (last 10)
     manual_numbers = Purchase.query.filter(
+        Purchase.user_id == current_user.id,
         Purchase.purchase_method.in_(["수동입력", "AI추천"])
     ).order_by(Purchase.purchase_date.desc()).limit(10).all()
 
-    # Get all purchased numbers for duplicate check (next round)
+    # Get current user's purchased numbers for duplicate check (next round)
     latest_draw = Draw.query.order_by(Draw.round.desc()).first()
     next_round = latest_draw.round + 1 if latest_draw else 1
-    purchased_numbers = Purchase.query.filter_by(purchase_round=next_round).all()
+    purchased_numbers = Purchase.query.filter_by(
+        user_id=current_user.id,
+        purchase_round=next_round
+    ).all()
     purchased_numbers_list = [p.numbers for p in purchased_numbers]
 
     return render_template(
@@ -402,6 +430,7 @@ def draw_info():
 
 
 @main_bp.get("/info")
+@login_required
 def info_page():
     latest = Draw.query.order_by(Draw.round.desc()).first()
     draws = Draw.query.order_by(Draw.round.desc()).limit(10).all()
@@ -456,6 +485,7 @@ def info_page():
 
 
 @main_bp.get("/crawling")
+@login_required
 def crawling_page():
     latest = Draw.query.order_by(Draw.round.desc()).first()
     total_rounds = Draw.query.count()
@@ -491,6 +521,7 @@ def api_crawling_progress():
 
 
 @main_bp.get("/api/recommend")
+@login_required
 def api_recommend():
     draws = Draw.query.order_by(Draw.round.desc()).limit(50).all()
     history = [d.numbers_list() for d in draws]
@@ -504,6 +535,7 @@ def api_recommend():
 
 # 구매 기록 관련 라우트
 @main_bp.post("/purchase")
+@login_required
 def purchase_lottery():
     """로또 구매 기록"""
     try:
@@ -528,8 +560,9 @@ def purchase_lottery():
         # 정렬된 번호
         numbers_string = ",".join(map(str, sorted(number_list)))
 
-        # 중복 구매 체크
+        # 중복 구매 체크 (현재 사용자만)
         existing_purchase = Purchase.query.filter_by(
+            user_id=current_user.id,
             purchase_round=purchase_round,
             numbers=numbers_string
         ).first()
@@ -542,6 +575,7 @@ def purchase_lottery():
 
         # 구매 기록 저장
         purchase = Purchase(
+            user_id=current_user.id,
             purchase_round=purchase_round,
             numbers=numbers_string,
             purchase_method=method
@@ -564,16 +598,17 @@ def purchase_lottery():
 
 
 @main_bp.get("/purchases")
+@login_required
 def purchase_history():
     """구매 이력 페이지"""
     page = int(request.args.get('page', '1'))
     per_page = 20
 
-    purchases = Purchase.query.order_by(Purchase.purchase_date.desc()).paginate(
+    purchases = Purchase.query.filter_by(user_id=current_user.id).order_by(Purchase.purchase_date.desc()).paginate(
         page=page, per_page=per_page, error_out=False
     )
 
-    stats = get_purchase_statistics()
+    stats = get_purchase_statistics(current_user.id)
 
     return render_template(
         "purchases.html",
@@ -619,12 +654,14 @@ def check_round_result(round_no: int):
 
 
 @main_bp.get("/api/purchase-stats")
+@login_required
 def api_purchase_stats():
     """구매 통계 API"""
-    return jsonify(get_purchase_statistics())
+    return jsonify(get_purchase_statistics(current_user.id))
 
 
 @main_bp.get("/api/check-new-draw")
+@login_required
 def api_check_new_draw():
     """새로운 추첨 회차가 있는지 확인"""
     try:
@@ -658,6 +695,7 @@ def api_check_new_draw():
 
 
 @main_bp.post("/api/update-new-draw")
+@login_required
 def api_update_new_draw():
     """새로운 회차 데이터 업데이트"""
     try:
@@ -698,11 +736,12 @@ def api_update_new_draw():
 
 
 @main_bp.post("/api/refresh-recommendations")
+@login_required
 def refresh_recommendations_api():
     """AI 추천번호 새로 생성"""
     try:
         all_draws = Draw.query.order_by(Draw.round.desc()).all()
-        auto_recs, recommendation_reasons = refresh_recommendations(all_draws)
+        auto_recs, recommendation_reasons = refresh_recommendations(all_draws, current_user.id)
 
         return jsonify({
             "success": True,
@@ -719,6 +758,7 @@ def refresh_recommendations_api():
 
 
 @main_bp.post("/api/add-manual-numbers")
+@login_required
 def add_manual_numbers():
     """수동으로 번호 입력"""
     try:
@@ -782,8 +822,9 @@ def add_manual_numbers():
         sorted_numbers = sorted(numbers)
         numbers_string = ",".join(map(str, sorted_numbers))
 
-        # 중복 구매 체크
+        # 중복 구매 체크 (현재 사용자만)
         existing_purchase = Purchase.query.filter_by(
+            user_id=current_user.id,
             purchase_round=purchase_round,
             numbers=numbers_string
         ).first()
@@ -796,6 +837,7 @@ def add_manual_numbers():
 
         # Purchase 테이블에 저장
         purchase = Purchase(
+            user_id=current_user.id,
             purchase_round=purchase_round,
             numbers=numbers_string,
             purchase_method="수동입력"
@@ -819,11 +861,13 @@ def add_manual_numbers():
 
 
 @main_bp.post("/api/delete-manual-numbers/<int:purchase_id>")
+@login_required
 def delete_manual_numbers(purchase_id):
     """수동 입력 번호 삭제"""
     try:
         purchase = Purchase.query.filter(
             Purchase.id == purchase_id,
+            Purchase.user_id == current_user.id,
             Purchase.purchase_method.in_(["수동입력", "AI추천"])
         ).first()
 
@@ -849,10 +893,14 @@ def delete_manual_numbers(purchase_id):
 
 
 @main_bp.post("/api/delete-purchase/<int:purchase_id>")
+@login_required
 def delete_purchase(purchase_id):
     """구매 기록 삭제"""
     try:
-        purchase = Purchase.query.get(purchase_id)
+        purchase = Purchase.query.filter(
+            Purchase.id == purchase_id,
+            Purchase.user_id == current_user.id
+        ).first()
 
         if not purchase:
             return jsonify({
@@ -873,3 +921,456 @@ def delete_purchase(purchase_id):
             "success": False,
             "error": str(e)
         }), 400
+
+
+@main_bp.route("/login", methods=["GET", "POST"])
+def login():
+    """로그인 페이지"""
+    if current_user.is_authenticated:
+        return redirect(url_for('main.index'))
+
+    if request.method == "POST":
+        username = request.form.get('username')
+        password = request.form.get('password')
+
+        if not username or not password:
+            flash('사용자명과 비밀번호를 모두 입력해주세요.')
+            return redirect(url_for('main.login'))
+
+        user = User.query.filter_by(username=username).first()
+
+        if user:
+            # Check if account is locked
+            if user.is_account_locked():
+                flash('계정이 일시적으로 잠겨있습니다. 15분 후에 다시 시도해주세요.')
+                return redirect(url_for('main.login'))
+
+            if user.check_password(password) and user.is_active:
+                user.reset_failed_login()
+                db.session.commit()
+                login_user(user)
+                next_page = request.args.get('next')
+                return redirect(next_page) if next_page else redirect(url_for('main.index'))
+            else:
+                user.increment_failed_login()
+                db.session.commit()
+
+                remaining_attempts = 5 - user.failed_login_attempts
+                if remaining_attempts > 0:
+                    flash(f'사용자명 또는 비밀번호가 올바르지 않습니다. ({remaining_attempts}번 더 실패시 계정이 잠깁니다)')
+                else:
+                    flash('너무 많은 로그인 시도로 인해 계정이 15분간 잠겼습니다.')
+                return redirect(url_for('main.login'))
+        else:
+            # Even if user doesn't exist, add a small delay to prevent user enumeration
+            import time
+            time.sleep(0.5)
+            flash('사용자명 또는 비밀번호가 올바르지 않습니다.')
+            return redirect(url_for('main.login'))
+
+    return render_template('login.html')
+
+
+def validate_password_strength(password):
+    """비밀번호 강도 검증"""
+    import re
+
+    if len(password) < 8:
+        return False, '비밀번호는 최소 8자 이상이어야 합니다.'
+
+    if not re.search(r'[A-Z]', password):
+        return False, '비밀번호에 대문자가 포함되어야 합니다.'
+
+    if not re.search(r'[a-z]', password):
+        return False, '비밀번호에 소문자가 포함되어야 합니다.'
+
+    if not re.search(r'\d', password):
+        return False, '비밀번호에 숫자가 포함되어야 합니다.'
+
+    if not re.search(r'[!@#$%^&*()_+\-=\[\]{};:\'"\\|,.<>\/?]', password):
+        return False, '비밀번호에 특수문자가 포함되어야 합니다.'
+
+    return True, '강력한 비밀번호입니다.'
+
+
+@main_bp.route("/register", methods=["GET", "POST"])
+def register():
+    """회원가입 페이지"""
+    if current_user.is_authenticated:
+        return redirect(url_for('main.index'))
+
+    if request.method == "POST":
+        username = request.form.get('username')
+        email = request.form.get('email')
+        password = request.form.get('password')
+        password_confirm = request.form.get('password_confirm')
+
+        if not all([username, email, password, password_confirm]):
+            flash('모든 필드를 입력해주세요.')
+            return redirect(url_for('main.register'))
+
+        if password != password_confirm:
+            flash('비밀번호가 일치하지 않습니다.')
+            return redirect(url_for('main.register'))
+
+        # Enhanced password strength validation
+        is_strong, message = validate_password_strength(password)
+        if not is_strong:
+            flash(message)
+            return redirect(url_for('main.register'))
+
+        if User.query.filter_by(username=username).first():
+            flash('이미 존재하는 사용자명입니다.')
+            return redirect(url_for('main.register'))
+
+        if User.query.filter_by(email=email).first():
+            flash('이미 존재하는 이메일입니다.')
+            return redirect(url_for('main.register'))
+
+        user = User(username=username, email=email)
+        user.set_password(password)
+
+        try:
+            db.session.add(user)
+            db.session.commit()
+            flash('회원가입이 완료되었습니다. 로그인해주세요.')
+            return redirect(url_for('main.login'))
+        except Exception as e:
+            db.session.rollback()
+            flash('회원가입 중 오류가 발생했습니다.')
+            return redirect(url_for('main.register'))
+
+    return render_template('register.html')
+
+
+@main_bp.route("/logout")
+@login_required
+def logout():
+    """로그아웃"""
+    logout_user()
+    flash('로그아웃되었습니다.')
+    return redirect(url_for('main.login'))
+
+
+@main_bp.route("/api/check-username", methods=["POST"])
+def check_username():
+    """사용자명 중복 체크"""
+    username = request.form.get('username', '').strip()
+
+    if not username:
+        return jsonify({
+            'available': False,
+            'message': '사용자명을 입력해주세요.'
+        })
+
+    if len(username) < 3:
+        return jsonify({
+            'available': False,
+            'message': '사용자명은 최소 3자 이상이어야 합니다.'
+        })
+
+    if len(username) > 20:
+        return jsonify({
+            'available': False,
+            'message': '사용자명은 최대 20자까지 가능합니다.'
+        })
+
+    # 영문, 숫자, 언더스코어만 허용
+    import re
+    if not re.match(r'^[a-zA-Z0-9_]+$', username):
+        return jsonify({
+            'available': False,
+            'message': '사용자명은 영문, 숫자, 언더스코어(_)만 사용 가능합니다.'
+        })
+
+    # 중복 체크
+    existing_user = User.query.filter_by(username=username).first()
+    if existing_user:
+        return jsonify({
+            'available': False,
+            'message': '이미 사용중인 사용자명입니다.'
+        })
+
+    return jsonify({
+        'available': True,
+        'message': '사용 가능한 사용자명입니다.'
+    })
+
+
+@main_bp.route("/api/check-password-strength", methods=["POST"])
+def check_password_strength():
+    """비밀번호 강도 체크"""
+    password = request.form.get('password', '')
+
+    if not password:
+        return jsonify({
+            'strong': False,
+            'message': '비밀번호를 입력해주세요.',
+            'score': 0
+        })
+
+    is_strong, message = validate_password_strength(password)
+
+    # Calculate score based on criteria met
+    score = 0
+    if len(password) >= 8:
+        score += 20
+    if any(c.isupper() for c in password):
+        score += 20
+    if any(c.islower() for c in password):
+        score += 20
+    if any(c.isdigit() for c in password):
+        score += 20
+    if any(c in '!@#$%^&*()_+-=[]{};\'"\|,.<>/?' for c in password):
+        score += 20
+
+    return jsonify({
+        'strong': is_strong,
+        'message': message,
+        'score': score
+    })
+
+
+# ==================== ADMIN ROUTES ====================
+
+@main_bp.route("/admin")
+@admin_required
+def admin_dashboard():
+    """관리자 대시보드"""
+    # Get basic statistics
+    total_users = User.query.count()
+    active_users = User.query.filter_by(is_active=True).count()
+    admin_users = User.query.filter_by(is_admin=True).count()
+    recent_users = User.query.order_by(User.created_at.desc()).limit(5).all()
+
+    return render_template('admin/dashboard.html',
+                         title='관리자 대시보드',
+                         total_users=total_users,
+                         active_users=active_users,
+                         admin_users=admin_users,
+                         recent_users=recent_users)
+
+
+@main_bp.route("/admin/users")
+@admin_required
+def admin_users():
+    """회원 목록 관리"""
+    page = int(request.args.get('page', '1'))
+    per_page = 20
+    search = request.args.get('search', '').strip()
+
+    query = User.query
+    if search:
+        query = query.filter(
+            (User.username.contains(search)) |
+            (User.email.contains(search))
+        )
+
+    users = query.order_by(User.created_at.desc()).paginate(
+        page=page, per_page=per_page, error_out=False
+    )
+
+    return render_template('admin/users.html',
+                         title='회원 관리',
+                         users=users,
+                         search=search)
+
+
+@main_bp.route("/admin/users/<int:user_id>/toggle-admin", methods=["POST"])
+@admin_required
+def toggle_user_admin(user_id):
+    """사용자 관리자 권한 토글"""
+    if current_user.id == user_id:
+        return jsonify({'success': False, 'message': '자기 자신의 권한은 변경할 수 없습니다.'}), 400
+
+    user = User.query.get_or_404(user_id)
+    user.is_admin = not user.is_admin
+
+    try:
+        db.session.commit()
+        status = '관리자' if user.is_admin else '일반 사용자'
+        return jsonify({
+            'success': True,
+            'message': f'{user.username}님이 {status}로 변경되었습니다.',
+            'is_admin': user.is_admin
+        })
+    except Exception as e:
+        db.session.rollback()
+        return jsonify({'success': False, 'message': '권한 변경 중 오류가 발생했습니다.'}), 500
+
+
+@main_bp.route("/admin/users/<int:user_id>/toggle-active", methods=["POST"])
+@admin_required
+def toggle_user_active(user_id):
+    """사용자 활성 상태 토글"""
+    if current_user.id == user_id:
+        return jsonify({'success': False, 'message': '자기 자신의 계정은 비활성화할 수 없습니다.'}), 400
+
+    user = User.query.get_or_404(user_id)
+    user.is_active = not user.is_active
+
+    try:
+        db.session.commit()
+        status = '활성' if user.is_active else '비활성'
+        return jsonify({
+            'success': True,
+            'message': f'{user.username}님의 계정이 {status} 상태로 변경되었습니다.',
+            'is_active': user.is_active
+        })
+    except Exception as e:
+        db.session.rollback()
+        return jsonify({'success': False, 'message': '상태 변경 중 오류가 발생했습니다.'}), 500
+
+
+@main_bp.route("/admin/users/<int:user_id>/delete", methods=["POST"])
+@admin_required
+def delete_user(user_id):
+    """사용자 삭제"""
+    if current_user.id == user_id:
+        return jsonify({'success': False, 'message': '자기 자신의 계정은 삭제할 수 없습니다.'}), 400
+
+    user = User.query.get_or_404(user_id)
+    username = user.username
+
+    try:
+        # Delete related records first
+        Purchase.query.filter_by(user_id=user_id).delete()
+        RecommendationSet.query.filter_by(user_id=user_id).delete()
+        PasswordResetToken.query.filter_by(user_id=user_id).delete()
+
+        # Delete user
+        db.session.delete(user)
+        db.session.commit()
+
+        return jsonify({
+            'success': True,
+            'message': f'{username}님의 계정이 삭제되었습니다.'
+        })
+    except Exception as e:
+        db.session.rollback()
+        return jsonify({'success': False, 'message': '계정 삭제 중 오류가 발생했습니다.'}), 500
+
+
+@main_bp.route("/admin/users/<int:user_id>/reset-password", methods=["POST"])
+@admin_required
+def admin_reset_password(user_id):
+    """관리자가 사용자 비밀번호 재설정"""
+    user = User.query.get_or_404(user_id)
+
+    # Generate temporary password
+    temp_password = secrets.token_urlsafe(12)
+    user.set_password(temp_password)
+
+    try:
+        db.session.commit()
+        return jsonify({
+            'success': True,
+            'message': f'{user.username}님의 비밀번호가 재설정되었습니다.',
+            'temp_password': temp_password
+        })
+    except Exception as e:
+        db.session.rollback()
+        return jsonify({'success': False, 'message': '비밀번호 재설정 중 오류가 발생했습니다.'}), 500
+
+
+# ==================== PASSWORD RESET ROUTES ====================
+
+@main_bp.route("/forgot-password", methods=["GET", "POST"])
+def forgot_password():
+    """비밀번호 찾기"""
+    if current_user.is_authenticated:
+        return redirect(url_for('main.index'))
+
+    if request.method == "POST":
+        email = request.form.get('email', '').strip()
+
+        if not email:
+            flash('이메일 주소를 입력해주세요.')
+            return redirect(url_for('main.forgot_password'))
+
+        user = User.query.filter_by(email=email).first()
+
+        if user and user.is_active:
+            # Generate reset token
+            token = secrets.token_urlsafe(32)
+            expires_at = datetime.utcnow() + timedelta(hours=1)  # 1 hour expiry
+
+            # Remove old tokens for this user
+            PasswordResetToken.query.filter_by(user_id=user.id).delete()
+
+            # Create new token
+            reset_token = PasswordResetToken(
+                user_id=user.id,
+                token=token,
+                expires_at=expires_at
+            )
+
+            try:
+                db.session.add(reset_token)
+                db.session.commit()
+
+                # In a real application, you would send an email here
+                # For now, we'll show the reset link on screen
+                reset_url = url_for('main.reset_password', token=token, _external=True)
+                flash(f'비밀번호 재설정 링크: {reset_url}', 'info')
+
+            except Exception as e:
+                db.session.rollback()
+                flash('비밀번호 재설정 요청 중 오류가 발생했습니다.')
+        else:
+            # Don't reveal if email exists or not
+            flash('등록된 이메일이면 비밀번호 재설정 링크가 전송되었습니다.', 'success')
+
+        return redirect(url_for('main.login'))
+
+    return render_template('forgot_password.html')
+
+
+@main_bp.route("/reset-password/<token>", methods=["GET", "POST"])
+def reset_password(token):
+    """비밀번호 재설정"""
+    if current_user.is_authenticated:
+        return redirect(url_for('main.index'))
+
+    reset_token = PasswordResetToken.query.filter_by(token=token).first()
+
+    if not reset_token or not reset_token.is_valid():
+        flash('잘못되거나 만료된 비밀번호 재설정 링크입니다.')
+        return redirect(url_for('main.forgot_password'))
+
+    if request.method == "POST":
+        password = request.form.get('password', '')
+        password_confirm = request.form.get('password_confirm', '')
+
+        if not password or not password_confirm:
+            flash('모든 필드를 입력해주세요.')
+            return redirect(url_for('main.reset_password', token=token))
+
+        if password != password_confirm:
+            flash('비밀번호가 일치하지 않습니다.')
+            return redirect(url_for('main.reset_password', token=token))
+
+        # Validate password strength
+        is_strong, message = validate_password_strength(password)
+        if not is_strong:
+            flash(message)
+            return redirect(url_for('main.reset_password', token=token))
+
+        # Update password
+        user = reset_token.user
+        user.set_password(password)
+        user.reset_failed_login()  # Reset login attempts
+
+        # Mark token as used
+        reset_token.used = True
+
+        try:
+            db.session.commit()
+            flash('비밀번호가 성공적으로 재설정되었습니다. 새 비밀번호로 로그인해주세요.', 'success')
+            return redirect(url_for('main.login'))
+        except Exception as e:
+            db.session.rollback()
+            flash('비밀번호 재설정 중 오류가 발생했습니다.')
+            return redirect(url_for('main.reset_password', token=token))
+
+    return render_template('reset_password.html', token=token)

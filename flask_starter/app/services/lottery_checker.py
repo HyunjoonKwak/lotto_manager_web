@@ -84,28 +84,35 @@ def update_purchase_results(purchase_round: int) -> int:
     return updated_count
 
 
-def get_purchase_statistics() -> dict:
-    """구매 및 당첨 통계 조회"""
-    total_purchases = Purchase.query.count()
-    checked_purchases = Purchase.query.filter_by(result_checked=True).count()
+def get_purchase_statistics(user_id: int = None) -> dict:
+    """구매 및 당첨 통계 조회 (사용자별 필터링 가능)"""
+    base_query = Purchase.query
+    if user_id:
+        base_query = base_query.filter_by(user_id=user_id)
+
+    total_purchases = base_query.count()
+    checked_purchases = base_query.filter_by(result_checked=True).count()
     unchecked_purchases = total_purchases - checked_purchases
 
     # 등수별 당첨 통계
     winning_stats = {}
     for rank in range(1, 6):
-        count = Purchase.query.filter_by(winning_rank=rank).count()
+        count = base_query.filter_by(winning_rank=rank).count()
         winning_stats[f"rank_{rank}"] = count
 
     # 낙첨 수
-    losing_count = Purchase.query.filter(
+    losing_count = base_query.filter(
         Purchase.result_checked == True,
         Purchase.winning_rank.is_(None)
     ).count()
 
     # 총 당첨금
-    total_prize = db.session.query(db.func.sum(Purchase.prize_amount)).filter(
+    query = db.session.query(db.func.sum(Purchase.prize_amount)).filter(
         Purchase.prize_amount.isnot(None)
-    ).scalar() or 0
+    )
+    if user_id:
+        query = query.filter_by(user_id=user_id)
+    total_prize = query.scalar() or 0
 
     return {
         "total_purchases": total_purchases,
