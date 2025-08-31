@@ -122,14 +122,14 @@ FLASK_ENV=nas python run.py
 # 또는 전용 스크립트 사용
 python run_nas.py
 ```
-애플리케이션이 `http://0.0.0.0:80`에서 실행됩니다.
+애플리케이션이 `http://0.0.0.0:8080`에서 실행됩니다.
 
 ##### 프로덕션 환경
 ```bash
 # 프로덕션 모드로 실행
 FLASK_ENV=production python run.py
 ```
-애플리케이션이 `http://0.0.0.0:80`에서 실행됩니다.
+애플리케이션이 `http://0.0.0.0:8080`에서 실행됩니다.
 
 ## 프로젝트 구조
 
@@ -249,7 +249,7 @@ FLASK_ENV=development python run.py
 FLASK_ENV=nas python run.py
 # - DEBUG: True
 # - HOST: 0.0.0.0 (외부 접속 허용)
-# - PORT: 80
+# - PORT: 8080
 ```
 
 #### 프로덕션 환경
@@ -257,7 +257,7 @@ FLASK_ENV=nas python run.py
 FLASK_ENV=production python run.py
 # - DEBUG: False
 # - HOST: 0.0.0.0
-# - PORT: 80
+# - PORT: 8080
 # - SESSION_COOKIE_SECURE: True
 ```
 
@@ -357,32 +357,15 @@ python -m pytest --cov=app
 
 ## 🚨 문제 해결
 
-### EC2에서 포트 80 권한 문제 해결
-EC2에서 포트 80을 사용하려면 관리자 권한이 필요합니다.
+### EC2에서 실행
+EC2에서 포트 8080을 사용하므로 관리자 권한 없이도 실행 가능합니다.
 
-#### 방법 1: sudo 사용 (권장)
 ```bash
 # 백그라운드 실행
-sudo ./start.sh bg
+./start.sh bg
 
 # 직접 실행
-sudo ./start.sh nas
-```
-
-#### 방법 2: 대안 포트 사용
-스크립트가 자동으로 포트 8080을 제안합니다:
-```bash
 ./start.sh nas
-# → "대안 포트 8080을 사용하시겠습니까? (Y/n)"
-```
-
-#### 방법 3: 포트 포워딩 설정
-```bash
-# 포트 80을 8080으로 포워딩
-sudo iptables -t nat -A PREROUTING -p tcp --dport 80 -j REDIRECT --to-port 8080
-
-# 백그라운드에서 8080 포트로 실행
-./start.sh bg
 ```
 
 ### 포트 충돌 해결

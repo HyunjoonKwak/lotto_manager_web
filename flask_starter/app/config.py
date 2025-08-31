@@ -23,13 +23,13 @@ class DevelopmentConfig(Config):
 class NASConfig(Config):
     DEBUG = True
     HOST = "0.0.0.0"  # 외부 접속 허용
-    PORT = 80
+    PORT = 8080
 
 
 class ProductionConfig(Config):
     DEBUG = False
     HOST = "0.0.0.0"
-    PORT = 80
+    PORT = 8080
 
     # Production security settings
     SESSION_COOKIE_SECURE = True  # HTTPS only in production

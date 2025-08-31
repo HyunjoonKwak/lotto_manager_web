@@ -62,7 +62,7 @@ print_menu() {
     echo -e "${WHITE}│                    실행 모드 선택                          │${NC}"
     echo -e "${WHITE}├─────────────────────────────────────────────────────────────┤${NC}"
     echo -e "${WHITE}│  ${GREEN}1${NC} │ 로컬 개발 환경 (포트 5000)                    │${NC}"
-    echo -e "${WHITE}│  ${GREEN}2${NC} │ NAS 환경 (포트 80, 외부 접속 허용)           │${NC}"
+    echo -e "${WHITE}│  ${GREEN}2${NC} │ NAS 환경 (포트 8080, 외부 접속 허용)         │${NC}"
     echo -e "${WHITE}│  ${GREEN}3${NC} │ 개발 환경 (기본값)                          │${NC}"
     echo -e "${WHITE}│  ${GREEN}4${NC} │ 프로덕션 환경                               │${NC}"
     echo -e "${WHITE}│  ${BLUE}5${NC} │ 백그라운드 실행 (NAS 환경)                   │${NC}"
@@ -194,7 +194,7 @@ print_help() {
     echo ""
     echo -e "${YELLOW}옵션:${NC}"
     echo "  ${GREEN}local${NC}     - 로컬 개발 환경 (포트 5000)"
-    echo "  ${GREEN}nas${NC}       - NAS 환경 (포트 80, 외부 접속 허용)"
+    echo "  ${GREEN}nas${NC}       - NAS 환경 (포트 8080, 외부 접속 허용)"
     echo "  ${GREEN}dev${NC}       - 개발 환경 (기본값)"
     echo "  ${GREEN}prod${NC}      - 프로덕션 환경"
     echo "  ${GREEN}bg${NC}        - 백그라운드 실행 (NAS 환경)"
@@ -206,7 +206,7 @@ print_help() {
     echo ""
     echo -e "${YELLOW}예시:${NC}"
     echo "  $0 local    # 로컬 개발 서버 시작"
-    echo "  $0 nas      # NAS 서버 시작 (포트 80, 외부 접속 허용)"
+    echo "  $0 nas      # NAS 서버 시작 (포트 8080, 외부 접속 허용)"
     echo "  $0 bg       # 백그라운드에서 NAS 서버 시작"
     echo "  $0 status   # 서버 상태 확인"
     echo "  $0 stop     # 서버 중지"
@@ -284,29 +284,7 @@ init_database() {
     return 0
 }
 
-# 포트 80 권한 확인 및 대안 포트 설정
-check_port_80_permission() {
-    local port=80
-    local alternative_port=8080
 
-    # 포트 80 사용 가능 여부 확인
-    if ! sudo -n true 2>/dev/null; then
-        echo -e "${YELLOW}⚠ 포트 80 사용을 위해 관리자 권한이 필요합니다.${NC}"
-        echo -e "${YELLOW}대안 포트 $alternative_port를 사용하시겠습니까? (Y/n)${NC}"
-        read -r response
-        if [[ ! "$response" =~ ^([nN][oO]|[nN])$ ]]; then
-            echo -e "${BLUE}포트 $alternative_port를 사용합니다.${NC}"
-            export FLASK_PORT_OVERRIDE=$alternative_port
-            return 1
-        else
-            echo -e "${RED}포트 80 사용을 위해 sudo 권한으로 실행하세요:${NC}"
-            echo -e "${CYAN}sudo $0 $1${NC}"
-            return 0
-        fi
-    fi
-
-    return 1
-}
 
 # 백그라운드 서버 시작
 start_server_background() {
@@ -331,22 +309,9 @@ start_server_background() {
         return 1
     fi
 
-    # 포트 80 권한 확인
-    local port_override=""
-    if check_port_80_permission "$mode"; then
-        return 1
-    fi
-
-    if [[ -n "$FLASK_PORT_OVERRIDE" ]]; then
-        port_override=":$FLASK_PORT_OVERRIDE"
         echo -e "${GREEN}🚀 백그라운드에서 NAS 서버를 시작합니다...${NC}"
-        echo -e "${CYAN}접속 URL: http://0.0.0.0$port_override${NC}"
-        echo -e "${CYAN}외부 접속: http://[NAS_IP]$port_override${NC}"
-    else
-        echo -e "${GREEN}🚀 백그라운드에서 NAS 서버를 시작합니다...${NC}"
-        echo -e "${CYAN}접속 URL: http://0.0.0.0:80${NC}"
-        echo -e "${CYAN}외부 접속: http://[NAS_IP]:80${NC}"
-    fi
+    echo -e "${CYAN}접속 URL: http://0.0.0.0:8080${NC}"
+    echo -e "${CYAN}외부 접속: http://[NAS_IP]:8080${NC}"
 
     echo -e "${YELLOW}모드: $description${NC}"
     echo -e "${YELLOW}환경변수: FLASK_ENV=$env_var${NC}"
@@ -381,21 +346,9 @@ start_server() {
             env_var="nas"
             description="NAS 환경 (외부 접속 허용)"
 
-            # 포트 80 권한 확인
-            if check_port_80_permission "$mode"; then
-                return 1
-            fi
-
-            if [[ -n "$FLASK_PORT_OVERRIDE" ]]; then
-                local port_override=":$FLASK_PORT_OVERRIDE"
-                echo -e "${GREEN}🚀 NAS 서버를 시작합니다...${NC}"
-                echo -e "${CYAN}접속 URL: http://0.0.0.0$port_override${NC}"
-                echo -e "${CYAN}외부 접속: http://[NAS_IP]$port_override${NC}"
-            else
-                echo -e "${GREEN}🚀 NAS 서버를 시작합니다...${NC}"
-                echo -e "${CYAN}접속 URL: http://0.0.0.0:80${NC}"
-                echo -e "${CYAN}외부 접속: http://[NAS_IP]:80${NC}"
-            fi
+                        echo -e "${GREEN}🚀 NAS 서버를 시작합니다...${NC}"
+            echo -e "${CYAN}접속 URL: http://0.0.0.0:8080${NC}"
+            echo -e "${CYAN}외부 접속: http://[NAS_IP]:8080${NC}"
             ;;
         "dev")
             env_var="development"
@@ -407,19 +360,8 @@ start_server() {
             env_var="production"
             description="프로덕션 환경"
 
-            # 포트 80 권한 확인
-            if check_port_80_permission "$mode"; then
-                return 1
-            fi
-
-            if [[ -n "$FLASK_PORT_OVERRIDE" ]]; then
-                local port_override=":$FLASK_PORT_OVERRIDE"
-                echo -e "${GREEN}🚀 프로덕션 서버를 시작합니다...${NC}"
-                echo -e "${CYAN}접속 URL: http://0.0.0.0$port_override${NC}"
-            else
-                echo -e "${GREEN}🚀 프로덕션 서버를 시작합니다...${NC}"
-                echo -e "${CYAN}접속 URL: http://0.0.0.0:80${NC}"
-            fi
+                        echo -e "${GREEN}🚀 프로덕션 서버를 시작합니다...${NC}"
+            echo -e "${CYAN}접속 URL: http://0.0.0.0:8080${NC}"
             ;;
         *)
             echo -e "${RED}알 수 없는 모드: $mode${NC}"
