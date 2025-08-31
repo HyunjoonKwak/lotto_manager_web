@@ -1,6 +1,12 @@
 {% extends "base.html" %}
 
 {% block content %}
+<!-- CSRF Token for AJAX requests -->
+<input type="hidden" id="csrf-token" name="csrf_token" value="{{ csrf_token() }}"/>
+<script>
+  // CSRF 토큰을 전역 변수로 설정
+  window.csrfToken = '{{ csrf_token() }}';
+</script>
 <div class="header">
   <div>
     <h1>🎲 로또 전략 분석</h1>
@@ -79,7 +85,7 @@
     </div>
 
     <!-- Display existing manual numbers -->
-    {% if manual_numbers %}
+    {% if manual_numbers.items %}
     <div class="manual-numbers-list">
       <h4>나의 구매 번호 (수동입력 & AI추천)</h4>
       <div class="table-container">
@@ -95,7 +101,7 @@
             </tr>
           </thead>
           <tbody>
-            {% for purchase in manual_numbers %}
+            {% for purchase in manual_numbers.items %}
             <tr id="manual-row-{{ purchase.id }}">
               <td>{{ purchase.purchase_round }}회</td>
               <td class="numbers-cell">
@@ -126,6 +132,32 @@
           </tbody>
         </table>
       </div>
+
+      <!-- Manual Numbers Pagination -->
+      {% if manual_numbers.pages > 1 %}
+      <div class="pagination-section">
+        <div class="pagination-info">
+          페이지 {{ manual_numbers.page }} / {{ manual_numbers.pages }} (총 {{ manual_numbers.total }}건)
+        </div>
+        <div class="pagination-controls">
+          {% if manual_numbers.has_prev %}
+            <a href="{{ url_for('main.strategy', manual_page=manual_numbers.prev_num) }}" class="page-btn pagination-link">‹ 이전</a>
+          {% endif %}
+
+          {% for page_num in range(1, manual_numbers.pages + 1) %}
+            {% if page_num == manual_numbers.page %}
+              <span class="page-btn current">{{ page_num }}</span>
+            {% else %}
+              <a href="{{ url_for('main.strategy', manual_page=page_num) }}" class="page-btn pagination-link">{{ page_num }}</a>
+            {% endif %}
+          {% endfor %}
+
+          {% if manual_numbers.has_next %}
+            <a href="{{ url_for('main.strategy', manual_page=manual_numbers.next_num) }}" class="page-btn pagination-link">다음 ›</a>
+          {% endif %}
+        </div>
+      </div>
+      {% endif %}
     </div>
     {% endif %}
   </section>
@@ -324,6 +356,51 @@
   padding: 0.5rem;
 }
 
+/* Pagination Styles */
+.pagination-section {
+  margin: 1.5rem 0;
+  text-align: center;
+}
+
+.pagination-info {
+  margin-bottom: 1rem;
+  color: #666;
+  font-size: 0.9rem;
+}
+
+.pagination-controls {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  gap: 0.5rem;
+  flex-wrap: wrap;
+}
+
+.page-btn {
+  padding: 0.5rem 0.75rem;
+  border: 1px solid #dee2e6;
+  border-radius: 0.25rem;
+  color: #667eea;
+  text-decoration: none;
+  transition: all 0.2s ease;
+}
+
+.page-btn:hover {
+  background: #e3f2fd;
+  border-color: #667eea;
+}
+
+.page-btn.current {
+  background: #667eea;
+  color: white;
+  border-color: #667eea;
+}
+
+.page-dots {
+  padding: 0.5rem 0.25rem;
+  color: #666;
+}
+
 /* Manual Input Styles */
 .manual-input-section {
   margin-bottom: 1.5rem;
@@ -512,7 +589,8 @@ function refreshRecommendations() {
     method: 'POST',
     headers: {
       'Content-Type': 'application/x-www-form-urlencoded',
-    }
+    },
+    body: 'csrf_token=' + encodeURIComponent(window.csrfToken)
   })
   .then(response => response.json())
   .then(data => {
@@ -533,13 +611,20 @@ function refreshRecommendations() {
   });
 }
 
-// Restore scroll position after page load
+// Save scroll position and restore after page load
 document.addEventListener('DOMContentLoaded', function() {
   const savedPos = sessionStorage.getItem('scrollPosition');
   if (savedPos) {
     window.scrollTo(0, parseInt(savedPos));
     sessionStorage.removeItem('scrollPosition');
   }
+
+  // 페이지네이션 링크에 스크롤 위치 저장 이벤트 추가
+  document.querySelectorAll('.pagination-link').forEach(link => {
+    link.addEventListener('click', function() {
+      sessionStorage.setItem('scrollPosition', window.pageYOffset);
+    });
+  });
 
   // 이미 구매한 번호들 체크 및 버튼 상태 변경
   const purchasedNumbers = {{ purchased_numbers | tojson }};
@@ -580,6 +665,7 @@ function addManualNumbers() {
   if (round) {
     formData.append('round', round);
   }
+  formData.append('csrf_token', window.csrfToken);
 
   fetch('/api/add-manual-numbers', {
     method: 'POST',
@@ -626,7 +712,8 @@ function deleteManualNumbers(purchaseId) {
     method: 'POST',
     headers: {
       'Content-Type': 'application/x-www-form-urlencoded',
-    }
+    },
+    body: 'csrf_token=' + encodeURIComponent(window.csrfToken)
   })
   .then(response => response.json())
   .then(data => {
@@ -661,6 +748,7 @@ function purchaseLottery(numbers, method, button) {
   const formData = new FormData();
   formData.append('numbers', numbers);
   formData.append('method', method);
+  formData.append('csrf_token', window.csrfToken);
 
   fetch('/purchase', {
     method: 'POST',
@@ -674,6 +762,20 @@ function purchaseLottery(numbers, method, button) {
       button.classList.remove('btn-primary');
       button.classList.add('btn-success');
       button.disabled = true;
+
+      // 성공 메시지 표시
+      const successMsg = document.createElement('div');
+      successMsg.style.cssText = 'position: fixed; top: 20px; right: 20px; background: #28a745; color: white; padding: 1rem 1.5rem; border-radius: 0.5rem; z-index: 1000; box-shadow: 0 4px 12px rgba(0,0,0,0.15);';
+      successMsg.textContent = `✅ ${data.purchase_round}회 구매 완료!`;
+      document.body.appendChild(successMsg);
+
+      // 3초 후 알림 제거
+      setTimeout(() => {
+        successMsg.remove();
+      }, 3000);
+
+      // 구매 기록 페이지 링크 강제 새로고침을 위한 플래그 설정
+      sessionStorage.setItem('recentPurchase', Date.now().toString());
     } else {
       // 오류 처리 (중복 구매 등)
       if (data.error && data.error.includes('이미 구매')) {

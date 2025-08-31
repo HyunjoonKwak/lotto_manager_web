@@ -1,6 +1,9 @@
 {% extends "base.html" %}
 
 {% block content %}
+<script>
+  window.csrfToken = '{{ csrf_token() }}';
+</script>
 <div class="auth-container">
   <div class="auth-card">
     <div class="auth-header">
@@ -361,7 +364,7 @@ document.addEventListener('DOMContentLoaded', function() {
       headers: {
         'Content-Type': 'application/x-www-form-urlencoded',
       },
-      body: 'username=' + encodeURIComponent(username) + '&csrf_token=' + encodeURIComponent(document.querySelector('input[name="csrf_token"]').value)
+      body: 'username=' + encodeURIComponent(username) + '&csrf_token=' + encodeURIComponent(window.csrfToken)
     })
     .then(response => response.json())
     .then(data => {
@@ -401,7 +404,7 @@ document.addEventListener('DOMContentLoaded', function() {
       headers: {
         'Content-Type': 'application/x-www-form-urlencoded',
       },
-      body: 'password=' + encodeURIComponent(password) + '&csrf_token=' + encodeURIComponent(document.querySelector('input[name="csrf_token"]').value)
+      body: 'password=' + encodeURIComponent(password) + '&csrf_token=' + encodeURIComponent(window.csrfToken)
     })
     .then(response => response.json())
     .then(data => {

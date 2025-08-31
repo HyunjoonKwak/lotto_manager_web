@@ -1,6 +1,11 @@
 {% extends "base.html" %}
 
 {% block content %}
+<!-- CSRF Token for AJAX requests -->
+<input type="hidden" id="csrf-token" name="csrf_token" value="{{ csrf_token() }}"/>
+<script>
+  window.csrfToken = '{{ csrf_token() }}';
+</script>
 <div class="header">
   <div>
     <h1>📥 데이터 크롤링</h1>
@@ -479,6 +484,7 @@ function startCrawling(type) {
 
   const formData = new FormData();
   formData.append('data_type', crawlingType);
+  formData.append('csrf_token', window.csrfToken);
 
   fetch(url, {
     method: 'POST',
@@ -522,6 +528,7 @@ function startRangeCrawling() {
   formData.append('start', startRound);
   formData.append('end', endRound);
   formData.append('data_type', crawlingType);
+  formData.append('csrf_token', window.csrfToken);
 
   fetch('/update-range', {
     method: 'POST',
@@ -558,6 +565,7 @@ function startSpecificCrawling() {
   const formData = new FormData();
   formData.append('round', round);
   formData.append('data_type', crawlingType);
+  formData.append('csrf_token', window.csrfToken);
 
   fetch('/update', {
     method: 'POST',

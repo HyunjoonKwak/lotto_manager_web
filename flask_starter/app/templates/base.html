@@ -190,6 +190,25 @@
             (currentPath.includes('/crawling') && link.textContent.includes('크롤링'))) {
           link.classList.add('active');
         }
+
+        // 구매 후 구매이력 페이지 링크 클릭 시 캐시 방지
+        if (link.textContent.includes('구매이력')) {
+          link.addEventListener('click', function(e) {
+            const recentPurchase = sessionStorage.getItem('recentPurchase');
+            if (recentPurchase) {
+              const purchaseTime = parseInt(recentPurchase);
+              const now = Date.now();
+              // 5분 이내에 구매한 경우 캐시 방지를 위한 timestamp 추가
+              if (now - purchaseTime < 300000) {
+                e.preventDefault();
+                const url = new URL(this.href, window.location.origin);
+                url.searchParams.set('t', now);
+                window.location.href = url.href;
+                sessionStorage.removeItem('recentPurchase');
+              }
+            }
+          });
+        }
       });
     });
   </script>

@@ -2,13 +2,18 @@
 
 {% block content %}
 <div class="header">
-  <div>
+  <div class="title-stats">
     <h1>🔍 로또 정보조회</h1>
-    <div class="muted">회차별 당첨번호 및 당첨점포 정보 조회</div>
+    <div class="stats">
+      <div class="stat">저장 회차: {{ total_rounds }}</div>
+      {% if latest %}<div class="stat">최근 회차: {{ latest.round }}</div>{% endif %}
+    </div>
   </div>
-  <div class="stats">
-    <div class="stat">저장 회차: {{ total_rounds }}</div>
-    {% if latest %}<div class="stat">최근 회차: {{ latest.round }}</div>{% endif %}
+  <div class="lookup-row">
+    <div class="lookup-simple">
+      <input type="number" id="lookupRound" placeholder="회차 입력" min="1" max="{{ latest.round if latest else 1000 }}">
+      <button type="button" onclick="lookupRound()" class="btn-lookup">조회</button>
+    </div>
   </div>
 </div>
 
@@ -17,30 +22,31 @@
 
   <!-- Latest Draw Results with Winning Shops -->
   {% if latest %}
-  <section class="card highlight-card">
+  <section class="card highlight-card" id="currentDrawSection">
     <div class="card-header">
-      <h2>🎯 {{ latest.round }}회 최신 추첨결과</h2>
-      <span class="draw-date">{{ latest.draw_date if latest.draw_date else '' }}</span>
+      <h2 id="drawTitle">🎯 {{ latest.round }}회 최신 추첨결과</h2>
+      <span class="draw-date" id="drawDate">{{ latest.draw_date if latest.draw_date else '' }}</span>
     </div>
     <div class="draw-result">
-      <div class="numbers">
+      <div class="numbers" id="drawNumbers">
         {% for num in latest.numbers_list() %}
           <span class="number-ball">{{ num }}</span>
         {% endfor %}
       </div>
       <div class="bonus-section">
         <span class="plus">+</span>
-        <span class="bonus-ball">{{ latest.bonus }}</span>
+        <span class="bonus-ball" id="drawBonus">{{ latest.bonus }}</span>
         <span class="bonus-label">보너스</span>
       </div>
     </div>
   </section>
 
   <!-- Latest Winning Shops -->
-  <section class="card">
+  <section class="card" id="shopsSection">
     <div class="card-header">
-      <h2>🏪 {{ latest.round }}회 당첨점 정보</h2>
+      <h2 id="shopsTitle">🏪 {{ latest.round }}회 당첨점 정보</h2>
     </div>
+    <div id="shopsContent">
 
     {% if shops_rank1 %}
     <div class="shops-section">
@@ -133,6 +139,7 @@
       <p>아직 당첨점 정보가 수집되지 않았습니다.</p>
     </div>
     {% endif %}
+    </div>
   </section>
   {% else %}
   <section class="card error-card">
@@ -142,34 +149,84 @@
   {% endif %}
 
 
-  <!-- Draw Info Lookup Panel -->
+  <!-- 번호 분석 섹션 -->
+  {% if most_frequent %}
   <section class="card">
     <div class="card-header">
-      <h2>🎯 당첨정보 조회</h2>
+      <h2>📈 번호 분석 (최근 {{ analysis_limit }}회)</h2>
     </div>
 
-    <div class="lookup-panel">
-      <div class="lookup-description">
-        <p>회차별 당첨번호와 당첨점포 정보를 상세히 조회할 수 있습니다</p>
-      </div>
-
-      <div class="round-selector">
-        <label for="round-input" class="round-label">조회할 회차:</label>
-        <div class="round-input-group">
-          <button type="button" class="round-btn" onclick="changeRound(-1)" title="이전 회차">◀</button>
-          <input type="number" id="round-input" name="round" min="1" max="9999" value="{{ latest.round if latest else 1 }}" class="round-number-input" />
-          <button type="button" class="round-btn" onclick="changeRound(1)" title="다음 회차">▶</button>
+    <!-- 빈출/저출 번호 -->
+    <div class="analysis-grid">
+      <div class="analysis-item">
+        <h4>🔥 최다 빈출번호</h4>
+        <div class="number-frequency-list">
+          {% for num, freq in most_frequent[:5] %}
+          <div class="frequency-item hot">
+            <span class="freq-number">{{ num }}</span>
+            <span class="freq-count">{{ freq }}회</span>
+          </div>
+          {% endfor %}
         </div>
-        <button type="button" class="btn-accent lookup-btn" onclick="viewDrawInfo()">📊 상세 조회</button>
       </div>
 
-      <div class="lookup-shortcuts">
-        <button type="button" class="shortcut-btn" onclick="setRound({{ latest.round if latest else 1 }})">최신회차</button>
-        <button type="button" class="shortcut-btn" onclick="setRound(1000)">1000회</button>
-        <button type="button" class="shortcut-btn" onclick="setRound(500)">500회</button>
+      <div class="analysis-item">
+        <h4>❄️ 최소 빈출번호</h4>
+        <div class="number-frequency-list">
+          {% for num, freq in least_frequent[:5] %}
+          <div class="frequency-item cold">
+            <span class="freq-number">{{ num }}</span>
+            <span class="freq-count">{{ freq }}회</span>
+          </div>
+          {% endfor %}
+        </div>
+      </div>
+
+      <div class="analysis-item">
+        <h4>🎲 홀짝 패턴</h4>
+        <div class="pattern-list">
+          {% for pattern, count in patterns.odd_even_patterns.items() %}
+          <div class="pattern-item">
+            <span class="pattern-name">{{ pattern }}</span>
+            <span class="pattern-count">{{ count }}회</span>
+          </div>
+          {% endfor %}
+        </div>
+      </div>
+
+      <div class="analysis-item">
+        <h4>💡 합계 분포</h4>
+        <div class="pattern-list">
+          {% for range_name, count in patterns.sum_ranges.items() %}
+          <div class="pattern-item">
+            <span class="pattern-name">{{ range_name }}</span>
+            <span class="pattern-count">{{ count }}회</span>
+          </div>
+          {% endfor %}
+        </div>
       </div>
     </div>
+
+    <!-- 조합 분석 -->
+    {% if combinations %}
+    <div class="combinations-section">
+      <h4>🤝 자주 나오는 번호 조합 (상위 5개)</h4>
+      <div class="combinations-list">
+        {% for pair, freq in combinations %}
+        <div class="combination-item">
+          <div class="combination-numbers">
+            <span class="combo-number">{{ pair[0] }}</span>
+            <span class="combo-separator">+</span>
+            <span class="combo-number">{{ pair[1] }}</span>
+          </div>
+          <span class="combo-freq">{{ freq }}회</span>
+        </div>
+        {% endfor %}
+      </div>
+    </div>
+    {% endif %}
   </section>
+  {% endif %}
 
   <!-- Recent draws table -->
   <section class="card">
@@ -207,28 +264,6 @@
 </div> <!-- End main-content -->
 
 <script>
-  function changeRound(delta) {
-    const input = document.getElementById('round-input');
-    const currentValue = parseInt(input.value) || {{ latest.round if latest else 1 }};
-    const newValue = Math.max(1, Math.min(9999, currentValue + delta));
-    input.value = newValue;
-  }
-
-  function setRound(roundNumber) {
-    const input = document.getElementById('round-input');
-    input.value = Math.max(1, Math.min(9999, roundNumber));
-  }
-
-  function viewDrawInfo() {
-    const round = document.getElementById('round-input').value;
-    if (!round || parseInt(round) < 1) {
-      alert('올바른 회차 번호를 입력해주세요.');
-      return;
-    }
-
-    window.location.href = `/draw-info?round=${round}`;
-  }
-
   function changeRank2Page(newPage) {
     if (newPage < 1) return;
 
@@ -244,18 +279,166 @@
     window.location.href = `${window.location.pathname}?${urlParams.toString()}#rank2-section`;
   }
 
-  // Initialize round input
-  document.addEventListener('DOMContentLoaded', function() {
-    // Add enter key support for round input
-    const roundInput = document.getElementById('round-input');
-    if (roundInput) {
-      roundInput.addEventListener('keypress', function(e) {
-        if (e.key === 'Enter') {
-          viewDrawInfo();
-        }
-      });
+  // 특정회차 조회
+  function lookupRound() {
+    const roundInput = document.getElementById('lookupRound');
+    const round = parseInt(roundInput.value);
+
+    if (!round || round < 1) {
+      alert('유효한 회차 번호를 입력해주세요.');
+      return;
     }
 
+    // 기존 표시 업데이트
+    const drawTitle = document.getElementById('drawTitle');
+    const drawDate = document.getElementById('drawDate');
+    const drawNumbers = document.getElementById('drawNumbers');
+    const drawBonus = document.getElementById('drawBonus');
+    const shopsTitle = document.getElementById('shopsTitle');
+    const shopsContent = document.getElementById('shopsContent');
+
+    // 로딩 상태 표시
+    drawTitle.innerHTML = `🔍 ${round}회 조회중...`;
+
+    fetch(`/api/draw-info/${round}`)
+    .then(response => response.json())
+    .then(data => {
+      if (data.success) {
+        const draw = data.draw;
+        const shops = data.shops;
+
+        // 당첨번호 표시 업데이트
+        drawTitle.innerHTML = `🎯 ${draw.round}회 추첨결과`;
+        drawDate.textContent = draw.draw_date || '';
+
+        // 번호 업데이트
+        drawNumbers.innerHTML = draw.numbers_list.map(num =>
+          `<span class="number-ball">${num}</span>`
+        ).join('');
+        drawBonus.textContent = draw.bonus;
+
+        // 당첨점 정보 업데이트
+        shopsTitle.innerHTML = `🏪 ${draw.round}회 당첨점 정보`;
+
+        if (shops && shops.length > 0) {
+          const rank1Shops = shops.filter(s => s.rank === '1');
+          const rank2Shops = shops.filter(s => s.rank === '2');
+
+          let shopsHtml = '';
+
+          if (rank1Shops.length > 0) {
+            shopsHtml += `
+              <div class="shops-section">
+                <h4>🥇 1등 당첨점 (${rank1Shops.length}개)</h4>
+                <div class="table-container">
+                  <table>
+                    <thead><tr><th>상호</th><th>주소</th></tr></thead>
+                    <tbody>
+                      ${rank1Shops.map(shop => `
+                        <tr>
+                          <td><strong>${shop.name}</strong></td>
+                          <td>${shop.address || ''}</td>
+                        </tr>
+                      `).join('')}
+                    </tbody>
+                  </table>
+                </div>
+              </div>`;
+          }
+
+          if (rank2Shops.length > 0) {
+            // 2등 당첨점 페이지네이션 (10개씩)
+            window.currentRank2Shops = rank2Shops;
+            window.currentRank2Page = 1;
+            window.rank2PerPage = 10;
+
+            shopsHtml += `
+              <div class="shops-section" id="rank2-section">
+                <div class="section-header">
+                  <h4>🥈 2등 당첨점 (${rank2Shops.length}개)</h4>
+                  ${rank2Shops.length > 10 ? `<div class="page-info">페이지 1 / ${Math.ceil(rank2Shops.length / 10)}</div>` : ''}
+                </div>
+                <div class="table-container" id="rank2Table">
+                  <table>
+                    <thead><tr><th>상호</th><th>주소</th></tr></thead>
+                    <tbody id="rank2TableBody">
+                      ${rank2Shops.slice(0, 10).map(shop => `
+                        <tr>
+                          <td><strong>${shop.name}</strong></td>
+                          <td>${shop.address || ''}</td>
+                        </tr>
+                      `).join('')}
+                    </tbody>
+                  </table>
+                </div>
+                ${rank2Shops.length > 10 ? `
+                  <div class="pagination-controls">
+                    <button type="button" class="page-btn prev-btn" id="rank2PrevBtn" onclick="changeRank2PageDynamic(-1)" disabled>◀ 이전</button>
+                    <span class="page-display" id="rank2PageDisplay">1 / ${Math.ceil(rank2Shops.length / 10)}</span>
+                    <button type="button" class="page-btn next-btn" id="rank2NextBtn" onclick="changeRank2PageDynamic(1)" ${rank2Shops.length <= 10 ? 'disabled' : ''}>다음 ▶</button>
+                  </div>
+                ` : ''}
+              </div>`;
+          }
+
+          shopsContent.innerHTML = shopsHtml;
+        } else {
+          shopsContent.innerHTML = '<p style="text-align: center; color: #666; padding: 1rem;">당첨점 정보가 없습니다.</p>';
+        }
+
+        // 입력 필드 초기화
+        roundInput.value = '';
+
+      } else {
+        alert(data.error);
+        drawTitle.innerHTML = `🎯 ${document.querySelector('[data-original-round]')?.getAttribute('data-original-round') || '최신'}회 추첨결과`;
+      }
+    })
+    .catch(error => {
+      alert('조회 중 오류가 발생했습니다.');
+      drawTitle.innerHTML = `🎯 ${document.querySelector('[data-original-round]')?.getAttribute('data-original-round') || '최신'}회 추첨결과`;
+    });
+  }
+
+  // 동적 2등 당첨점 페이지네이션
+  function changeRank2PageDynamic(direction) {
+    if (!window.currentRank2Shops) return;
+
+    const totalPages = Math.ceil(window.currentRank2Shops.length / window.rank2PerPage);
+    const newPage = window.currentRank2Page + direction;
+
+    if (newPage < 1 || newPage > totalPages) return;
+
+    window.currentRank2Page = newPage;
+
+    // 테이블 업데이트
+    const startIdx = (newPage - 1) * window.rank2PerPage;
+    const endIdx = startIdx + window.rank2PerPage;
+    const pageShops = window.currentRank2Shops.slice(startIdx, endIdx);
+
+    const tbody = document.getElementById('rank2TableBody');
+    tbody.innerHTML = pageShops.map(shop => `
+      <tr>
+        <td><strong>${shop.name}</strong></td>
+        <td>${shop.address || ''}</td>
+      </tr>
+    `).join('');
+
+    // 페이지 정보 및 버튼 상태 업데이트
+    const pageDisplay = document.getElementById('rank2PageDisplay');
+    const pageInfo = document.querySelector('.page-info');
+    const prevBtn = document.getElementById('rank2PrevBtn');
+    const nextBtn = document.getElementById('rank2NextBtn');
+
+    if (pageDisplay) pageDisplay.textContent = `${newPage} / ${totalPages}`;
+    if (pageInfo) pageInfo.textContent = `페이지 ${newPage} / ${totalPages}`;
+
+    if (prevBtn) prevBtn.disabled = newPage <= 1;
+    if (nextBtn) nextBtn.disabled = newPage >= totalPages;
+  }
+
+  // Initialize page
+  document.addEventListener('DOMContentLoaded', function() {
     // Restore scroll position for pagination
     const savedScroll = sessionStorage.getItem('infoScrollPosition');
     if (savedScroll && window.location.hash === '#rank2-section') {
@@ -268,6 +451,195 @@
 </script>
 
 <style>
+/* 번호 분석 스타일 */
+.analysis-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+  gap: 1.5rem;
+  margin: 1.5rem 0;
+}
+
+.analysis-item {
+  background: #f8f9fa;
+  border: 1px solid var(--card-border);
+  border-radius: 8px;
+  padding: 1rem;
+}
+
+.analysis-item h4 {
+  margin: 0 0 1rem 0;
+  color: #333;
+  font-size: 1rem;
+  font-weight: 600;
+}
+
+.number-frequency-list {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.frequency-item {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 0.5rem;
+  border-radius: 6px;
+  font-weight: 500;
+}
+
+.frequency-item.hot {
+  background: #ffebee;
+  border: 1px solid #ef9a9a;
+}
+
+.frequency-item.cold {
+  background: #e3f2fd;
+  border: 1px solid #90caf9;
+}
+
+.freq-number {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  background: var(--acc);
+  color: white;
+  border-radius: 50%;
+  font-size: 0.9rem;
+  font-weight: bold;
+}
+
+.freq-count {
+  color: #666;
+  font-size: 0.9rem;
+}
+
+.pattern-list {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.pattern-item {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 0.5rem;
+  background: white;
+  border: 1px solid #e0e0e0;
+  border-radius: 6px;
+}
+
+.pattern-name {
+  font-size: 0.9rem;
+  color: #333;
+}
+
+.pattern-count {
+  color: #666;
+  font-size: 0.85rem;
+  font-weight: 500;
+}
+
+.combinations-section {
+  margin-top: 2rem;
+  padding-top: 1.5rem;
+  border-top: 1px solid var(--card-border);
+}
+
+.combinations-section h4 {
+  margin: 0 0 1rem 0;
+  color: #333;
+  font-size: 1rem;
+  font-weight: 600;
+}
+
+.combinations-list {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+  gap: 0.75rem;
+}
+
+.combination-item {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.75rem;
+  background: white;
+  border: 1px solid #e0e0e0;
+  border-radius: 8px;
+}
+
+.combination-numbers {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.combo-number {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 24px;
+  height: 24px;
+  background: var(--acc);
+  color: white;
+  border-radius: 50%;
+  font-size: 0.8rem;
+  font-weight: bold;
+}
+
+.combo-separator {
+  color: #666;
+  font-weight: bold;
+}
+
+.combo-freq {
+  color: #666;
+  font-size: 0.8rem;
+  font-weight: 500;
+}
+
+@media (max-width: 768px) {
+  .analysis-grid {
+    grid-template-columns: 1fr;
+    gap: 1rem;
+  }
+
+  .combinations-list {
+    grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
+    gap: 0.5rem;
+  }
+}
+
+/* 작은 번호 볼 스타일 */
+.small-number-ball {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 24px;
+  height: 24px;
+  background: var(--acc);
+  color: white;
+  border-radius: 50%;
+  font-size: 0.75rem;
+  font-weight: bold;
+  margin-right: 2px;
+}
+
+.numbers-cell {
+  min-width: 160px;
+}
+
+.bonus-cell {
+  font-weight: bold;
+  color: #ff6b6b;
+  text-align: center;
+}
+
 /* Simple table-based shops styles */
 .shops-section {
   margin-bottom: 1.5rem;
@@ -366,7 +738,86 @@
   margin-bottom: 1.5rem;
 }
 
+/* 헤더 스타일 */
+.title-stats {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 0.5rem;
+}
+
+.stats {
+  text-align: right;
+}
+
+.lookup-row {
+  display: flex;
+  justify-content: flex-end;
+  align-items: center;
+  margin-top: 1rem;
+}
+
+.lookup-simple {
+  display: flex;
+  gap: 0.5rem;
+  align-items: center;
+}
+
+.lookup-simple input {
+  width: 100px;
+  padding: 0.5rem;
+  border: 2px solid #e9ecef;
+  border-radius: 0.5rem;
+  font-size: 0.9rem;
+  text-align: center;
+}
+
+.lookup-simple input:focus {
+  outline: none;
+  border-color: #667eea;
+}
+
+.btn-lookup {
+  background: #667eea;
+  color: white;
+  border: none;
+  padding: 0.5rem 1rem;
+  border-radius: 0.5rem;
+  cursor: pointer;
+  font-size: 0.9rem;
+  font-weight: 500;
+  transition: all 0.2s ease;
+}
+
+.btn-lookup:hover {
+  background: #5a67d8;
+}
+
+
+@keyframes slideDown {
+  from {
+    opacity: 0;
+    transform: translateY(-10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
 @media (max-width: 768px) {
+  .title-stats {
+    flex-direction: column;
+    gap: 0.5rem;
+    align-items: flex-start;
+  }
+
+  .lookup-row {
+    flex-direction: column;
+    gap: 0.5rem;
+    align-items: stretch;
+  }
+
   .section-header {
     flex-direction: column;
     gap: 0.5rem;
@@ -380,6 +831,11 @@
   .page-btn {
     padding: 0.5rem 0.75rem;
     font-size: 0.9rem;
+  }
+
+  .form-row {
+    flex-direction: column;
+    gap: 0.5rem;
   }
 }
 </style>

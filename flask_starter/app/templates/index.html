@@ -1,6 +1,22 @@
 {% extends "base.html" %}
 
 {% block content %}
+<!-- CSRF Token for AJAX requests -->
+<input type="hidden" id="csrf-token" name="csrf_token" value="{{ csrf_token() }}"/>
+<script>
+  window.csrfToken = '{{ csrf_token() }}';
+</script>
+
+<div class="header">
+  <div class="title-section">
+    <h1>🏠 대시보드</h1>
+    <div class="muted">로또 분석 및 추천 시스템</div>
+  </div>
+  <div class="date-section">
+    <div class="current-date" id="currentDate"></div>
+  </div>
+</div>
+
 <!-- Main Content Grid -->
 <div class="main-content">
 
@@ -14,6 +30,15 @@
         <button id="checkNewDrawBtn" class="btn-update" onclick="checkForNewDraw()">
           새 회차 확인
         </button>
+      </div>
+    </div>
+
+    <!-- 새 회차 알림 -->
+    <div id="newDrawAlert" class="new-draw-alert" style="display: none;">
+      <div class="alert-content">
+        <span class="alert-icon">⚡</span>
+        <span class="alert-message">새로운 회차가 추첨되었을 수 있습니다!</span>
+        <button onclick="checkForNewDraw()" class="alert-btn">지금 확인하기</button>
       </div>
     </div>
     <div class="draw-result">
@@ -78,6 +103,74 @@
 </div> <!-- End main-content -->
 
 <style>
+/* 헤더 스타일 */
+.title-section {
+  flex: 1;
+}
+
+.date-section {
+  text-align: right;
+}
+
+.current-date {
+  font-size: 0.9rem;
+  color: #666;
+  font-weight: 500;
+}
+
+/* 새 회차 알림 스타일 */
+.new-draw-alert {
+  background: linear-gradient(135deg, #ff6b6b, #ffa726);
+  color: white;
+  border-radius: 0.5rem;
+  margin: 1rem 0;
+  padding: 0;
+  overflow: hidden;
+  animation: slideDown 0.3s ease;
+}
+
+.alert-content {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  padding: 1rem;
+}
+
+.alert-icon {
+  font-size: 1.5rem;
+}
+
+.alert-message {
+  flex: 1;
+  font-weight: 500;
+}
+
+.alert-btn {
+  background: rgba(255, 255, 255, 0.2);
+  color: white;
+  border: 1px solid rgba(255, 255, 255, 0.3);
+  padding: 0.5rem 1rem;
+  border-radius: 0.25rem;
+  cursor: pointer;
+  font-weight: 500;
+  transition: all 0.2s ease;
+}
+
+.alert-btn:hover {
+  background: rgba(255, 255, 255, 0.3);
+}
+
+@keyframes slideDown {
+  from {
+    opacity: 0;
+    transform: translateY(-10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
 .header-actions {
   display: flex;
   align-items: center;
@@ -128,6 +221,41 @@
 </style>
 
 <script>
+// 페이지 로드 시 초기화
+document.addEventListener('DOMContentLoaded', function() {
+  // 오늘 날짜 표시
+  const today = new Date();
+  const dateStr = today.toLocaleDateString('ko-KR', {
+    year: 'numeric',
+    month: 'long',
+    day: 'numeric',
+    weekday: 'long'
+  });
+  document.getElementById('currentDate').textContent = dateStr;
+
+  // 새 회차 확인 유도
+  checkIfNewDrawNeeded();
+});
+
+// 새 회차 확인이 필요한지 체크
+function checkIfNewDrawNeeded() {
+  const drawDateText = document.querySelector('.draw-date').textContent.trim();
+  if (!drawDateText) return;
+
+  // 추첨날짜 파싱 (YYYY-MM-DD 형식 가정)
+  const drawDate = new Date(drawDateText);
+  const today = new Date();
+  const daysDiff = Math.floor((today - drawDate) / (1000 * 60 * 60 * 24));
+
+  // 추첨 후 7일이 지났으면 새 회차 확인 알림 표시
+  if (daysDiff >= 7) {
+    const alertDiv = document.getElementById('newDrawAlert');
+    if (alertDiv) {
+      alertDiv.style.display = 'block';
+    }
+  }
+}
+
 async function checkForNewDraw() {
   const button = document.getElementById('checkNewDrawBtn');
   const originalText = button.innerHTML;
@@ -153,7 +281,8 @@ async function checkForNewDraw() {
             'Content-Type': 'application/json'
           },
           body: JSON.stringify({
-            round: data.latest_round
+            round: data.latest_round,
+            csrf_token: window.csrfToken
           })
         });
 

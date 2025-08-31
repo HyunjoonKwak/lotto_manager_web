@@ -19,9 +19,8 @@ from .services.updater import (
 )
 from .services.recommender import auto_recommend, semi_auto_recommend
 from .services.analyzer import (
-    get_most_frequent_numbers, get_least_frequent_numbers,
-    get_number_combinations, get_recommendation_reasons,
-    get_hot_cold_analysis
+    get_number_frequency, get_most_frequent_numbers, get_least_frequent_numbers,
+    analyze_patterns, get_hot_cold_analysis, get_number_combinations
 )
 from .services.lottery_checker import (
     check_all_pending_results, get_purchase_statistics,
@@ -380,11 +379,15 @@ def strategy():
     least_frequent = get_least_frequent_numbers(10, limit=None)
     top_combinations = get_number_combinations(10, limit=None)
 
-    # Get user's manual numbers from Purchase table (last 10)
+    # Get user's manual numbers with pagination (10개 단위)
+    manual_page = int(request.args.get('manual_page', '1'))
+    manual_per_page = 20
     manual_numbers = Purchase.query.filter(
         Purchase.user_id == current_user.id,
         Purchase.purchase_method.in_(["수동입력", "AI추천"])
-    ).order_by(Purchase.purchase_date.desc()).limit(10).all()
+    ).order_by(Purchase.purchase_date.desc()).paginate(
+        page=manual_page, per_page=manual_per_page, error_out=False
+    )
 
     # Get current user's purchased numbers for duplicate check (next round)
     latest_draw = Draw.query.order_by(Draw.round.desc()).first()
@@ -470,6 +473,14 @@ def info_page():
             .all()
         )
 
+    # 번호 분석 데이터 추가 (최근 50회 기준)
+    analysis_limit = 50
+    most_frequent = get_most_frequent_numbers(10, analysis_limit)
+    least_frequent = get_least_frequent_numbers(10, analysis_limit)
+    patterns = analyze_patterns(analysis_limit)
+    hot_cold = get_hot_cold_analysis(analysis_limit)
+    combinations = get_number_combinations(5, analysis_limit)
+
     return render_template(
         "info.html",
         title="정보조회",
@@ -481,6 +492,13 @@ def info_page():
         shops_rank2_page=page if latest else 1,
         shops_rank2_total=shops_rank2_total,
         shops_rank2_total_pages=shops_rank2_total_pages,
+        # 분석 데이터
+        most_frequent=most_frequent,
+        least_frequent=least_frequent,
+        patterns=patterns,
+        hot_cold=hot_cold,
+        combinations=combinations,
+        analysis_limit=analysis_limit,
     )
 
 
@@ -1374,3 +1392,39 @@ def reset_password(token):
             return redirect(url_for('main.reset_password', token=token))
 
     return render_template('reset_password.html', token=token)
+
+
+@main_bp.get("/api/draw-info/<int:round_no>")
+def api_draw_info(round_no: int):
+    """특정 회차 당첨번호 및 판매점 정보"""
+    try:
+        # 당첨번호 조회
+        draw = Draw.query.filter_by(round=round_no).first()
+        if not draw:
+            return jsonify({
+                "success": False,
+                "error": f"{round_no}회 데이터를 찾을 수 없습니다"
+            })
+
+        # 당첨 판매점 조회
+        shops = WinningShop.query.filter_by(round=round_no).order_by(WinningShop.rank).all()
+
+        return jsonify({
+            "success": True,
+            "draw": {
+                "round": draw.round,
+                "draw_date": draw.draw_date.strftime('%Y-%m-%d') if draw.draw_date else None,
+                "numbers_list": draw.numbers_list(),
+                "bonus": draw.bonus
+            },
+            "shops": [{
+                "name": shop.name,
+                "address": shop.address,
+                "rank": f"{shop.rank}"
+            } for shop in shops]
+        })
+    except Exception as e:
+        return jsonify({
+            "success": False,
+            "error": f"조회 중 오류가 발생했습니다: {str(e)}"
+        }), 400
