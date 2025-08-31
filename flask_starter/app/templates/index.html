@@ -30,6 +30,9 @@
         <button id="checkNewDrawBtn" class="btn-update" onclick="checkForNewDraw()">
           새 회차 확인
         </button>
+        <a href="https://dhlottery.co.kr/gameResult.do?method=byWin" target="_blank" class="btn-lotto-site">
+          🎲 로또구매
+        </a>
       </div>
     </div>
 
@@ -202,6 +205,28 @@
   box-shadow: none;
 }
 
+.btn-lotto-site {
+  background: linear-gradient(135deg, #e74c3c, #c0392b);
+  color: white;
+  border: none;
+  padding: 0.5rem 1rem;
+  border-radius: 0.5rem;
+  font-size: 0.9rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  text-decoration: none;
+  white-space: nowrap;
+  display: inline-block;
+}
+
+.btn-lotto-site:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 4px 15px rgba(231, 76, 60, 0.3);
+  color: white;
+  text-decoration: none;
+}
+
 @media (max-width: 768px) {
   .header-actions {
     flex-direction: column;
@@ -216,6 +241,12 @@
   .btn-update {
     order: 1;
     align-self: flex-end;
+  }
+
+  .btn-lotto-site {
+    order: 1;
+    align-self: flex-end;
+    margin-top: 0.5rem;
   }
 }
 </style>

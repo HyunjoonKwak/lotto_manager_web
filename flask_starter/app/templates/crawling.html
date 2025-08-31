@@ -32,6 +32,9 @@
           <div class="progress-status">
             <div class="status-text" id="status-text">대기중</div>
             <div class="operation-type" id="operation-type"></div>
+            <button type="button" class="btn-danger btn-stop" id="stop-btn" onclick="stopCrawling()" style="display: none;">
+              ⏹️ 중지
+            </button>
           </div>
           <div class="progress-details" id="progress-details" style="display: none;">
             <div class="progress-bar-container">
@@ -413,6 +416,33 @@
   font-weight: 500;
 }
 
+.progress-status {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  align-items: center;
+}
+
+.btn-stop {
+  padding: 0.5rem 1rem;
+  border-radius: 0.5rem;
+  font-weight: 600;
+  font-size: 0.9rem;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  border: none;
+}
+
+.btn-danger {
+  background: linear-gradient(135deg, #dc3545, #c82333);
+  color: white;
+}
+
+.btn-danger:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 4px 12px rgba(220, 53, 69, 0.3);
+}
+
 @media (max-width: 768px) {
   .crawling-grid {
     grid-template-columns: 1fr;
@@ -482,6 +512,23 @@ function startCrawling(type) {
   const crawlingType = getCrawlingType();
   const url = `/update-${type}`;
 
+  // 크롤링 시작 전 UI 즉시 업데이트
+  const statusText = document.getElementById('status-text');
+  const operationType = document.getElementById('operation-type');
+  const stopBtn = document.getElementById('stop-btn');
+
+  statusText.textContent = '시작중...';
+  let operationTypeText = '';
+  switch(type) {
+    case 'full': operationTypeText = '[전체 크롤링]'; break;
+    case 'missing': operationTypeText = '[빠진회차 크롤링]'; break;
+    case 'latest': operationTypeText = '[최신회차 크롤링]'; break;
+  }
+  operationType.textContent = operationTypeText;
+
+  // 즉시 진행 모니터링 시작
+  startProgressMonitoring();
+
   const formData = new FormData();
   formData.append('data_type', crawlingType);
   formData.append('csrf_token', window.csrfToken);
@@ -499,14 +546,16 @@ function startCrawling(type) {
   .then(data => {
     if (data.error) {
       alert(`오류: ${data.error}`);
+      // 오류 시 상태 초기화
+      statusText.textContent = '대기중';
+      operationType.textContent = '';
+      stopProgressMonitoring();
     }
   })
   .catch(error => {
     console.error('Crawling error:', error);
-    startProgressMonitoring();
+    // 에러 발생해도 모니터링 계속 (서버에서 크롤링이 시작되었을 수 있음)
   });
-
-  startProgressMonitoring();
 }
 
 function startRangeCrawling() {
@@ -627,6 +676,10 @@ function updateProgress() {
         // 진행 상황 표시
         progressDetails.style.display = 'block';
 
+        // 중지 버튼 표시
+        const stopBtn = document.getElementById('stop-btn');
+        stopBtn.style.display = 'block';
+
         // 진행률 계산 및 업데이트
         const percentage = data.total_rounds > 0 ?
           Math.round((data.completed_rounds / data.total_rounds) * 100) : 0;
@@ -662,6 +715,10 @@ function updateProgress() {
           progressDetails.style.display = 'none';
         }
 
+        // 중지 버튼 숨김
+        const stopBtn = document.getElementById('stop-btn');
+        stopBtn.style.display = 'none';
+
         // 크롤링 완료시 진행 모니터링 중지
         if (data.status.includes('완료') || data.status === '대기중') {
           stopProgressMonitoring();
@@ -692,6 +749,53 @@ function stopProgressMonitoring() {
     clearInterval(progressInterval);
     progressInterval = null;
   }
+}
+
+// 크롤링 중지 함수
+function stopCrawling() {
+  const confirmed = confirm('진행 중인 크롤링을 중지하시겠습니까?');
+
+  if (!confirmed) {
+    return;
+  }
+
+  const stopBtn = document.getElementById('stop-btn');
+  stopBtn.disabled = true;
+  stopBtn.innerHTML = '⏳ 중지중...';
+
+  fetch('/api/stop-crawling', {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/x-www-form-urlencoded',
+    },
+    body: 'csrf_token=' + encodeURIComponent(window.csrfToken)
+  })
+  .then(response => response.json())
+  .then(data => {
+    if (data.success) {
+      // 중지 성공 - UI 즉시 업데이트
+      document.getElementById('status-text').textContent = '중지됨';
+      document.getElementById('operation-type').textContent = '';
+      stopBtn.style.display = 'none';
+      stopProgressMonitoring();
+
+      // 3초 후 대기중으로 변경
+      setTimeout(() => {
+        document.getElementById('status-text').textContent = '대기중';
+        document.getElementById('progress-details').style.display = 'none';
+      }, 3000);
+    } else {
+      alert(`중지 실패: ${data.message}`);
+      stopBtn.disabled = false;
+      stopBtn.innerHTML = '⏹️ 중지';
+    }
+  })
+  .catch(error => {
+    console.error('Stop crawling error:', error);
+    alert('중지 요청 중 오류가 발생했습니다.');
+    stopBtn.disabled = false;
+    stopBtn.innerHTML = '⏹️ 중지';
+  });
 }
 
 // 페이지 로드시 진행 상태 확인

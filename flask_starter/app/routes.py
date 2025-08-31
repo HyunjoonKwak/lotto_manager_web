@@ -48,6 +48,7 @@ def admin_required(f):
 # Progress tracking storage
 crawling_progress = {
     "is_running": False,
+    "should_stop": False,
     "current_round": 0,
     "total_rounds": 0,
     "completed_rounds": 0,
@@ -192,6 +193,12 @@ def _run_missing_update_background(app):
             total_rounds = len(missing_rounds)
 
             for i, round_no in enumerate(missing_rounds):
+                # 중지 플래그 확인
+                if crawling_progress.get("should_stop", False):
+                    _update_progress(round_no, total_rounds, i, "중지됨", "누락회차", False)
+                    crawling_progress["should_stop"] = False  # 플래그 리셋
+                    return
+
                 _update_progress(round_no, total_rounds, i, f"{round_no}회 수집중", "누락회차", True)
                 svc_perform_update(round_no)
                 _update_progress(round_no, total_rounds, i + 1, f"{round_no}회 완료", "누락회차", True)
@@ -536,6 +543,27 @@ def api_crawling_progress():
         progress["estimated_remaining_seconds"] = 0
 
     return jsonify(progress)
+
+
+@main_bp.post("/api/stop-crawling")
+def api_stop_crawling():
+    """Stop current crawling operation"""
+    global crawling_progress
+
+    if not crawling_progress["is_running"]:
+        return jsonify({
+            "success": False,
+            "message": "진행 중인 크롤링이 없습니다."
+        })
+
+    # 중지 플래그 설정
+    crawling_progress["should_stop"] = True
+    crawling_progress["status"] = "중지 요청됨..."
+
+    return jsonify({
+        "success": True,
+        "message": "크롤링 중지 요청이 전송되었습니다."
+    })
 
 
 @main_bp.get("/api/recommend")
