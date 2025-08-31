@@ -1167,7 +1167,7 @@ def check_password_strength():
         score += 20
     if any(c.isdigit() for c in password):
         score += 20
-    if any(c in '!@#$%^&*()_+-=[]{};\'"\|,.<>/?' for c in password):
+    if any(c in r'!@#$%^&*()_+-=[]{};\'"\|,.<>/?' for c in password):
         score += 20
 
     return jsonify({

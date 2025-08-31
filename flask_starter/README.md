@@ -171,7 +171,7 @@ flask_starter/
 2. **데이터베이스에서 관리자 권한 부여**
    ```bash
    cd flask_starter
-   sqlite3 instance/lotto.db "UPDATE users SET is_admin = 1 WHERE username = '사용자명';"
+   sqlite3 instance/lotto.db "UPDATE users SET is_admin = 1 WHERE username = 'kingchic';"
    ```
 
 3. **관리자 권한 확인**
@@ -356,6 +356,34 @@ python -m pytest --cov=app
 5. Open a Pull Request
 
 ## 🚨 문제 해결
+
+### EC2에서 포트 80 권한 문제 해결
+EC2에서 포트 80을 사용하려면 관리자 권한이 필요합니다.
+
+#### 방법 1: sudo 사용 (권장)
+```bash
+# 백그라운드 실행
+sudo ./start.sh bg
+
+# 직접 실행
+sudo ./start.sh nas
+```
+
+#### 방법 2: 대안 포트 사용
+스크립트가 자동으로 포트 8080을 제안합니다:
+```bash
+./start.sh nas
+# → "대안 포트 8080을 사용하시겠습니까? (Y/n)"
+```
+
+#### 방법 3: 포트 포워딩 설정
+```bash
+# 포트 80을 8080으로 포워딩
+sudo iptables -t nat -A PREROUTING -p tcp --dport 80 -j REDIRECT --to-port 8080
+
+# 백그라운드에서 8080 포트로 실행
+./start.sh bg
+```
 
 ### 포트 충돌 해결
 앱이 자동으로 포트 충돌을 감지하고 해결합니다:
