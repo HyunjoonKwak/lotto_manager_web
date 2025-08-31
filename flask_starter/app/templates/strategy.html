@@ -18,7 +18,7 @@
   <section class="card">
     <div class="card-header">
       <h2>🤖 AI 추천번호 (5세트)</h2>
-      <button type="button" class="refresh-btn" onclick="refreshPage()" title="새로고침">🔄 새로고침</button>
+      <button type="button" class="refresh-btn" onclick="refreshRecommendations()" title="새 추천번호 생성">🔄 새 추천번호</button>
     </div>
 
     <div class="table-container">
@@ -51,7 +51,7 @@
               <button class="btn btn-primary btn-sm purchase-btn"
                       data-numbers="{{ rec | join(',') }}"
                       data-method="AI추천">
-                구매 기록
+                구매하기
               </button>
             </td>
           </tr>
@@ -59,6 +59,75 @@
         </tbody>
       </table>
     </div>
+  </section>
+
+  <!-- Manual Number Input Section -->
+  <section class="card">
+    <div class="card-header">
+      <h2>✏️ 수동 번호 입력</h2>
+    </div>
+
+    <div class="manual-input-section">
+      <div class="input-row">
+        <input type="number" id="manualRound" placeholder="회차" min="1" max="9999" class="round-input">
+        <input type="text" id="manualNumbers" placeholder="예: 1 7 12 23 32 40 (공백 또는 콤마로 구분)" maxlength="50" class="numbers-input">
+        <button type="button" class="btn btn-primary" onclick="addManualNumbers()">번호 추가</button>
+      </div>
+      <div class="input-help">
+        <small>회차를 입력하거나 비워두면 다음 회차로 자동 설정됩니다. 1-45 사이의 6개 번호를 입력하세요.</small>
+      </div>
+    </div>
+
+    <!-- Display existing manual numbers -->
+    {% if manual_numbers %}
+    <div class="manual-numbers-list">
+      <h4>나의 구매 번호 (수동입력 & AI추천)</h4>
+      <div class="table-container">
+        <table class="compact-table">
+          <thead>
+            <tr>
+              <th>회차</th>
+              <th>번호</th>
+              <th>등록일</th>
+              <th>구분</th>
+              <th>구매</th>
+              <th>삭제</th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for purchase in manual_numbers %}
+            <tr id="manual-row-{{ purchase.id }}">
+              <td>{{ purchase.purchase_round }}회</td>
+              <td class="numbers-cell">
+                {% for num in purchase.numbers_list() %}
+                  <span class="number-text">{{ num }}</span>{% if not loop.last %}, {% endif %}
+                {% endfor %}
+              </td>
+              <td>{{ purchase.purchase_date.strftime('%m/%d %H:%M') }}</td>
+              <td>
+                {% if purchase.purchase_method == "AI추천" %}
+                  <span class="badge-ai">{{ purchase.purchase_method }}</span>
+                {% else %}
+                  <span class="badge-manual">{{ purchase.purchase_method }}</span>
+                {% endif %}
+              </td>
+              <td>
+                <button class="btn btn-primary btn-sm purchase-btn"
+                        data-numbers="{{ purchase.numbers }}"
+                        data-method="{{ purchase.purchase_method }}">
+                  구매하기
+                </button>
+              </td>
+              <td>
+                <button class="btn btn-danger btn-sm" onclick="deleteManualNumbers({{ purchase.id }})">삭제</button>
+              </td>
+            </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    </div>
+    {% endif %}
   </section>
 
   <!-- Analysis Section -->
@@ -133,26 +202,31 @@
     </div>
   </section>
 
-  <!-- Compact Recent Draws -->
+  <!-- Recent Draws -->
   <section class="card">
     <div class="card-header">
-      <h2>📈 최근 5회 추첨 기록</h2>
+      <h2>📊 최근 10회 추첨 기록</h2>
     </div>
-    <div class="compact-draws">
-      {% for d in draws[:5] %}
-      <div class="compact-draw-item">
-        <div class="draw-info">
-          <strong>{{ d.round }}회</strong>
-          <span class="draw-date">{{ d.draw_date.strftime('%m/%d') if d.draw_date else '-' }}</span>
-        </div>
-        <div class="draw-numbers">
-          {% for num in d.numbers_list() %}
-            <span class="mini-ball">{{ num }}</span>
+    <div class="table-container">
+      <table>
+        <thead>
+          <tr><th>회차</th><th>날짜</th><th>당첨번호</th><th>보너스</th></tr>
+        </thead>
+        <tbody>
+          {% for d in draws %}
+          <tr>
+            <td><strong>{{ d.round }}회</strong></td>
+            <td>{{ d.draw_date if d.draw_date else '-' }}</td>
+            <td class="numbers-cell">
+              {% for num in d.numbers_list() %}
+                <span class="small-number-ball">{{ num }}</span>
+              {% endfor %}
+            </td>
+            <td class="bonus-cell">{{ d.bonus }}</td>
+          </tr>
           {% endfor %}
-          <span class="mini-bonus">+{{ d.bonus }}</span>
-        </div>
-      </div>
-      {% endfor %}
+        </tbody>
+      </table>
     </div>
   </section>
 
@@ -250,59 +324,139 @@
   padding: 0.5rem;
 }
 
-/* Compact Draws Styles */
-.compact-draws {
-  display: flex;
-  flex-direction: column;
-  gap: 0.75rem;
-  margin-top: 1rem;
+/* Manual Input Styles */
+.manual-input-section {
+  margin-bottom: 1.5rem;
 }
 
-.compact-draw-item {
+.input-row {
   display: flex;
-  justify-content: space-between;
+  gap: 1rem;
   align-items: center;
-  padding: 0.75rem;
-  background: #f8f9fa;
-  border-radius: 0.5rem;
-  border-left: 3px solid #667eea;
+  margin-bottom: 0.5rem;
 }
 
-.draw-info {
-  display: flex;
-  flex-direction: column;
-  gap: 0.25rem;
+.input-row input {
+  padding: 0.5rem;
+  border: 2px solid #e9ecef;
+  border-radius: 0.25rem;
+  font-size: 1rem;
 }
 
-.draw-date {
-  font-size: 0.8rem;
+.input-row input:focus {
+  outline: none;
+  border-color: #667eea;
+}
+
+.round-input {
+  width: 80px;
+  flex-shrink: 0;
+  text-align: center;
+}
+
+.numbers-input {
+  flex: 1;
+  min-width: 200px;
+}
+
+.input-help {
   color: #666;
+  margin-bottom: 1rem;
 }
 
-.draw-numbers {
-  display: flex;
-  gap: 0.25rem;
-  align-items: center;
+.manual-numbers-list {
+  margin-top: 1.5rem;
 }
 
-.mini-ball {
+.manual-numbers-list h4 {
+  margin-bottom: 0.75rem;
+  color: #333;
+  font-size: 1rem;
+}
+
+.btn {
+  padding: 0.5rem 1rem;
+  border: none;
+  border-radius: 0.25rem;
+  cursor: pointer;
+  font-weight: 500;
+  text-decoration: none;
+  display: inline-block;
+  transition: all 0.2s ease;
+}
+
+.btn-primary {
+  background: #667eea;
+  color: white;
+}
+
+.btn-primary:hover {
+  background: #5a67d8;
+}
+
+.btn-danger {
+  background: #e53e3e;
+  color: white;
+}
+
+.btn-danger:hover {
+  background: #c53030;
+}
+
+.btn-success {
+  background: #38a169;
+  color: white;
+}
+
+.btn-sm {
+  padding: 0.25rem 0.5rem;
+  font-size: 0.875rem;
+}
+
+.badge-ai {
+  background: linear-gradient(135deg, #667eea, #764ba2);
+  color: white;
+  padding: 0.25rem 0.5rem;
+  border-radius: 1rem;
+  font-size: 0.75rem;
+  font-weight: 600;
+  display: inline-block;
+}
+
+.badge-manual {
+  background: linear-gradient(135deg, #28a745, #20c997);
+  color: white;
+  padding: 0.25rem 0.5rem;
+  border-radius: 1rem;
+  font-size: 0.75rem;
+  font-weight: 600;
+  display: inline-block;
+}
+
+/* Recent Draws - 정보조회 페이지와 동일한 스타일 */
+.numbers-cell {
+  padding: 0.75rem;
+}
+
+.small-number-ball {
   display: inline-block;
   width: 24px;
   height: 24px;
-  border-radius: 50%;
+  line-height: 24px;
+  text-align: center;
   background: linear-gradient(135deg, #667eea, #764ba2);
   color: white;
-  font-size: 0.7rem;
+  border-radius: 50%;
+  font-size: 0.75rem;
   font-weight: bold;
-  text-align: center;
-  line-height: 24px;
+  margin: 0 2px;
+  box-shadow: 0 2px 4px rgba(102, 126, 234, 0.3);
 }
 
-.mini-bonus {
-  font-size: 0.8rem;
-  color: #e67e22;
+.bonus-cell {
   font-weight: bold;
-  margin-left: 0.25rem;
+  color: #e67e22;
+  font-size: 1rem;
 }
 
 @media (max-width: 768px) {
@@ -317,26 +471,66 @@
     align-items: flex-start;
   }
 
-  .compact-draw-item {
-    flex-direction: column;
-    gap: 0.5rem;
-    align-items: flex-start;
+  .small-number-ball {
+    width: 20px;
+    height: 20px;
+    line-height: 20px;
+    font-size: 0.65rem;
+    margin: 0 1px;
+  }
+
+  .numbers-cell {
+    padding: 0.5rem;
   }
 
   .combo-table {
     max-width: 100%;
   }
+
+  .input-row {
+    flex-direction: column;
+    gap: 0.5rem;
+    align-items: stretch;
+  }
+
+  .input-row input {
+    margin-bottom: 0.5rem;
+    width: 100% !important;
+  }
 }
 </style>
 
 <script>
-function refreshPage() {
-  // Save current scroll position
-  const scrollPos = window.pageYOffset;
-  sessionStorage.setItem('scrollPosition', scrollPos);
+function refreshRecommendations() {
+  const button = document.querySelector('.refresh-btn');
+  const originalText = button.innerHTML;
 
-  // Reload page
-  window.location.reload();
+  button.disabled = true;
+  button.innerHTML = '⏳ 생성중...';
+
+  fetch('/api/refresh-recommendations', {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/x-www-form-urlencoded',
+    }
+  })
+  .then(response => response.json())
+  .then(data => {
+    if (data.success) {
+      alert(data.message);
+      // 페이지 새로고침하여 새 추천번호 표시
+      window.location.reload();
+    } else {
+      alert(`오류: ${data.message}`);
+    }
+  })
+  .catch(error => {
+    alert(`오류가 발생했습니다: ${error}`);
+  })
+  .finally(() => {
+    button.disabled = false;
+    button.innerHTML = originalText;
+  });
 }
 
 // Restore scroll position after page load
@@ -347,24 +541,122 @@ document.addEventListener('DOMContentLoaded', function() {
     sessionStorage.removeItem('scrollPosition');
   }
 
-  // 구매 버튼 이벤트 리스너 추가
+  // 이미 구매한 번호들 체크 및 버튼 상태 변경
+  const purchasedNumbers = {{ purchased_numbers | tojson }};
   document.querySelectorAll('.purchase-btn').forEach(button => {
-    button.addEventListener('click', function() {
-      const numbers = this.getAttribute('data-numbers');
-      const method = this.getAttribute('data-method');
+    const numbers = button.getAttribute('data-numbers');
 
-      if (confirm(`${numbers} 번호를 구매 기록하시겠습니까?`)) {
+    if (purchasedNumbers.includes(numbers)) {
+      // 이미 구매한 번호인 경우 "구매완료" 상태로 변경
+      button.innerHTML = '구매완료';
+      button.classList.remove('btn-primary');
+      button.classList.add('btn-success');
+      button.disabled = true;
+    } else {
+      // 구매하지 않은 번호인 경우 클릭 이벤트 추가
+      button.addEventListener('click', function() {
+        const method = this.getAttribute('data-method');
         purchaseLottery(numbers, method, this);
-      }
-    });
+      });
+    }
   });
 });
+
+// 수동 번호 추가 함수
+function addManualNumbers() {
+  const roundInput = document.getElementById('manualRound');
+  const numbersInput = document.getElementById('manualNumbers');
+
+  const round = roundInput.value.trim();
+  const numbers = numbersInput.value.trim();
+
+  if (!numbers) {
+    alert('번호를 입력해주세요.');
+    return;
+  }
+
+  const formData = new FormData();
+  formData.append('numbers', numbers);
+  if (round) {
+    formData.append('round', round);
+  }
+
+  fetch('/api/add-manual-numbers', {
+    method: 'POST',
+    body: formData
+  })
+  .then(response => response.json())
+  .then(data => {
+    if (data.success) {
+      // alert 대신 시각적 피드백
+      const addButton = document.querySelector('.manual-input-section .btn-primary');
+      const originalText = addButton.textContent;
+
+      addButton.classList.remove('btn-primary');
+      addButton.classList.add('btn-success');
+      addButton.textContent = '✅ 추가됨';
+      addButton.disabled = true;
+
+      roundInput.value = '';
+      numbersInput.value = '';
+
+      // 2초 후 페이지 새로고침
+      setTimeout(() => {
+        window.location.reload();
+      }, 2000);
+    } else {
+      alert(`오류: ${data.error}`);
+    }
+  })
+  .catch(error => {
+    alert(`오류가 발생했습니다: ${error}`);
+  });
+}
+
+// 수동 번호 삭제 함수
+function deleteManualNumbers(purchaseId) {
+  // 확인 없이 바로 삭제, 시각적 피드백으로 대체
+  const row = document.getElementById(`manual-row-${purchaseId}`);
+  const deleteBtn = row.querySelector('.btn-danger');
+
+  deleteBtn.disabled = true;
+  deleteBtn.innerHTML = '⏳';
+
+  fetch(`/api/delete-manual-numbers/${purchaseId}`, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/x-www-form-urlencoded',
+    }
+  })
+  .then(response => response.json())
+  .then(data => {
+    if (data.success) {
+      // 페이드 아웃 효과
+      row.style.transition = 'opacity 0.3s ease';
+      row.style.opacity = '0';
+
+      // 0.3초 후 행 제거
+      setTimeout(() => {
+        row.remove();
+      }, 300);
+    } else {
+      alert(`오류: ${data.error}`);
+      deleteBtn.disabled = false;
+      deleteBtn.innerHTML = '삭제';
+    }
+  })
+  .catch(error => {
+    alert(`오류가 발생했습니다: ${error}`);
+    deleteBtn.disabled = false;
+    deleteBtn.innerHTML = '삭제';
+  });
+}
 
 // 구매 기록 함수
 function purchaseLottery(numbers, method, button) {
   const originalText = button.innerHTML;
   button.disabled = true;
-  button.innerHTML = '<span class="spinner-border spinner-border-sm" role="status"></span> 기록중...';
+  button.innerHTML = '⏳ 기록중...';
 
   const formData = new FormData();
   formData.append('numbers', numbers);
@@ -377,14 +669,24 @@ function purchaseLottery(numbers, method, button) {
   .then(response => response.json())
   .then(data => {
     if (data.success) {
-      alert(`구매 기록 완료!\n${data.purchase_round}회 - ${numbers}`);
-      button.innerHTML = '✓ 기록됨';
+      // 구매 성공 시 영구적으로 "구매완료" 상태 유지
+      button.innerHTML = '구매완료';
       button.classList.remove('btn-primary');
       button.classList.add('btn-success');
+      button.disabled = true;
     } else {
-      alert(`오류: ${data.error}`);
-      button.disabled = false;
-      button.innerHTML = originalText;
+      // 오류 처리 (중복 구매 등)
+      if (data.error && data.error.includes('이미 구매')) {
+        // 중복 구매인 경우 "구매완료" 상태로 변경
+        button.innerHTML = '구매완료';
+        button.classList.remove('btn-primary');
+        button.classList.add('btn-success');
+        button.disabled = true;
+      } else {
+        alert(`${data.error}`);
+        button.disabled = false;
+        button.innerHTML = originalText;
+      }
     }
   })
   .catch(error => {

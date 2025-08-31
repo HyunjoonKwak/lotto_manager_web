@@ -65,3 +65,14 @@ class Purchase(db.Model):
         if self.winning_rank is None:
             return "낙첨"
         return f"{self.winning_rank}등 당첨"
+
+
+class RecommendationSet(db.Model):
+    __tablename__ = "recommendation_sets"
+
+    id = db.Column(db.Integer, primary_key=True)
+    session_id = db.Column(db.String(100), nullable=False, index=True)  # 세션별 추천번호 관리
+    numbers_set = db.Column(db.Text, nullable=False)  # JSON 형태로 5세트 저장
+    reasons_set = db.Column(db.Text, nullable=True)  # JSON 형태로 추천 이유 저장
+    created_at = db.Column(db.DateTime, nullable=False, default=datetime.utcnow)
+    updated_at = db.Column(db.DateTime, nullable=False, default=datetime.utcnow, onupdate=datetime.utcnow)

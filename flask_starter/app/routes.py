@@ -23,6 +23,9 @@ from .services.lottery_checker import (
     check_all_pending_results, get_purchase_statistics,
     get_recent_purchases_with_results, update_purchase_results
 )
+from .services.recommendation_manager import (
+    get_persistent_recommendations, refresh_recommendations
+)
 
 
 main_bp = Blueprint("main", __name__)
@@ -339,36 +342,44 @@ def api_shops(round_no: int):
 @main_bp.get("/strategy")
 def strategy():
     # Get recent draws for display
-    draws = Draw.query.order_by(Draw.round.desc()).limit(5).all()
+    draws = Draw.query.order_by(Draw.round.desc()).limit(10).all()
     total_draws = Draw.query.count()
 
     # Use all data for AI recommendations
     all_draws = Draw.query.order_by(Draw.round.desc()).all()
-    history = [d.numbers_list() for d in all_draws]
 
-    # AI recommendations based on all data
-    auto = auto_recommend(history, count=5)
+    # Get persistent recommendations (or create new ones if none exist)
+    auto_recs, recommendation_reasons = get_persistent_recommendations(all_draws)
 
     # Frequency analysis based on all data (no limit = all data)
     most_frequent = get_most_frequent_numbers(10, limit=None)
     least_frequent = get_least_frequent_numbers(10, limit=None)
     top_combinations = get_number_combinations(10, limit=None)
 
-    # Generate reasons for recommendations based on all data
-    reasons = []
-    for rec in auto:
-        reasons.append(get_recommendation_reasons(rec, limit=None))
+    # Get user's manual numbers from Purchase table (last 10)
+    manual_numbers = Purchase.query.filter(
+        Purchase.purchase_method.in_(["수동입력", "AI추천"])
+    ).order_by(Purchase.purchase_date.desc()).limit(10).all()
+
+    # Get all purchased numbers for duplicate check (next round)
+    latest_draw = Draw.query.order_by(Draw.round.desc()).first()
+    next_round = latest_draw.round + 1 if latest_draw else 1
+    purchased_numbers = Purchase.query.filter_by(purchase_round=next_round).all()
+    purchased_numbers_list = [p.numbers for p in purchased_numbers]
 
     return render_template(
         "strategy.html",
         title="전략 분석",
         draws=draws,
-        auto_recs=auto,
+        auto_recs=auto_recs,
         most_frequent=most_frequent,
         least_frequent=least_frequent,
         top_combinations=top_combinations,
-        recommendation_reasons=reasons,
+        recommendation_reasons=recommendation_reasons,
         total_draws=total_draws,
+        manual_numbers=manual_numbers,
+        purchased_numbers=purchased_numbers_list,
+        next_round=next_round,
     )
 
 
@@ -514,10 +525,25 @@ def purchase_lottery():
         latest_draw = Draw.query.order_by(Draw.round.desc()).first()
         purchase_round = (latest_draw.round + 1) if latest_draw else 1
 
+        # 정렬된 번호
+        numbers_string = ",".join(map(str, sorted(number_list)))
+
+        # 중복 구매 체크
+        existing_purchase = Purchase.query.filter_by(
+            purchase_round=purchase_round,
+            numbers=numbers_string
+        ).first()
+
+        if existing_purchase:
+            return jsonify({
+                "success": False,
+                "error": f"{purchase_round}회차에 동일한 번호가 이미 구매되어 있습니다"
+            })
+
         # 구매 기록 저장
         purchase = Purchase(
             purchase_round=purchase_round,
-            numbers=",".join(map(str, sorted(number_list))),
+            numbers=numbers_string,
             purchase_method=method
         )
 
@@ -668,4 +694,182 @@ def api_update_new_draw():
         return jsonify({
             "success": False,
             "message": str(e)
+        }), 400
+
+
+@main_bp.post("/api/refresh-recommendations")
+def refresh_recommendations_api():
+    """AI 추천번호 새로 생성"""
+    try:
+        all_draws = Draw.query.order_by(Draw.round.desc()).all()
+        auto_recs, recommendation_reasons = refresh_recommendations(all_draws)
+
+        return jsonify({
+            "success": True,
+            "message": "새로운 추천번호가 생성되었습니다",
+            "recommendations": auto_recs,
+            "reasons": recommendation_reasons
+        })
+
+    except Exception as e:
+        return jsonify({
+            "success": False,
+            "message": str(e)
+        }), 400
+
+
+@main_bp.post("/api/add-manual-numbers")
+def add_manual_numbers():
+    """수동으로 번호 입력"""
+    try:
+        numbers_str = request.form.get("numbers", "").strip()
+        round_str = request.form.get("round", "").strip()
+
+        if not numbers_str:
+            return jsonify({
+                "success": False,
+                "error": "번호를 입력해주세요"
+            })
+
+        # 번호 파싱 및 검증
+        try:
+            numbers = [int(x.strip()) for x in numbers_str.replace(",", " ").split() if x.strip()]
+
+            if len(numbers) != 6:
+                return jsonify({
+                    "success": False,
+                    "error": "정확히 6개의 번호를 입력해주세요"
+                })
+
+            if len(set(numbers)) != 6:
+                return jsonify({
+                    "success": False,
+                    "error": "중복된 번호가 있습니다"
+                })
+
+            if not all(1 <= num <= 45 for num in numbers):
+                return jsonify({
+                    "success": False,
+                    "error": "번호는 1-45 사이여야 합니다"
+                })
+
+        except ValueError:
+            return jsonify({
+                "success": False,
+                "error": "올바른 번호 형식이 아닙니다"
+            })
+
+        # 회차 결정
+        if round_str:
+            try:
+                purchase_round = int(round_str)
+                if purchase_round < 1:
+                    return jsonify({
+                        "success": False,
+                        "error": "회차는 1 이상이어야 합니다"
+                    })
+            except ValueError:
+                return jsonify({
+                    "success": False,
+                    "error": "올바른 회차 형식이 아닙니다"
+                })
+        else:
+            # 회차가 입력되지 않았으면 다음 회차로 자동 설정
+            latest_draw = Draw.query.order_by(Draw.round.desc()).first()
+            purchase_round = latest_draw.round + 1 if latest_draw else 1
+
+        # 정렬된 번호로 저장
+        sorted_numbers = sorted(numbers)
+        numbers_string = ",".join(map(str, sorted_numbers))
+
+        # 중복 구매 체크
+        existing_purchase = Purchase.query.filter_by(
+            purchase_round=purchase_round,
+            numbers=numbers_string
+        ).first()
+
+        if existing_purchase:
+            return jsonify({
+                "success": False,
+                "error": f"{purchase_round}회차에 동일한 번호가 이미 등록되어 있습니다"
+            })
+
+        # Purchase 테이블에 저장
+        purchase = Purchase(
+            purchase_round=purchase_round,
+            numbers=numbers_string,
+            purchase_method="수동입력"
+        )
+
+        db.session.add(purchase)
+        db.session.commit()
+
+        return jsonify({
+            "success": True,
+            "message": f"{purchase_round}회차 수동 번호가 등록되었습니다: {numbers_string}",
+            "purchase_round": purchase_round,
+            "numbers": numbers_string
+        })
+
+    except Exception as e:
+        return jsonify({
+            "success": False,
+            "error": str(e)
+        }), 400
+
+
+@main_bp.post("/api/delete-manual-numbers/<int:purchase_id>")
+def delete_manual_numbers(purchase_id):
+    """수동 입력 번호 삭제"""
+    try:
+        purchase = Purchase.query.filter(
+            Purchase.id == purchase_id,
+            Purchase.purchase_method.in_(["수동입력", "AI추천"])
+        ).first()
+
+        if not purchase:
+            return jsonify({
+                "success": False,
+                "error": "해당 번호를 찾을 수 없습니다"
+            })
+
+        db.session.delete(purchase)
+        db.session.commit()
+
+        return jsonify({
+            "success": True,
+            "message": "번호가 삭제되었습니다"
+        })
+
+    except Exception as e:
+        return jsonify({
+            "success": False,
+            "error": str(e)
+        }), 400
+
+
+@main_bp.post("/api/delete-purchase/<int:purchase_id>")
+def delete_purchase(purchase_id):
+    """구매 기록 삭제"""
+    try:
+        purchase = Purchase.query.get(purchase_id)
+
+        if not purchase:
+            return jsonify({
+                "success": False,
+                "error": "해당 구매 기록을 찾을 수 없습니다"
+            })
+
+        db.session.delete(purchase)
+        db.session.commit()
+
+        return jsonify({
+            "success": True,
+            "message": "구매 기록이 삭제되었습니다"
+        })
+
+    except Exception as e:
+        return jsonify({
+            "success": False,
+            "error": str(e)
         }), 400

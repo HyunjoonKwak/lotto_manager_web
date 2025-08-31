@@ -1,203 +1,493 @@
 {% extends "base.html" %}
 
 {% block content %}
-<div class="container mt-4">
-    <h2>{{ title }}</h2>
-
-    <!-- 통계 카드 -->
-    <div class="row mb-4">
-        <div class="col-md-3">
-            <div class="card bg-primary text-white">
-                <div class="card-body">
-                    <h5 class="card-title">총 구매</h5>
-                    <h3>{{ stats.total_purchases }}건</h3>
-                </div>
-            </div>
-        </div>
-        <div class="col-md-3">
-            <div class="card bg-warning text-dark">
-                <div class="card-body">
-                    <h5 class="card-title">결과 대기</h5>
-                    <h3>{{ stats.unchecked_purchases }}건</h3>
-                </div>
-            </div>
-        </div>
-        <div class="col-md-3">
-            <div class="card bg-success text-white">
-                <div class="card-body">
-                    <h5 class="card-title">당첨</h5>
-                    <h3>{{ stats.winning_stats.rank_1 + stats.winning_stats.rank_2 + stats.winning_stats.rank_3 + stats.winning_stats.rank_4 + stats.winning_stats.rank_5 }}건</h3>
-                </div>
-            </div>
-        </div>
-        <div class="col-md-3">
-            <div class="card bg-info text-white">
-                <div class="card-body">
-                    <h5 class="card-title">총 당첨금</h5>
-                    <h3>{{ "{:,}".format(stats.total_prize) }}원</h3>
-                </div>
-            </div>
-        </div>
-    </div>
-
-    <!-- 당첨 등수별 통계 -->
-    <div class="row mb-4">
-        <div class="col-12">
-            <div class="card">
-                <div class="card-header">
-                    <h5>등수별 당첨 현황</h5>
-                </div>
-                <div class="card-body">
-                    <div class="row">
-                        <div class="col-md-2">
-                            <strong>1등:</strong> {{ stats.winning_stats.rank_1 }}건
-                        </div>
-                        <div class="col-md-2">
-                            <strong>2등:</strong> {{ stats.winning_stats.rank_2 }}건
-                        </div>
-                        <div class="col-md-2">
-                            <strong>3등:</strong> {{ stats.winning_stats.rank_3 }}건
-                        </div>
-                        <div class="col-md-2">
-                            <strong>4등:</strong> {{ stats.winning_stats.rank_4 }}건
-                        </div>
-                        <div class="col-md-2">
-                            <strong>5등:</strong> {{ stats.winning_stats.rank_5 }}건
-                        </div>
-                        <div class="col-md-2">
-                            <strong>낙첨:</strong> {{ stats.losing_count }}건
-                        </div>
-                    </div>
-                </div>
-            </div>
-        </div>
-    </div>
-
-    <!-- 결과 확인 버튼 -->
-    <div class="row mb-3">
-        <div class="col-12">
-            <button id="checkAllResults" class="btn btn-success">
-                <i class="bi bi-check-circle"></i> 모든 결과 확인
-            </button>
-            <span id="checkResultsStatus" class="ms-2"></span>
-        </div>
-    </div>
-
-    <!-- 구매 이력 테이블 -->
-    <div class="table-responsive">
-        <table class="table table-striped">
-            <thead class="table-dark">
-                <tr>
-                    <th>구매일</th>
-                    <th>회차</th>
-                    <th>번호</th>
-                    <th>구매방법</th>
-                    <th>결과</th>
-                    <th>맞춘개수</th>
-                    <th>보너스</th>
-                    <th>당첨금</th>
-                </tr>
-            </thead>
-            <tbody>
-                {% for purchase in purchases.items %}
-                <tr>
-                    <td>{{ purchase.purchase_date.strftime('%Y-%m-%d %H:%M') }}</td>
-                    <td>{{ purchase.purchase_round }}회</td>
-                    <td>
-                        <span class="badge bg-light text-dark">
-                            {{ purchase.numbers }}
-                        </span>
-                    </td>
-                    <td>{{ purchase.purchase_method }}</td>
-                    <td>
-                        {% if not purchase.result_checked %}
-                            <span class="badge bg-warning">결과 대기</span>
-                        {% elif purchase.winning_rank %}
-                            <span class="badge bg-success">{{ purchase.winning_rank }}등</span>
-                        {% else %}
-                            <span class="badge bg-secondary">낙첨</span>
-                        {% endif %}
-                    </td>
-                    <td>
-                        {% if purchase.result_checked %}
-                            {{ purchase.matched_count }}개
-                        {% else %}
-                            -
-                        {% endif %}
-                    </td>
-                    <td>
-                        {% if purchase.result_checked %}
-                            {% if purchase.bonus_matched %}
-                                <span class="badge bg-warning">일치</span>
-                            {% else %}
-                                <span class="badge bg-light text-dark">불일치</span>
-                            {% endif %}
-                        {% else %}
-                            -
-                        {% endif %}
-                    </td>
-                    <td>
-                        {% if purchase.prize_amount %}
-                            <strong>{{ "{:,}".format(purchase.prize_amount) }}원</strong>
-                        {% else %}
-                            -
-                        {% endif %}
-                    </td>
-                </tr>
-                {% else %}
-                <tr>
-                    <td colspan="8" class="text-center">구매 기록이 없습니다.</td>
-                </tr>
-                {% endfor %}
-            </tbody>
-        </table>
-    </div>
-
-    <!-- 페이지네이션 -->
-    {% if purchases.pages > 1 %}
-    <nav>
-        <ul class="pagination justify-content-center">
-            {% if purchases.has_prev %}
-            <li class="page-item">
-                <a class="page-link" href="{{ url_for('main.purchase_history', page=purchases.prev_num) }}">이전</a>
-            </li>
-            {% endif %}
-
-            {% for page_num in purchases.iter_pages() %}
-                {% if page_num %}
-                    {% if page_num != purchases.page %}
-                    <li class="page-item">
-                        <a class="page-link" href="{{ url_for('main.purchase_history', page=page_num) }}">{{ page_num }}</a>
-                    </li>
-                    {% else %}
-                    <li class="page-item active">
-                        <span class="page-link">{{ page_num }}</span>
-                    </li>
-                    {% endif %}
-                {% else %}
-                <li class="page-item disabled">
-                    <span class="page-link">...</span>
-                </li>
-                {% endif %}
-            {% endfor %}
-
-            {% if purchases.has_next %}
-            <li class="page-item">
-                <a class="page-link" href="{{ url_for('main.purchase_history', page=purchases.next_num) }}">다음</a>
-            </li>
-            {% endif %}
-        </ul>
-    </nav>
-    {% endif %}
+<div class="header">
+  <div>
+    <h1>📊 구매 이력</h1>
+    <div class="muted">나의 로또 구매 기록과 당첨 현황</div>
+  </div>
+  <div class="stats">
+    <div class="stat">총 구매: {{ stats.total_purchases }}건</div>
+    <div class="stat">총 당첨금: {{ "{:,}".format(stats.total_prize) }}원</div>
+  </div>
 </div>
+
+<!-- Main Content Grid -->
+<div class="main-content">
+
+  <!-- 요약 통계 -->
+  <section class="card">
+    <div class="card-header">
+      <h2>📈 구매 요약</h2>
+      <button id="checkAllResults" class="btn-update">
+        <span id="checkButtonText">모든 결과 확인</span>
+      </button>
+    </div>
+    <div class="summary-grid">
+      <div class="summary-item">
+        <div class="summary-number">{{ stats.total_purchases }}</div>
+        <div class="summary-label">총 구매</div>
+      </div>
+      <div class="summary-item waiting">
+        <div class="summary-number">{{ stats.unchecked_purchases }}</div>
+        <div class="summary-label">결과 대기</div>
+      </div>
+      <div class="summary-item winning">
+        <div class="summary-number">{{ stats.winning_stats.rank_1 + stats.winning_stats.rank_2 + stats.winning_stats.rank_3 + stats.winning_stats.rank_4 + stats.winning_stats.rank_5 }}</div>
+        <div class="summary-label">당첨</div>
+      </div>
+      <div class="summary-item losing">
+        <div class="summary-number">{{ stats.losing_count }}</div>
+        <div class="summary-label">낙첨</div>
+      </div>
+    </div>
+
+    <!-- 등수별 상세 -->
+    <div class="rank-details">
+      <div class="rank-item rank-1">1등: {{ stats.winning_stats.rank_1 }}건</div>
+      <div class="rank-item rank-2">2등: {{ stats.winning_stats.rank_2 }}건</div>
+      <div class="rank-item rank-3">3등: {{ stats.winning_stats.rank_3 }}건</div>
+      <div class="rank-item rank-4">4등: {{ stats.winning_stats.rank_4 }}건</div>
+      <div class="rank-item rank-5">5등: {{ stats.winning_stats.rank_5 }}건</div>
+    </div>
+  </section>
+
+  <!-- 구매 이력 -->
+  <section class="card">
+    <div class="card-header">
+      <h2>📝 구매 기록</h2>
+      <div class="header-actions">
+        <span id="checkResultsStatus" class="status-message"></span>
+      </div>
+    </div>
+
+    {% if purchases.items %}
+    <div class="purchases-list">
+      {% for purchase in purchases.items %}
+      <div class="purchase-item">
+        <div class="purchase-header">
+          <div class="purchase-round">{{ purchase.purchase_round }}회</div>
+          <div class="purchase-date">{{ purchase.purchase_date.strftime('%m/%d %H:%M') }}</div>
+          <div class="purchase-method">{{ purchase.purchase_method }}</div>
+        </div>
+
+        <div class="purchase-content">
+          <div class="purchase-numbers">
+            {% for num in purchase.numbers_list() %}
+              <span class="number">{{ num }}</span>
+            {% endfor %}
+          </div>
+
+          <div class="purchase-result">
+            <div class="result-info">
+              {% if not purchase.result_checked %}
+                <span class="status waiting">결과 대기</span>
+              {% elif purchase.winning_rank %}
+                <span class="status winning">{{ purchase.winning_rank }}등 당첨</span>
+                <span class="prize">{{ "{:,}".format(purchase.prize_amount) }}원</span>
+              {% else %}
+                <span class="status losing">낙첨</span>
+              {% endif %}
+
+              {% if purchase.result_checked %}
+                <div class="match-info">
+                  <span class="matched">{{ purchase.matched_count }}개 맞춤</span>
+                  {% if purchase.bonus_matched %}
+                    <span class="bonus matched">보너스 ✓</span>
+                  {% else %}
+                    <span class="bonus">보너스 ✗</span>
+                  {% endif %}
+                </div>
+              {% endif %}
+            </div>
+
+            <div class="purchase-actions">
+              <button class="delete-btn" onclick="deletePurchase({{ purchase.id }})" title="삭제">🗑️</button>
+            </div>
+          </div>
+        </div>
+      </div>
+      {% endfor %}
+    </div>
+    {% else %}
+    <div class="empty-state">
+      <p>아직 구매 기록이 없습니다.</p>
+      <a href="{{ url_for('main.strategy') }}" class="btn-update">번호 생성하러 가기</a>
+    </div>
+    {% endif %}
+  </section>
+
+  <!-- 페이지네이션 -->
+  {% if purchases.pages > 1 %}
+  <section class="pagination-section">
+    <div class="pagination-info">
+      페이지 {{ purchases.page }} / {{ purchases.pages }} (총 {{ purchases.total }}건)
+    </div>
+    <div class="pagination-controls">
+      {% if purchases.has_prev %}
+        <a href="{{ url_for('main.purchase_history', page=purchases.prev_num) }}" class="page-btn">‹ 이전</a>
+      {% endif %}
+
+      {% if purchases.page > 1 %}
+        <a href="{{ url_for('main.purchase_history', page=1) }}" class="page-btn">1</a>
+      {% endif %}
+
+      {% if purchases.page > 3 %}
+        <span class="page-dots">...</span>
+      {% endif %}
+
+      {% for page_num in range(max(1, purchases.page - 1), min(purchases.pages + 1, purchases.page + 2)) %}
+        {% if page_num == purchases.page %}
+          <span class="page-btn current">{{ page_num }}</span>
+        {% else %}
+          <a href="{{ url_for('main.purchase_history', page=page_num) }}" class="page-btn">{{ page_num }}</a>
+        {% endif %}
+      {% endfor %}
+
+      {% if purchases.page < purchases.pages - 2 %}
+        <span class="page-dots">...</span>
+      {% endif %}
+
+      {% if purchases.page < purchases.pages %}
+        <a href="{{ url_for('main.purchase_history', page=purchases.pages) }}" class="page-btn">{{ purchases.pages }}</a>
+      {% endif %}
+
+      {% if purchases.has_next %}
+        <a href="{{ url_for('main.purchase_history', page=purchases.next_num) }}" class="page-btn">다음 ›</a>
+      {% endif %}
+    </div>
+  </section>
+  {% endif %}
+
+</div> <!-- End main-content -->
+
+<style>
+/* 구매이력 페이지 전용 스타일 */
+.summary-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+  gap: 1rem;
+  margin: 1rem 0;
+}
+
+.summary-item {
+  text-align: center;
+  padding: 1rem;
+  background: #f8f9fa;
+  border-radius: 0.5rem;
+  border-left: 4px solid #667eea;
+}
+
+.summary-item.waiting {
+  border-left-color: #ffa726;
+}
+
+.summary-item.winning {
+  border-left-color: #66bb6a;
+}
+
+.summary-item.losing {
+  border-left-color: #ef5350;
+}
+
+.summary-number {
+  font-size: 2rem;
+  font-weight: bold;
+  color: #333;
+  margin-bottom: 0.25rem;
+}
+
+.summary-label {
+  font-size: 0.9rem;
+  color: #666;
+  font-weight: 500;
+}
+
+.rank-details {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.75rem;
+  margin-top: 1rem;
+  padding-top: 1rem;
+  border-top: 1px solid #e9ecef;
+}
+
+.rank-item {
+  padding: 0.375rem 0.75rem;
+  background: #e3f2fd;
+  border-radius: 1rem;
+  font-size: 0.875rem;
+  font-weight: 500;
+  color: #1976d2;
+}
+
+.rank-item.rank-1 { background: #fff3e0; color: #f57c00; }
+.rank-item.rank-2 { background: #f3e5f5; color: #7b1fa2; }
+.rank-item.rank-3 { background: #e8f5e8; color: #388e3c; }
+
+.purchases-list {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+}
+
+.purchase-item {
+  border: 1px solid #e9ecef;
+  border-radius: 0.75rem;
+  padding: 1rem;
+  background: #ffffff;
+  transition: all 0.2s ease;
+}
+
+.purchase-item:hover {
+  box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+  border-color: #667eea;
+}
+
+.purchase-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 0.75rem;
+  font-size: 0.9rem;
+}
+
+.purchase-round {
+  font-weight: bold;
+  color: #333;
+  font-size: 1rem;
+}
+
+.purchase-date {
+  color: #666;
+}
+
+.purchase-method {
+  background: #e3f2fd;
+  padding: 0.25rem 0.5rem;
+  border-radius: 1rem;
+  font-size: 0.8rem;
+  color: #1976d2;
+}
+
+.purchase-content {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 1rem;
+}
+
+.purchase-numbers {
+  display: flex;
+  gap: 0.375rem;
+  flex-wrap: wrap;
+}
+
+.purchase-numbers .number {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  background: #667eea;
+  color: white;
+  border-radius: 50%;
+  font-size: 0.8rem;
+  font-weight: bold;
+}
+
+.purchase-result {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  flex-shrink: 0;
+  gap: 1rem;
+}
+
+.result-info {
+  text-align: right;
+  flex: 1;
+}
+
+.purchase-actions {
+  display: flex;
+  gap: 0.5rem;
+  align-items: flex-start;
+}
+
+.delete-btn {
+  background: none;
+  border: none;
+  cursor: pointer;
+  font-size: 1.2rem;
+  padding: 0.25rem;
+  border-radius: 0.25rem;
+  opacity: 0.6;
+  transition: all 0.2s ease;
+}
+
+.delete-btn:hover {
+  opacity: 1;
+  background: #ffebee;
+  transform: scale(1.1);
+}
+
+.status {
+  display: inline-block;
+  padding: 0.25rem 0.75rem;
+  border-radius: 1rem;
+  font-size: 0.8rem;
+  font-weight: 600;
+  margin-bottom: 0.25rem;
+}
+
+.status.waiting {
+  background: #fff3cd;
+  color: #856404;
+}
+
+.status.winning {
+  background: #d4edda;
+  color: #155724;
+}
+
+.status.losing {
+  background: #f8d7da;
+  color: #721c24;
+}
+
+.prize {
+  display: block;
+  font-weight: bold;
+  color: #28a745;
+  font-size: 1rem;
+  margin-top: 0.25rem;
+}
+
+.match-info {
+  font-size: 0.8rem;
+  color: #666;
+  margin-top: 0.25rem;
+}
+
+.matched {
+  margin-right: 0.5rem;
+}
+
+.bonus.matched {
+  color: #28a745;
+}
+
+.empty-state {
+  text-align: center;
+  padding: 3rem 1rem;
+  color: #666;
+}
+
+.empty-state p {
+  margin-bottom: 1rem;
+  font-size: 1.1rem;
+}
+
+.pagination-section {
+  margin: 2rem 0;
+  text-align: center;
+}
+
+.pagination-info {
+  margin-bottom: 1rem;
+  color: #666;
+  font-size: 0.9rem;
+}
+
+.pagination-controls {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  gap: 0.5rem;
+  flex-wrap: wrap;
+}
+
+.page-btn {
+  padding: 0.5rem 0.75rem;
+  border: 1px solid #dee2e6;
+  border-radius: 0.25rem;
+  color: #667eea;
+  text-decoration: none;
+  transition: all 0.2s ease;
+}
+
+.page-btn:hover {
+  background: #e3f2fd;
+  border-color: #667eea;
+}
+
+.page-btn.current {
+  background: #667eea;
+  color: white;
+  border-color: #667eea;
+}
+
+.page-dots {
+  padding: 0.5rem 0.25rem;
+  color: #666;
+}
+
+.status-message {
+  font-size: 0.9rem;
+  padding: 0.25rem 0;
+}
+
+@media (max-width: 768px) {
+  .summary-grid {
+    grid-template-columns: repeat(2, 1fr);
+  }
+
+  .purchase-content {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 0.75rem;
+  }
+
+  .purchase-result {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 0.5rem;
+  }
+
+  .result-info {
+    text-align: left;
+  }
+
+  .purchase-actions {
+    justify-content: flex-end;
+  }
+
+  .purchase-header {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 0.5rem;
+  }
+
+  .pagination-controls {
+    gap: 0.25rem;
+  }
+
+  .page-btn {
+    padding: 0.375rem 0.5rem;
+    font-size: 0.875rem;
+  }
+}
+</style>
 
 <script>
 document.getElementById('checkAllResults').addEventListener('click', function() {
     const button = this;
+    const buttonText = document.getElementById('checkButtonText');
     const status = document.getElementById('checkResultsStatus');
 
     button.disabled = true;
-    button.innerHTML = '<span class="spinner-border spinner-border-sm" role="status"></span> 확인 중...';
+    buttonText.textContent = '확인 중...';
     status.innerHTML = '';
 
     fetch('/check-results', {
@@ -209,21 +499,61 @@ document.getElementById('checkAllResults').addEventListener('click', function() 
     .then(response => response.json())
     .then(data => {
         if (data.success) {
-            status.innerHTML = `<span class="text-success">${data.message}</span>`;
+            status.innerHTML = `<span style="color: #28a745;">${data.message}</span>`;
             if (data.total_updated > 0) {
-                setTimeout(() => location.reload(), 1000);
+                setTimeout(() => location.reload(), 1500);
             }
         } else {
-            status.innerHTML = `<span class="text-danger">오류: ${data.message}</span>`;
+            status.innerHTML = `<span style="color: #dc3545;">오류: ${data.message}</span>`;
         }
     })
     .catch(error => {
-        status.innerHTML = `<span class="text-danger">오류가 발생했습니다: ${error}</span>`;
+        status.innerHTML = `<span style="color: #dc3545;">오류가 발생했습니다: ${error}</span>`;
     })
     .finally(() => {
         button.disabled = false;
-        button.innerHTML = '<i class="bi bi-check-circle"></i> 모든 결과 확인';
+        buttonText.textContent = '모든 결과 확인';
     });
 });
+
+// 구매 기록 삭제 함수
+function deletePurchase(purchaseId) {
+    // 확인 없이 바로 삭제, 시각적 피드백으로 대체
+    const deleteBtn = document.querySelector(`[onclick="deletePurchase(${purchaseId})"]`);
+    const purchaseItem = deleteBtn.closest('.purchase-item');
+
+    deleteBtn.disabled = true;
+    deleteBtn.innerHTML = '⏳';
+
+    fetch(`/api/delete-purchase/${purchaseId}`, {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/x-www-form-urlencoded',
+        }
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            // 페이드 아웃 효과
+            purchaseItem.style.transition = 'all 0.3s ease';
+            purchaseItem.style.opacity = '0';
+            purchaseItem.style.transform = 'translateX(-20px)';
+
+            // 0.3초 후 요소 제거 및 페이지 새로고침
+            setTimeout(() => {
+                window.location.reload();
+            }, 300);
+        } else {
+            alert(`오류: ${data.error}`);
+            deleteBtn.disabled = false;
+            deleteBtn.innerHTML = '🗑️';
+        }
+    })
+    .catch(error => {
+        alert(`오류가 발생했습니다: ${error}`);
+        deleteBtn.disabled = false;
+        deleteBtn.innerHTML = '🗑️';
+    });
+}
 </script>
 {% endblock %}
