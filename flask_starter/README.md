@@ -75,24 +75,55 @@ python scripts/migrate.py
 
 ### 5. 애플리케이션 실행
 
-#### 로컬 개발 환경 (맥/윈도우)
+#### 🚀 쉘 스크립트 사용 (권장)
+```bash
+# 실행 권한 부여 (최초 1회)
+chmod +x start.sh
+
+# 대화형 메뉴 모드 (권장)
+./start.sh menu
+
+# 직접 실행 모드
+./start.sh local    # 로컬 개발 환경
+./start.sh nas      # NAS 환경 (외부 접속 허용)
+./start.sh dev      # 개발 환경 (기본값)
+./start.sh prod     # 프로덕션 환경
+
+# 백그라운드 실행 및 관리
+./start.sh bg       # 백그라운드에서 NAS 서버 시작
+./start.sh status   # 서버 상태 확인
+./start.sh stop     # 서버 중지
+
+# 도움말 보기
+./start.sh help
+```
+
+#### 📝 수동 실행 방법
+
+##### 로컬 개발 환경 (맥/윈도우)
 ```bash
 # 기본값 (development 모드)
 python run.py
 
 # 또는 명시적으로 development 모드 지정
 FLASK_ENV=development python run.py
+
+# 또는 전용 스크립트 사용
+python run_local.py
 ```
 애플리케이션이 `http://127.0.0.1:5000`에서 실행됩니다.
 
-#### NAS 환경 (외부 접속 허용)
+##### NAS 환경 (외부 접속 허용)
 ```bash
 # NAS 모드로 실행
 FLASK_ENV=nas python run.py
+
+# 또는 전용 스크립트 사용
+python run_nas.py
 ```
 애플리케이션이 `http://0.0.0.0:8080`에서 실행됩니다.
 
-#### 프로덕션 환경
+##### 프로덕션 환경
 ```bash
 # 프로덕션 모드로 실행
 FLASK_ENV=production python run.py
