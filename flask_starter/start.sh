@@ -28,19 +28,48 @@ print_logo() {
     echo -e "${NC}"
 }
 
+# IP 주소 확인
+get_ip_addresses() {
+    echo -e "${BLUE}🌐 IP 주소 확인 중...${NC}"
+
+    # 로컬 IP 주소들
+    echo -e "${CYAN}로컬 IP 주소:${NC}"
+    if command -v ip &> /dev/null; then
+        # Linux
+        ip route get 1.1.1.1 | grep -oP 'src \K\S+' 2>/dev/null | head -1
+    elif command -v ifconfig &> /dev/null; then
+        # macOS
+        ifconfig | grep "inet " | grep -v 127.0.0.1 | awk '{print $2}' | head -1
+    else
+        echo -e "${YELLOW}IP 주소를 확인할 수 없습니다.${NC}"
+    fi
+
+    # 외부 IP 주소
+    echo -e "${CYAN}외부 IP 주소:${NC}"
+    if command -v curl &> /dev/null; then
+        EXTERNAL_IP=$(curl -s --max-time 5 https://ifconfig.me 2>/dev/null || curl -s --max-time 5 https://ipinfo.io/ip 2>/dev/null || echo "확인 실패")
+        echo "$EXTERNAL_IP"
+    else
+        echo -e "${YELLOW}curl이 설치되지 않아 외부 IP를 확인할 수 없습니다.${NC}"
+    fi
+
+    echo ""
+}
+
 # 메뉴 출력
 print_menu() {
     echo -e "${WHITE}┌─────────────────────────────────────────────────────────────┐${NC}"
     echo -e "${WHITE}│                    실행 모드 선택                          │${NC}"
     echo -e "${WHITE}├─────────────────────────────────────────────────────────────┤${NC}"
     echo -e "${WHITE}│  ${GREEN}1${NC} │ 로컬 개발 환경 (포트 5000)                    │${NC}"
-    echo -e "${WHITE}│  ${GREEN}2${NC} │ NAS 환경 (포트 8080, 외부 접속 허용)         │${NC}"
+    echo -e "${WHITE}│  ${GREEN}2${NC} │ NAS 환경 (포트 80, 외부 접속 허용)           │${NC}"
     echo -e "${WHITE}│  ${GREEN}3${NC} │ 개발 환경 (기본값)                          │${NC}"
     echo -e "${WHITE}│  ${GREEN}4${NC} │ 프로덕션 환경                               │${NC}"
     echo -e "${WHITE}│  ${BLUE}5${NC} │ 백그라운드 실행 (NAS 환경)                   │${NC}"
     echo -e "${WHITE}│  ${YELLOW}6${NC} │ 서버 상태 확인                              │${NC}"
     echo -e "${WHITE}│  ${RED}7${NC} │ 서버 중지                                    │${NC}"
     echo -e "${WHITE}│  ${BLUE}8${NC} │ 환경 확인                                   │${NC}"
+    echo -e "${WHITE}│  ${CYAN}9${NC} │ IP 주소 확인                                │${NC}"
     echo -e "${WHITE}│  ${RED}0${NC} │ 종료                                        │${NC}"
     echo -e "${WHITE}└─────────────────────────────────────────────────────────────┘${NC}"
     echo ""
@@ -93,7 +122,7 @@ select_menu() {
 
     while true; do
         print_menu
-        echo -e "${YELLOW}실행할 작업을 선택하세요 (0-8):${NC} "
+        echo -e "${YELLOW}실행할 작업을 선택하세요 (0-9):${NC} "
         read -r choice
 
         case $choice in
@@ -139,12 +168,18 @@ select_menu() {
                 echo -e "${YELLOW}계속하려면 Enter를 누르세요...${NC}"
                 read -r
                 ;;
+            9)
+                echo -e "${CYAN}IP 주소 확인을 선택했습니다.${NC}"
+                get_ip_addresses
+                echo -e "${YELLOW}계속하려면 Enter를 누르세요...${NC}"
+                read -r
+                ;;
             0)
                 echo -e "${RED}프로그램을 종료합니다.${NC}"
                 exit 0
                 ;;
             *)
-                echo -e "${RED}잘못된 선택입니다. 0-8 사이의 숫자를 입력하세요.${NC}"
+                echo -e "${RED}잘못된 선택입니다. 0-9 사이의 숫자를 입력하세요.${NC}"
                 echo -e "${YELLOW}계속하려면 Enter를 누르세요...${NC}"
                 read -r
                 ;;
@@ -159,21 +194,23 @@ print_help() {
     echo ""
     echo -e "${YELLOW}옵션:${NC}"
     echo "  ${GREEN}local${NC}     - 로컬 개발 환경 (포트 5000)"
-    echo "  ${GREEN}nas${NC}       - NAS 환경 (포트 8080, 외부 접속 허용)"
+    echo "  ${GREEN}nas${NC}       - NAS 환경 (포트 80, 외부 접속 허용)"
     echo "  ${GREEN}dev${NC}       - 개발 환경 (기본값)"
     echo "  ${GREEN}prod${NC}      - 프로덕션 환경"
     echo "  ${GREEN}bg${NC}        - 백그라운드 실행 (NAS 환경)"
     echo "  ${GREEN}status${NC}    - 서버 상태 확인"
     echo "  ${GREEN}stop${NC}      - 서버 중지"
+    echo "  ${GREEN}ip${NC}        - IP 주소 확인"
     echo "  ${GREEN}menu${NC}      - 대화형 메뉴 모드"
     echo "  ${GREEN}help${NC}      - 이 도움말 출력"
     echo ""
     echo -e "${YELLOW}예시:${NC}"
     echo "  $0 local    # 로컬 개발 서버 시작"
-    echo "  $0 nas      # NAS 서버 시작 (외부 접속 허용)"
+    echo "  $0 nas      # NAS 서버 시작 (포트 80, 외부 접속 허용)"
     echo "  $0 bg       # 백그라운드에서 NAS 서버 시작"
     echo "  $0 status   # 서버 상태 확인"
     echo "  $0 stop     # 서버 중지"
+    echo "  $0 ip       # IP 주소 확인"
     echo "  $0 menu     # 대화형 메뉴 모드"
     echo "  $0          # 기본 개발 환경으로 시작"
     echo ""
@@ -271,8 +308,8 @@ start_server_background() {
     fi
 
     echo -e "${GREEN}🚀 백그라운드에서 NAS 서버를 시작합니다...${NC}"
-    echo -e "${CYAN}접속 URL: http://0.0.0.0:8080${NC}"
-    echo -e "${CYAN}외부 접속: http://[NAS_IP]:8080${NC}"
+    echo -e "${CYAN}접속 URL: http://0.0.0.0:80${NC}"
+    echo -e "${CYAN}외부 접속: http://[NAS_IP]:80${NC}"
     echo -e "${YELLOW}모드: $description${NC}"
     echo -e "${YELLOW}환경변수: FLASK_ENV=$env_var${NC}"
     echo ""
@@ -305,9 +342,9 @@ start_server() {
         "nas")
             env_var="nas"
             description="NAS 환경 (외부 접속 허용)"
-            echo -e "${GREEN}🚀 NAS 서버를 시작합니다...${NC}"
-            echo -e "${CYAN}접속 URL: http://0.0.0.0:8080${NC}"
-            echo -e "${CYAN}외부 접속: http://[NAS_IP]:8080${NC}"
+                echo -e "${GREEN}🚀 NAS 서버를 시작합니다...${NC}"
+    echo -e "${CYAN}접속 URL: http://0.0.0.0:80${NC}"
+    echo -e "${CYAN}외부 접속: http://[NAS_IP]:80${NC}"
             ;;
         "dev")
             env_var="development"
@@ -318,8 +355,8 @@ start_server() {
         "prod")
             env_var="production"
             description="프로덕션 환경"
-            echo -e "${GREEN}🚀 프로덕션 서버를 시작합니다...${NC}"
-            echo -e "${CYAN}접속 URL: http://0.0.0.0:8080${NC}"
+                echo -e "${GREEN}🚀 프로덕션 서버를 시작합니다...${NC}"
+    echo -e "${CYAN}접속 URL: http://0.0.0.0:80${NC}"
             ;;
         *)
             echo -e "${RED}알 수 없는 모드: $mode${NC}"
@@ -359,6 +396,10 @@ main() {
             ;;
         "bg")
             start_server_background "nas"
+            exit 0
+            ;;
+        "ip")
+            get_ip_addresses
             exit 0
             ;;
     esac

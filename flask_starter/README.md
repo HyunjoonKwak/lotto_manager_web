@@ -93,6 +93,7 @@ chmod +x start.sh
 ./start.sh bg       # 백그라운드에서 NAS 서버 시작
 ./start.sh status   # 서버 상태 확인
 ./start.sh stop     # 서버 중지
+./start.sh ip       # IP 주소 확인
 
 # 도움말 보기
 ./start.sh help
@@ -121,13 +122,14 @@ FLASK_ENV=nas python run.py
 # 또는 전용 스크립트 사용
 python run_nas.py
 ```
-애플리케이션이 `http://0.0.0.0:8080`에서 실행됩니다.
+애플리케이션이 `http://0.0.0.0:80`에서 실행됩니다.
 
 ##### 프로덕션 환경
 ```bash
 # 프로덕션 모드로 실행
 FLASK_ENV=production python run.py
 ```
+애플리케이션이 `http://0.0.0.0:80`에서 실행됩니다.
 
 ## 프로젝트 구조
 
@@ -247,7 +249,7 @@ FLASK_ENV=development python run.py
 FLASK_ENV=nas python run.py
 # - DEBUG: True
 # - HOST: 0.0.0.0 (외부 접속 허용)
-# - PORT: 8080
+# - PORT: 80
 ```
 
 #### 프로덕션 환경
@@ -255,7 +257,7 @@ FLASK_ENV=nas python run.py
 FLASK_ENV=production python run.py
 # - DEBUG: False
 # - HOST: 0.0.0.0
-# - PORT: 8080
+# - PORT: 80
 # - SESSION_COOKIE_SECURE: True
 ```
 
