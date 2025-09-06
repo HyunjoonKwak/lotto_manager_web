@@ -240,28 +240,7 @@
   text-decoration: none;
 }
 
-@media (max-width: 768px) {
-  .header-actions {
-    flex-direction: column;
-    gap: 0.5rem;
-    align-items: flex-start;
-  }
-
-  .draw-date {
-    order: 2;
-  }
-
-  .btn-update {
-    order: 1;
-    align-self: flex-end;
-  }
-
-  .btn-lotto-site {
-    order: 1;
-    align-self: flex-end;
-    margin-top: 0.5rem;
-  }
-}
+/* 데스크톱 전용 - 기존 레이아웃 유지 */
 </style>
 
 <script>
@@ -320,23 +299,43 @@ document.addEventListener('DOMContentLoaded', function() {
     const minutes = Math.floor((timeDiff % (1000 * 60 * 60)) / (1000 * 60));
     const seconds = Math.floor((timeDiff % (1000 * 60)) / 1000);
 
-    let countdownText = '🎯 다음 추첨까지 ';
+    let countdownText = '';
+
+    // 모바일 체크
+    const isMobile = window.innerWidth <= 768;
 
     if (days > 0) {
       // 날짜 단위로 표시 (하루 이상 남음)
-      countdownText += `${days}일 ${hours}시간`;
+      if (isMobile) {
+        countdownText = `🎯 다음 추첨까지\n${days}일 ${hours}시간`;
+      } else {
+        countdownText = `🎯 다음 추첨까지 ${days}일 ${hours}시간`;
+      }
     } else {
       // 시간/분/초 단위로 표시 (하루 이하 남음)
       if (hours > 0) {
-        countdownText += `${hours}시간 ${minutes}분 ${seconds}초`;
+        if (isMobile) {
+          countdownText = `🎯 다음 추첨까지\n${hours}시간 ${minutes}분 ${seconds}초`;
+        } else {
+          countdownText = `🎯 다음 추첨까지 ${hours}시간 ${minutes}분 ${seconds}초`;
+        }
       } else if (minutes > 0) {
-        countdownText += `${minutes}분 ${seconds}초`;
+        if (isMobile) {
+          countdownText = `🎯 다음 추첨까지\n${minutes}분 ${seconds}초`;
+        } else {
+          countdownText = `🎯 다음 추첨까지 ${minutes}분 ${seconds}초`;
+        }
       } else {
-        countdownText += `${seconds}초`;
+        countdownText = `🎯 ${seconds}초 후 추첨`;
       }
     }
 
-    document.getElementById('nextDrawCountdown').textContent = countdownText;
+    // 모바일에서는 줄바꿈을 <br>로 변환
+    if (isMobile) {
+      document.getElementById('nextDrawCountdown').innerHTML = countdownText.replace('\n', '<br>');
+    } else {
+      document.getElementById('nextDrawCountdown').textContent = countdownText;
+    }
   }
 
   // 초기 시간 표시
@@ -348,6 +347,11 @@ document.addEventListener('DOMContentLoaded', function() {
     updateCurrentTime();
     updateCountdown();
   }, 1000);
+
+  // 화면 크기 변경 시 카운트다운 업데이트
+  window.addEventListener('resize', () => {
+    updateCountdown();
+  });
 
   // 새 회차 확인 유도
   checkIfNewDrawNeeded();

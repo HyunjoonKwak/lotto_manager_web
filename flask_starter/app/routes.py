@@ -1,4 +1,5 @@
 from flask import Blueprint, render_template, request, jsonify, redirect, url_for, current_app, flash, abort
+import re
 from flask_login import login_user, logout_user, login_required, current_user
 from functools import wraps
 import threading
@@ -32,6 +33,34 @@ from .services.recommendation_manager import (
 
 
 main_bp = Blueprint("main", __name__)
+
+
+def is_mobile_device():
+    """모바일 기기 감지"""
+    user_agent = request.headers.get('User-Agent', '').lower()
+    mobile_patterns = [
+        r'mobile', r'android', r'iphone', r'ipad', r'ipod',
+        r'blackberry', r'windows phone', r'opera mini',
+        r'mobile safari', r'kindle', r'webos'
+    ]
+
+    for pattern in mobile_patterns:
+        if re.search(pattern, user_agent):
+            return True
+    return False
+
+
+def mobile_redirect_check():
+    """모바일 기기면 모바일 페이지로 리다이렉트"""
+    # 데스크톱 강제 모드 체크
+    if request.args.get('desktop') == '1':
+        return False
+
+    # 이미 모바일 경로면 리다이렉트 안함
+    if request.endpoint and 'mobile' in request.endpoint:
+        return False
+
+    return is_mobile_device()
 
 
 def admin_required(f):
@@ -112,6 +141,10 @@ def _parse_fixed_numbers(raw: Optional[str]) -> List[int]:
 
 @main_bp.get("/")
 def index():
+    # 모바일 기기 감지 및 리다이렉트
+    if mobile_redirect_check():
+        return redirect(url_for('main.mobile_index'))
+
     latest = Draw.query.order_by(Draw.round.desc()).first()
     total_rounds = Draw.query.count()
 
@@ -127,6 +160,30 @@ def index():
     return render_template(
         "index.html",
         title="로또 대시보드",
+        latest=latest,
+        total_rounds=total_rounds,
+        shops_rank1=shops_rank1,
+    )
+
+
+@main_bp.get("/mobile")
+def mobile_index():
+    """모바일 전용 대시보드"""
+    latest = Draw.query.order_by(Draw.round.desc()).first()
+    total_rounds = Draw.query.count()
+
+    # Get latest round's winning shops (rank 1 only for main page)
+    shops_rank1 = []
+    if latest:
+        shops_rank1 = (
+            WinningShop.query.filter_by(round=latest.round, rank=1)
+            .order_by(WinningShop.sequence.asc().nullsfirst())
+            .all()
+        )
+
+    return render_template(
+        "mobile/index.html",
+        title="모바일 로또 대시보드",
         latest=latest,
         total_rounds=total_rounds,
         shops_rank1=shops_rank1,

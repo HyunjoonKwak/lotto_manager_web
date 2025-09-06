@@ -1,0 +1,267 @@
+{% extends "mobile/base.html" %}
+
+{% block title %}모바일 대시보드{% endblock %}
+
+{% block content %}
+<!-- 모바일 헤더 -->
+<div class="mobile-header">
+  <div class="title">
+    <h1>🎯 로또 대시보드</h1>
+    <div class="subtitle">분석 및 추천 시스템</div>
+  </div>
+
+  <!-- 현재 시간 및 카운트다운 -->
+  <div class="time-section">
+    <div class="current-time" id="currentTime"></div>
+    <div class="countdown" id="nextDrawCountdown"></div>
+  </div>
+</div>
+
+<!-- 새 회차 알림 (모바일용) -->
+<div class="mobile-alert" id="newDrawAlert" style="display: none;">
+  <div class="alert-content">
+    <span class="alert-icon">🔔</span>
+    <span class="alert-text">새로운 회차가 추첨되었을 수 있습니다!</span>
+  </div>
+  <button class="alert-btn" onclick="checkForNewDraw()">확인</button>
+</div>
+
+<!-- 최신 추첨 결과 -->
+{% if latest %}
+<div class="mobile-card">
+  <div class="card-header">
+    <h2>{{ latest.round }}회 최신 결과</h2>
+    <span class="draw-date">{{ latest.draw_date if latest.draw_date else '' }}</span>
+  </div>
+
+  <div class="numbers-section">
+    <div class="numbers">
+      {% for num in latest.numbers.split(',') %}
+      <span class="number">{{ num }}</span>
+      {% endfor %}
+      <span class="plus">+</span>
+      <span class="bonus number">{{ latest.bonus }}</span>
+    </div>
+  </div>
+
+  <div class="mobile-actions">
+    <button class="btn-primary" id="checkNewDrawBtn" onclick="checkForNewDraw()">
+      새 회차 확인
+    </button>
+    <a href="https://dhlottery.co.kr/gameResult.do?method=byWin" target="_blank" class="btn-lotto">
+      🎲 로또구매
+    </a>
+  </div>
+</div>
+{% else %}
+<div class="mobile-card error">
+  <h2>⚠️ 데이터 없음</h2>
+  <p>추첨 결과가 없습니다.<br>정보조회에서 데이터를 업데이트해주세요.</p>
+</div>
+{% endif %}
+
+<!-- 당첨점 정보 -->
+{% if latest and shops_rank1 %}
+<div class="mobile-card">
+  <div class="card-header">
+    <h2>🏪 {{ latest.round }}회 1등 당첨점</h2>
+    <span class="count">{{ shops_rank1|length }}개</span>
+  </div>
+
+  {% if shops_rank1|length > 0 %}
+  <div class="shops-list">
+    {% for shop in shops_rank1[:3] %}
+    <div class="shop-item">
+      <div class="shop-name">{{ shop.name }}</div>
+      <div class="shop-method">{{ shop.method or '구분없음' }}</div>
+      <div class="shop-address">{{ shop.address }}</div>
+    </div>
+    {% endfor %}
+    {% if shops_rank1|length > 3 %}
+    <div class="more-shops">
+      외 {{ shops_rank1|length - 3 }}개 더보기 →
+    </div>
+    {% endif %}
+  </div>
+  {% endif %}
+</div>
+{% endif %}
+
+<!-- 빠른 메뉴 -->
+<div class="mobile-card">
+  <div class="card-header">
+    <h2>🔗 빠른 메뉴</h2>
+  </div>
+
+  <div class="quick-menu">
+    <a href="{{ url_for('main.strategy') }}" class="menu-item">
+      <span class="menu-icon">📊</span>
+      <span class="menu-text">전략분석</span>
+    </a>
+    <a href="{{ url_for('main.purchases') }}" class="menu-item">
+      <span class="menu-icon">🛒</span>
+      <span class="menu-text">구매내역</span>
+    </a>
+    <a href="{{ url_for('main.info') }}" class="menu-item">
+      <span class="menu-icon">📋</span>
+      <span class="menu-text">정보조회</span>
+    </a>
+    <a href="{{ url_for('main.crawling') }}" class="menu-item">
+      <span class="menu-icon">🔄</span>
+      <span class="menu-text">데이터수집</span>
+    </a>
+  </div>
+</div>
+
+<!-- 데스크톱 버전 링크 -->
+<div class="desktop-link">
+  <a href="/?desktop=1" class="link-desktop">
+    🖥️ 데스크톱 버전으로 보기
+  </a>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+// 모바일용 시간 업데이트 함수
+function updateCurrentTime() {
+  const now = new Date();
+  const timeStr = now.toLocaleTimeString('ko-KR', {
+    hour: '2-digit',
+    minute: '2-digit',
+    second: '2-digit',
+    hour12: false
+  });
+  const dateStr = now.toLocaleDateString('ko-KR', {
+    month: 'long',
+    day: 'numeric',
+    weekday: 'short'
+  });
+  document.getElementById('currentTime').textContent = `${dateStr} ${timeStr}`;
+}
+
+// 모바일용 카운트다운 함수
+function updateCountdown() {
+  const now = new Date();
+
+  // 다음 토요일 8시 45분 계산
+  let nextSaturday = new Date(now);
+  const daysUntilSaturday = (6 - now.getDay()) % 7;
+
+  if (now.getDay() === 6) {
+    if (now.getHours() < 20 || (now.getHours() === 20 && now.getMinutes() < 45)) {
+      nextSaturday.setHours(20, 45, 0, 0);
+    } else {
+      nextSaturday.setDate(now.getDate() + 7);
+      nextSaturday.setHours(20, 45, 0, 0);
+    }
+  } else {
+    nextSaturday.setDate(now.getDate() + (daysUntilSaturday === 0 ? 7 : daysUntilSaturday));
+    nextSaturday.setHours(20, 45, 0, 0);
+  }
+
+  const timeDiff = nextSaturday - now;
+
+  if (timeDiff <= 0) {
+    document.getElementById('nextDrawCountdown').innerHTML = '<span class="countdown-icon">🎯</span><span class="countdown-text">추첨 진행중</span>';
+    return;
+  }
+
+  const days = Math.floor(timeDiff / (1000 * 60 * 60 * 24));
+  const hours = Math.floor((timeDiff % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60));
+  const minutes = Math.floor((timeDiff % (1000 * 60 * 60)) / (1000 * 60));
+  const seconds = Math.floor((timeDiff % (1000 * 60)) / 1000);
+
+  let countdownHtml = '<span class="countdown-icon">🎯</span>';
+
+  if (days > 0) {
+    countdownHtml += `<span class="countdown-text">다음 추첨까지<br>${days}일 ${hours}시간</span>`;
+  } else {
+    if (hours > 0) {
+      countdownHtml += `<span class="countdown-text">다음 추첨까지<br>${hours}시간 ${minutes}분</span>`;
+    } else if (minutes > 0) {
+      countdownHtml += `<span class="countdown-text">다음 추첨까지<br>${minutes}분 ${seconds}초</span>`;
+    } else {
+      countdownHtml += `<span class="countdown-text">${seconds}초 후<br>추첨 시작!</span>`;
+    }
+  }
+
+  document.getElementById('nextDrawCountdown').innerHTML = countdownHtml;
+}
+
+// 페이지 로드 시 초기화
+document.addEventListener('DOMContentLoaded', function() {
+  updateCurrentTime();
+  updateCountdown();
+
+  setInterval(() => {
+    updateCurrentTime();
+    updateCountdown();
+  }, 1000);
+
+  checkIfNewDrawNeeded();
+});
+
+// 새 회차 확인 함수 (모바일용 간소화)
+function checkIfNewDrawNeeded() {
+  const drawDateText = document.querySelector('.draw-date');
+  if (!drawDateText) return;
+
+  const drawDate = new Date(drawDateText.textContent.trim());
+  const today = new Date();
+  const daysDiff = Math.floor((today - drawDate) / (1000 * 60 * 60 * 24));
+
+  if (daysDiff >= 7) {
+    document.getElementById('newDrawAlert').style.display = 'block';
+  }
+}
+
+// 새 회차 확인 함수
+async function checkForNewDraw() {
+  const button = document.getElementById('checkNewDrawBtn');
+  const originalText = button.innerHTML;
+
+  button.disabled = true;
+  button.innerHTML = '⏳ 확인중...';
+
+  try {
+    const response = await fetch('/api/check-new-draw');
+    const data = await response.json();
+
+    if (data.has_new_draw) {
+      const confirmed = confirm(`새로운 ${data.latest_round}회 추첨 결과가 있습니다.\n\n업데이트하시겠습니까?`);
+
+      if (confirmed) {
+        button.innerHTML = '⏳ 업데이트중...';
+
+        const updateResponse = await fetch('/api/update-new-draw', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            round: data.latest_round,
+            csrf_token: window.csrfToken
+          })
+        });
+
+        const updateData = await updateResponse.json();
+
+        if (updateData.success) {
+          alert(`${data.latest_round}회 추첨 결과가 업데이트되었습니다!`);
+          window.location.reload();
+        } else {
+          alert(`업데이트 실패: ${updateData.message}`);
+        }
+      }
+    } else {
+      alert(data.message || '새로운 추첨 결과가 없습니다.');
+    }
+  } catch (error) {
+    console.error('Error checking for new draw:', error);
+    alert('확인 중 오류가 발생했습니다.');
+  } finally {
+    button.disabled = false;
+    button.innerHTML = originalText;
+  }
+}
+</script>
+{% endblock %}
