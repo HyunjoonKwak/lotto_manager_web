@@ -8,7 +8,10 @@
       "Bash(python test:*)",
       "Bash(python:*)",
       "Bash(FLASK_ENV=nas python run.py)",
-      "Bash(sqlite3:*)"
+      "Bash(sqlite3:*)",
+      "Bash(lsof:*)",
+      "Bash(kill:*)",
+      "Bash(pkill:*)"
     ],
     "deny": [],
     "ask": []

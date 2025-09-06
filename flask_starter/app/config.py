@@ -17,7 +17,7 @@ class Config:
 class DevelopmentConfig(Config):
     DEBUG = True
     HOST = "127.0.0.1"  # 로컬 개발용
-    PORT = 5000
+    PORT = 5001
 
 
 class NASConfig(Config):

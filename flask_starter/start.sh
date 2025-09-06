@@ -32,7 +32,7 @@ print_menu() {
     echo -e "${WHITE}┌─────────────────────────────────────────────────────────────┐${NC}"
     echo -e "${WHITE}│                    실행 모드 선택                          │${NC}"
     echo -e "${WHITE}├─────────────────────────────────────────────────────────────┤${NC}"
-    echo -e "${WHITE}│  ${GREEN}1${NC} │ 로컬 개발 환경 (포트 5000)                    │${NC}"
+    echo -e "${WHITE}│  ${GREEN}1${NC} │ 로컬 개발 환경 (포트 5001)                    │${NC}"
     echo -e "${WHITE}│  ${GREEN}2${NC} │ NAS 환경 (포트 8080, 외부 접속 허용)         │${NC}"
     echo -e "${WHITE}│  ${BLUE}3${NC} │ 백그라운드 실행 (NAS 환경)                   │${NC}"
     echo -e "${WHITE}│  ${YELLOW}4${NC} │ 서버 상태 확인                              │${NC}"
@@ -233,6 +233,37 @@ check_log_file() {
 }
 
 
+# 기존 프로세스 정리
+cleanup_existing_processes() {
+    local port=$1
+    echo -e "${YELLOW}기존 프로세스를 정리합니다...${NC}"
+    
+    # 포트를 사용하는 프로세스 찾기
+    local pids
+    if command -v lsof &> /dev/null; then
+        pids=$(lsof -ti ":$port" 2>/dev/null || true)
+    fi
+    
+    if [[ -n "$pids" ]]; then
+        echo -e "${YELLOW}포트 $port를 사용하는 프로세스: $pids${NC}"
+        # SIGTERM으로 정상 종료 시도
+        echo "$pids" | xargs kill -TERM 2>/dev/null || true
+        sleep 3
+        
+        # 여전히 실행 중이면 SIGKILL로 강제 종료
+        local remaining_pids
+        remaining_pids=$(lsof -ti ":$port" 2>/dev/null || true)
+        if [[ -n "$remaining_pids" ]]; then
+            echo -e "${YELLOW}강제 종료합니다...${NC}"
+            echo "$remaining_pids" | xargs kill -KILL 2>/dev/null || true
+            sleep 1
+        fi
+    fi
+    
+    # PID 파일 정리
+    rm -f "$PID_FILE"
+}
+
 # 서버 시작
 start_server() {
     local mode=$1
@@ -240,15 +271,31 @@ start_server() {
     case $mode in
         "local")
             echo -e "${GREEN}🚀 로컬 개발 서버를 시작합니다...${NC}"
-            echo -e "${CYAN}접속 URL: http://127.0.0.1:5000${NC}"
+            echo -e "${CYAN}접속 URL: http://127.0.0.1:5001${NC}"
+            
+            # 기존 프로세스 정리
+            cleanup_existing_processes 5001
+            
+            # 환경 변수 설정
             export FLASK_ENV=development
+            export FLASK_DEBUG=1
+            
+            # Python 스크립트 실행
             python run_local.py
             ;;
         "nas")
             echo -e "${GREEN}🚀 NAS 서버를 시작합니다...${NC}"
             echo -e "${CYAN}접속 URL: http://0.0.0.0:8080${NC}"
             echo -e "${CYAN}외부 접속: http://[NAS_IP]:8080${NC}"
+            
+            # 기존 프로세스 정리
+            cleanup_existing_processes 8080
+            
+            # 환경 변수 설정
             export FLASK_ENV=nas
+            export FLASK_DEBUG=0
+            
+            # Python 스크립트 실행
             python run_nas.py
             ;;
         "bg")
@@ -259,7 +306,15 @@ start_server() {
 
             echo -e "${GREEN}🚀 백그라운드에서 NAS 서버를 시작합니다...${NC}"
             echo -e "${CYAN}접속 URL: http://0.0.0.0:8080${NC}"
+            
+            # 기존 프로세스 정리
+            cleanup_existing_processes 8080
+            
+            # 환경 변수 설정
             export FLASK_ENV=nas
+            export FLASK_DEBUG=0
+            
+            # 백그라운드 실행
             nohup python -u run_nas.py > flask_app.log 2>&1 &
             local pid=$!
             echo $pid > "$PID_FILE"
@@ -342,7 +397,7 @@ print_help() {
     echo "  $0 [옵션]"
     echo ""
     echo -e "${YELLOW}옵션:${NC}"
-    echo "  ${GREEN}local${NC}     - 로컬 개발 환경 (포트 5000)"
+    echo "  ${GREEN}local${NC}     - 로컬 개발 환경 (포트 5001)"
     echo "  ${GREEN}nas${NC}       - NAS 환경 (포트 8080, 외부 접속 허용)"
     echo "  ${GREEN}bg${NC}        - 백그라운드 실행 (NAS 환경)"
     echo "  ${GREEN}status${NC}    - 서버 상태 확인"

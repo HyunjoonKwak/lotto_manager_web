@@ -1067,6 +1067,86 @@ def api_update_new_draw():
         }), 400
 
 
+@main_bp.get("/api/data-stats")
+def api_data_stats():
+    """기본 데이터 통계 정보 API"""
+    try:
+        from .services.updater import get_latest_round, find_missing_rounds
+        
+        # 총 저장된 회차 수
+        total_rounds = Draw.query.count()
+        
+        # 최신 가능 회차
+        latest_round = get_latest_round()
+        if not latest_round:
+            return jsonify({"error": "최신 회차를 가져올 수 없습니다"}), 500
+            
+        # 누락된 회차 수
+        missing_rounds = find_missing_rounds()
+        missing_count = len(missing_rounds)
+        
+        # 완성도 계산
+        completion_rate = round((total_rounds / latest_round) * 100, 1) if latest_round > 0 else 0
+        
+        return jsonify({
+            "missing_count": missing_count,
+            "completion_rate": completion_rate,
+            "total_rounds": total_rounds,
+            "latest_round": latest_round
+        })
+        
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
+
+@main_bp.get("/api/data-detail/<tab_type>")
+def api_data_detail(tab_type):
+    """상세 데이터 정보 API"""
+    try:
+        from .services.updater import get_latest_round, find_missing_rounds
+        
+        latest_round = get_latest_round()
+        if not latest_round:
+            return jsonify({"error": "최신 회차를 가져올 수 없습니다"}), 500
+            
+        if tab_type == "missing":
+            missing_rounds = find_missing_rounds()
+            return jsonify({
+                "rounds": missing_rounds,
+                "total_missing": len(missing_rounds),
+                "range": {"start": 1, "end": latest_round}
+            })
+            
+        elif tab_type == "existing":
+            # 저장된 회차들 가져오기
+            existing_rounds = [row[0] for row in db.session.query(Draw.round).order_by(Draw.round).all()]
+            return jsonify({
+                "rounds": existing_rounds,
+                "total_existing": len(existing_rounds),
+                "range": {"start": 1, "end": latest_round}
+            })
+            
+        elif tab_type == "summary":
+            # 요약 정보
+            total_rounds = Draw.query.count()
+            missing_rounds = find_missing_rounds()
+            missing_count = len(missing_rounds)
+            completion_rate = round((total_rounds / latest_round) * 100, 1) if latest_round > 0 else 0
+            
+            return jsonify({
+                "total_existing": total_rounds,
+                "total_missing": missing_count,
+                "completion_rate": completion_rate,
+                "range": {"start": 1, "end": latest_round}
+            })
+            
+        else:
+            return jsonify({"error": "잘못된 탭 타입입니다"}), 400
+            
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
+
 @main_bp.post("/api/refresh-recommendations")
 @login_required
 def refresh_recommendations_api():

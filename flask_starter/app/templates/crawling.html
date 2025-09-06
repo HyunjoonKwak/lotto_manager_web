@@ -20,6 +20,7 @@
   <section class="card">
     <div class="card-header">
       <h2>📊 데이터 현황</h2>
+      <button type="button" class="btn-detail" onclick="toggleDataDetail()">Detail</button>
     </div>
     <div class="info-grid">
       <div class="info-item">
@@ -32,6 +33,45 @@
         <p>{{ latest.round }}회</p>
       </div>
       {% endif %}
+      <div class="info-item">
+        <h4>누락된 회차</h4>
+        <p id="missing-count">계산 중...</p>
+      </div>
+      <div class="info-item">
+        <h4>데이터 완성도</h4>
+        <p id="completion-rate">계산 중...</p>
+      </div>
+    </div>
+    
+    <!-- 상세 정보 패널 -->
+    <div id="data-detail-panel" class="detail-panel" style="display: none;">
+      <div class="detail-header">
+        <h3>📋 상세 데이터 현황</h3>
+        <button type="button" class="btn-close" onclick="toggleDataDetail()">×</button>
+      </div>
+      
+      <div class="detail-tabs">
+        <button class="tab-btn active" onclick="showDetailTab('missing')">누락 회차</button>
+        <button class="tab-btn" onclick="showDetailTab('existing')">저장된 회차</button>
+        <button class="tab-btn" onclick="showDetailTab('summary')">요약 정보</button>
+      </div>
+      
+      <div class="detail-content">
+        <div id="missing-tab" class="tab-content active">
+          <div class="loading-indicator" id="missing-loading">데이터를 불러오는 중...</div>
+          <div id="missing-list" style="display: none;"></div>
+        </div>
+        
+        <div id="existing-tab" class="tab-content">
+          <div class="loading-indicator" id="existing-loading">데이터를 불러오는 중...</div>
+          <div id="existing-list" style="display: none;"></div>
+        </div>
+        
+        <div id="summary-tab" class="tab-content">
+          <div class="loading-indicator" id="summary-loading">데이터를 불러오는 중...</div>
+          <div id="summary-info" style="display: none;"></div>
+        </div>
+      </div>
     </div>
   </section>
 
@@ -490,6 +530,228 @@
     font-size: 1.3rem;
   }
 }
+
+/* 데이터 상세 정보 스타일 */
+.btn-detail {
+  background: linear-gradient(135deg, #667eea, #764ba2);
+  color: white;
+  border: none;
+  padding: 0.5rem 1rem;
+  border-radius: 0.4rem;
+  font-size: 0.85rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.3s ease;
+}
+
+.btn-detail:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 4px 15px rgba(102, 126, 234, 0.3);
+}
+
+.detail-panel {
+  margin-top: 1.5rem;
+  padding: 1.5rem;
+  background: linear-gradient(135deg, #f8f9fa, #ffffff);
+  border: 2px solid #e9ecef;
+  border-radius: 0.8rem;
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.1);
+  animation: slideDown 0.3s ease;
+}
+
+@keyframes slideDown {
+  from { opacity: 0; transform: translateY(-20px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+.detail-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 1.5rem;
+  padding-bottom: 1rem;
+  border-bottom: 2px solid #e9ecef;
+}
+
+.detail-header h3 {
+  margin: 0;
+  color: #333;
+  font-size: 1.2rem;
+}
+
+.btn-close {
+  background: #dc3545;
+  color: white;
+  border: none;
+  padding: 0.3rem 0.8rem;
+  border-radius: 0.4rem;
+  font-size: 1.2rem;
+  font-weight: bold;
+  cursor: pointer;
+  transition: all 0.3s ease;
+}
+
+.btn-close:hover {
+  background: #c82333;
+  transform: scale(1.1);
+}
+
+.detail-tabs {
+  display: flex;
+  gap: 0.5rem;
+  margin-bottom: 1.5rem;
+  border-bottom: 2px solid #e9ecef;
+}
+
+.tab-btn {
+  background: none;
+  border: none;
+  padding: 0.8rem 1.5rem;
+  cursor: pointer;
+  font-weight: 600;
+  color: #666;
+  border-bottom: 3px solid transparent;
+  transition: all 0.3s ease;
+}
+
+.tab-btn.active {
+  color: #667eea;
+  border-bottom-color: #667eea;
+  background: rgba(102, 126, 234, 0.1);
+}
+
+.tab-btn:hover {
+  color: #667eea;
+  background: rgba(102, 126, 234, 0.05);
+}
+
+.detail-content {
+  min-height: 400px;
+}
+
+.tab-content {
+  display: none;
+}
+
+.tab-content.active {
+  display: block;
+}
+
+.loading-indicator {
+  text-align: center;
+  padding: 2rem;
+  color: #666;
+  font-style: italic;
+}
+
+.round-list {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(80px, 1fr));
+  gap: 0.5rem;
+  margin-top: 1rem;
+  max-height: 400px;
+  overflow-y: auto;
+  padding: 0.5rem;
+  border: 1px solid #e9ecef;
+  border-radius: 0.5rem;
+}
+
+.round-item {
+  background: #f8f9fa;
+  border: 2px solid #e9ecef;
+  border-radius: 0.4rem;
+  padding: 0.5rem;
+  text-align: center;
+  font-weight: 600;
+  transition: all 0.3s ease;
+  cursor: pointer;
+}
+
+.round-item.missing {
+  background: #fff5f5;
+  border-color: #fed7d7;
+  color: #c53030;
+}
+
+.round-item.existing {
+  background: #f0fff4;
+  border-color: #c6f6d5;
+  color: #25543e;
+}
+
+.round-item:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+}
+
+.summary-stats {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  gap: 1rem;
+  margin-top: 1rem;
+}
+
+.stat-card {
+  background: linear-gradient(135deg, #f8f9fa, #ffffff);
+  border: 2px solid #e9ecef;
+  border-radius: 0.8rem;
+  padding: 1.5rem;
+  text-align: center;
+  transition: all 0.3s ease;
+}
+
+.stat-card:hover {
+  box-shadow: 0 4px 15px rgba(0, 0, 0, 0.1);
+  transform: translateY(-2px);
+}
+
+.stat-number {
+  font-size: 2rem;
+  font-weight: bold;
+  color: #667eea;
+  margin-bottom: 0.5rem;
+}
+
+.stat-label {
+  color: #666;
+  font-weight: 600;
+}
+
+.range-display {
+  margin-bottom: 1rem;
+  padding: 1rem;
+  background: linear-gradient(135deg, #667eea, #764ba2);
+  color: white;
+  border-radius: 0.8rem;
+  text-align: center;
+  font-weight: 600;
+}
+
+@media (max-width: 768px) {
+  .detail-tabs {
+    flex-direction: column;
+    gap: 0;
+  }
+  
+  .tab-btn {
+    border-bottom: none;
+    border-right: 3px solid transparent;
+  }
+  
+  .tab-btn.active {
+    border-right-color: #667eea;
+    border-bottom-color: transparent;
+  }
+  
+  .round-list {
+    grid-template-columns: repeat(auto-fill, minmax(60px, 1fr));
+    gap: 0.3rem;
+  }
+  
+  .summary-stats {
+    grid-template-columns: 1fr;
+  }
+}
 </style>
 
 <script>
@@ -801,6 +1063,7 @@ function stopCrawling() {
 // 페이지 로드시 진행 상태 확인
 document.addEventListener('DOMContentLoaded', function() {
   updateProgress();
+  loadBasicStats();
 
   // 진행 중인 작업이 있으면 모니터링 시작
   setTimeout(() => {
@@ -815,5 +1078,148 @@ document.addEventListener('DOMContentLoaded', function() {
 window.addEventListener('beforeunload', function() {
   stopProgressMonitoring();
 });
+
+// 기본 통계 정보 로드
+async function loadBasicStats() {
+  try {
+    const response = await fetch('/api/data-stats');
+    const data = await response.json();
+    
+    document.getElementById('missing-count').textContent = `${data.missing_count}회`;
+    document.getElementById('completion-rate').textContent = `${data.completion_rate}%`;
+  } catch (error) {
+    console.error('Failed to load basic stats:', error);
+    document.getElementById('missing-count').textContent = '오류';
+    document.getElementById('completion-rate').textContent = '오류';
+  }
+}
+
+// 상세 정보 패널 토글
+function toggleDataDetail() {
+  const panel = document.getElementById('data-detail-panel');
+  
+  if (panel.style.display === 'none') {
+    panel.style.display = 'block';
+    loadDetailData();
+  } else {
+    panel.style.display = 'none';
+  }
+}
+
+// 탭 전환
+function showDetailTab(tabName) {
+  // 모든 탭 비활성화
+  document.querySelectorAll('.tab-btn').forEach(btn => btn.classList.remove('active'));
+  document.querySelectorAll('.tab-content').forEach(content => content.classList.remove('active'));
+  
+  // 선택된 탭 활성화
+  document.querySelector(`button[onclick="showDetailTab('${tabName}')"]`).classList.add('active');
+  document.getElementById(`${tabName}-tab`).classList.add('active');
+  
+  // 데이터 로드
+  loadTabData(tabName);
+}
+
+// 탭별 데이터 로드
+async function loadTabData(tabName) {
+  const loadingId = `${tabName}-loading`;
+  const contentId = `${tabName}-list`;
+  
+  document.getElementById(loadingId).style.display = 'block';
+  document.getElementById(contentId).style.display = 'none';
+  
+  try {
+    const response = await fetch(`/api/data-detail/${tabName}`);
+    const data = await response.json();
+    
+    document.getElementById(loadingId).style.display = 'none';
+    document.getElementById(contentId).style.display = 'block';
+    
+    switch(tabName) {
+      case 'missing':
+        renderMissingRounds(data);
+        break;
+      case 'existing':
+        renderExistingRounds(data);
+        break;
+      case 'summary':
+        renderSummaryInfo(data);
+        break;
+    }
+  } catch (error) {
+    console.error(`Failed to load ${tabName} data:`, error);
+    document.getElementById(loadingId).textContent = '데이터를 불러오는데 실패했습니다.';
+  }
+}
+
+// 전체 데이터 로드
+async function loadDetailData() {
+  loadTabData('missing');
+}
+
+// 누락 회차 렌더링
+function renderMissingRounds(data) {
+  const container = document.getElementById('missing-list');
+  
+  if (data.rounds.length === 0) {
+    container.innerHTML = '<p class="no-data">누락된 회차가 없습니다! 🎉</p>';
+    return;
+  }
+  
+  const rangeDisplay = `<div class="range-display">누락 회차: ${data.total_missing}개 (${data.range.start}~${data.range.end} 중)</div>`;
+  const roundsList = `<div class="round-list">${data.rounds.map(round => 
+    `<div class="round-item missing" onclick="showRoundInfo(${round})">${round}</div>`
+  ).join('')}</div>`;
+  
+  container.innerHTML = rangeDisplay + roundsList;
+}
+
+// 저장된 회차 렌더링
+function renderExistingRounds(data) {
+  const container = document.getElementById('existing-list');
+  
+  const rangeDisplay = `<div class="range-display">저장된 회차: ${data.total_existing}개 (${data.range.start}~${data.range.end} 중)</div>`;
+  const roundsList = `<div class="round-list">${data.rounds.map(round => 
+    `<div class="round-item existing" onclick="showRoundInfo(${round})">${round}</div>`
+  ).join('')}</div>`;
+  
+  container.innerHTML = rangeDisplay + roundsList;
+}
+
+// 요약 정보 렌더링
+function renderSummaryInfo(data) {
+  const container = document.getElementById('summary-info');
+  
+  const statsHtml = `
+    <div class="summary-stats">
+      <div class="stat-card">
+        <div class="stat-number">${data.total_existing}</div>
+        <div class="stat-label">저장된 회차</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-number">${data.total_missing}</div>
+        <div class="stat-label">누락된 회차</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-number">${data.completion_rate}%</div>
+        <div class="stat-label">완성도</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-number">${data.range.end}</div>
+        <div class="stat-label">최신 회차</div>
+      </div>
+    </div>
+    <div class="range-display">
+      전체 범위: ${data.range.start}회 ~ ${data.range.end}회
+    </div>
+  `;
+  
+  container.innerHTML = statsHtml;
+}
+
+// 회차 정보 표시 (간단한 알림)
+function showRoundInfo(round) {
+  alert(`${round}회차 정보를 확인합니다.\n\n이 기능은 추후 상세 정보 모달로 확장 예정입니다.`);
+}
 </script>
 {% endblock %}
