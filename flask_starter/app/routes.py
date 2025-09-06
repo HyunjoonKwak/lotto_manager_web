@@ -451,7 +451,11 @@ def update_range_api():
                      args=(start_round, end_round, operation_name, current_app._get_current_object(), data_type),
                      daemon=True).start()
 
-    return redirect(url_for("main.crawling_page"))
+    # 요청 헤더로 모바일/API 요청 구분
+    if request.headers.get('Content-Type') == 'application/json' or 'mobile' in request.path:
+        return jsonify({"success": True, "message": f"범위 업데이트({start_round}~{end_round}회)가 시작되었습니다"})
+    else:
+        return redirect(url_for("main.crawling_page"))
 
 
 @main_bp.post("/update-full")
@@ -477,7 +481,11 @@ def update_full_api():
                      args=(1, latest, operation_name, current_app._get_current_object(), data_type),
                      daemon=True).start()
 
-    return redirect(url_for("main.crawling_page"))
+    # 요청 헤더로 모바일/API 요청 구분
+    if request.headers.get('Content-Type') == 'application/json' or 'mobile' in request.path:
+        return jsonify({"success": True, "message": f"전체 업데이트(1~{latest}회)가 시작되었습니다"})
+    else:
+        return redirect(url_for("main.crawling_page"))
 
 
 @main_bp.post("/update-missing")
@@ -485,12 +493,16 @@ def update_full_api():
 def update_missing_api():
     """Update only missing rounds."""
     if crawling_progress["is_running"]:
-        return jsonify({"error": "크롤링이 이미 실행중입니다"}), 400
+        return jsonify({"success": False, "error": "크롤링이 이미 실행중입니다"}), 400
 
     # Start background update
     threading.Thread(target=_run_missing_update_background, args=(current_app._get_current_object(),), daemon=True).start()
 
-    return redirect(url_for("main.crawling_page"))
+    # 요청 헤더로 모바일/API 요청 구분
+    if request.headers.get('Content-Type') == 'application/json' or 'mobile' in request.path:
+        return jsonify({"success": True, "message": "누락 회차 업데이트가 시작되었습니다"})
+    else:
+        return redirect(url_for("main.crawling_page"))
 
 
 @main_bp.post("/update-latest")
@@ -498,11 +510,11 @@ def update_missing_api():
 def update_latest_api():
     """Update to the latest available round."""
     if crawling_progress["is_running"]:
-        return jsonify({"error": "크롤링이 이미 실행중입니다"}), 400
+        return jsonify({"success": False, "error": "크롤링이 이미 실행중입니다"}), 400
 
     latest = get_latest_round()
     if not latest:
-        return jsonify({"error": "cannot detect latest round"}), 400
+        return jsonify({"success": False, "error": "최신 회차를 감지할 수 없습니다"}), 400
 
     data_type = request.form.get("data_type", "both")
 
@@ -511,7 +523,11 @@ def update_latest_api():
                      args=(latest, current_app._get_current_object(), data_type),
                      daemon=True).start()
 
-    return redirect(url_for("main.crawling_page"))
+    # 요청 헤더로 모바일/API 요청 구분
+    if request.headers.get('Content-Type') == 'application/json' or 'mobile' in request.path:
+        return jsonify({"success": True, "message": f"최신 회차({latest}회) 업데이트가 시작되었습니다"})
+    else:
+        return redirect(url_for("main.crawling_page"))
 
 
 @main_bp.post("/update-all")

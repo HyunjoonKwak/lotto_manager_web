@@ -16,6 +16,25 @@
 <!-- Main Content Grid -->
 <div class="main-content">
 
+  <!-- Status Information -->
+  <section class="card">
+    <div class="card-header">
+      <h2>📊 데이터 현황</h2>
+    </div>
+    <div class="info-grid">
+      <div class="info-item">
+        <h4>저장된 회차</h4>
+        <p>{{ total_rounds }}회</p>
+      </div>
+      {% if latest %}
+      <div class="info-item">
+        <h4>최신 회차</h4>
+        <p>{{ latest.round }}회</p>
+      </div>
+      {% endif %}
+    </div>
+  </section>
+
   <!-- Data Collection Panel -->
   <section id="data-collection" class="card actions-card">
     <div class="card-header">
@@ -130,25 +149,6 @@
           </div>
         </div>
       </div>
-    </div>
-  </section>
-
-  <!-- Status Information -->
-  <section class="card">
-    <div class="card-header">
-      <h2>📊 데이터 현황</h2>
-    </div>
-    <div class="info-grid">
-      <div class="info-item">
-        <h4>저장된 회차</h4>
-        <p>{{ total_rounds }}회</p>
-      </div>
-      {% if latest %}
-      <div class="info-item">
-        <h4>최신 회차</h4>
-        <p>{{ latest.round }}회</p>
-      </div>
-      {% endif %}
     </div>
   </section>
 
