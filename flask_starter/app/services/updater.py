@@ -6,7 +6,7 @@ from flask import Flask
 
 from ..extensions import db
 from ..models import Draw, WinningShop
-from .lotto_fetcher import fetch_draw, fetch_winning_shops, NUMBERS_URL, DEFAULT_HEADERS, DEFAULT_TIMEOUT
+from .lotto_fetcher import fetch_draw, fetch_winning_shops, NUMBERS_URL, DEFAULT_HEADERS, CONNECT_TIMEOUT, READ_TIMEOUT
 
 
 def perform_update(round_no: int, data_type: str = 'both') -> dict:
@@ -189,7 +189,7 @@ def get_latest_round() -> Optional[int]:
     def exists(r: int) -> bool:
         try:
             url = NUMBERS_URL.format(round=r)
-            resp = requests.get(url, timeout=DEFAULT_TIMEOUT, headers=DEFAULT_HEADERS)
+            resp = requests.get(url, timeout=(CONNECT_TIMEOUT, READ_TIMEOUT), headers=DEFAULT_HEADERS)
             resp.raise_for_status()
             data = resp.json()
             return data.get("returnValue") == "success"

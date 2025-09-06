@@ -39,6 +39,7 @@ print_menu() {
     echo -e "${WHITE}│  ${RED}5${NC} │ 서버 중지                                    │${NC}"
     echo -e "${WHITE}│  ${BLUE}6${NC} │ 환경 확인                                   │${NC}"
     echo -e "${WHITE}│  ${CYAN}7${NC} │ IP 주소 확인                                │${NC}"
+    echo -e "${WHITE}│  ${YELLOW}8${NC} │ 로그 파일 확인 (flask_app.log)              │${NC}"
     echo -e "${WHITE}│  ${RED}0${NC} │ 종료                                        │${NC}"
     echo -e "${WHITE}└─────────────────────────────────────────────────────────────┘${NC}"
     echo ""
@@ -147,6 +148,90 @@ get_ip_addresses() {
     echo ""
 }
 
+# 로그 파일 확인
+check_log_file() {
+    local log_file="flask_app.log"
+    echo -e "${BLUE}📋 로그 파일 확인 중...${NC}"
+    echo ""
+    
+    if [[ -f "$log_file" ]]; then
+        echo -e "${GREEN}✓ 로그 파일이 발견되었습니다: $log_file${NC}"
+        echo -e "${CYAN}파일 크기: $(du -h "$log_file" | cut -f1)${NC}"
+        echo -e "${CYAN}마지막 수정: $(date -r "$log_file" 2>/dev/null || stat -c %y "$log_file" 2>/dev/null || echo "확인 실패")${NC}"
+        echo ""
+        
+        while true; do
+            echo -e "${YELLOW}로그 확인 옵션:${NC}"
+            echo -e "${WHITE}  ${GREEN}1${NC} │ 전체 로그 보기${NC}"
+            echo -e "${WHITE}  ${GREEN}2${NC} │ 마지막 20줄 보기${NC}"
+            echo -e "${WHITE}  ${GREEN}3${NC} │ 마지막 50줄 보기${NC}"
+            echo -e "${WHITE}  ${GREEN}4${NC} │ 실시간 로그 보기 (Ctrl+C로 종료)${NC}"
+            echo -e "${WHITE}  ${GREEN}5${NC} │ 오류만 검색${NC}"
+            echo -e "${WHITE}  ${GREEN}6${NC} │ 로그 파일 지우기${NC}"
+            echo -e "${WHITE}  ${RED}0${NC} │ 돌아가기${NC}"
+            echo ""
+            echo -e "${YELLOW}선택하세요 (0-6):${NC} "
+            read -r log_choice
+            
+            case $log_choice in
+                1)
+                    echo -e "${GREEN}전체 로그를 표시합니다...${NC}"
+                    echo -e "${CYAN}==================== 전체 로그 ====================${NC}"
+                    cat "$log_file"
+                    echo -e "${CYAN}===================== 로그 끝 =====================${NC}"
+                    ;;
+                2)
+                    echo -e "${GREEN}마지막 20줄을 표시합니다...${NC}"
+                    echo -e "${CYAN}================== 마지막 20줄 ==================${NC}"
+                    tail -20 "$log_file"
+                    echo -e "${CYAN}===================== 로그 끝 =====================${NC}"
+                    ;;
+                3)
+                    echo -e "${GREEN}마지막 50줄을 표시합니다...${NC}"
+                    echo -e "${CYAN}================== 마지막 50줄 ==================${NC}"
+                    tail -50 "$log_file"
+                    echo -e "${CYAN}===================== 로그 끝 =====================${NC}"
+                    ;;
+                4)
+                    echo -e "${GREEN}실시간 로그를 표시합니다... (Ctrl+C로 종료)${NC}"
+                    echo -e "${CYAN}=================== 실시간 로그 ==================${NC}"
+                    tail -f "$log_file"
+                    ;;
+                5)
+                    echo -e "${GREEN}오류 로그를 검색합니다...${NC}"
+                    echo -e "${CYAN}==================== 오류 로그 ====================${NC}"
+                    grep -i -E "(error|exception|traceback|failed)" "$log_file" || echo -e "${YELLOW}오류가 발견되지 않았습니다.${NC}"
+                    echo -e "${CYAN}===================== 로그 끝 =====================${NC}"
+                    ;;
+                6)
+                    echo -e "${RED}로그 파일을 지우시겠습니까? (y/N):${NC} "
+                    read -r confirm
+                    if [[ "$confirm" == "y" || "$confirm" == "Y" ]]; then
+                        > "$log_file"
+                        echo -e "${GREEN}✓ 로그 파일이 지워졌습니다.${NC}"
+                    else
+                        echo -e "${YELLOW}로그 삭제가 취소되었습니다.${NC}"
+                    fi
+                    ;;
+                0)
+                    return
+                    ;;
+                *)
+                    echo -e "${RED}잘못된 선택입니다. 0-6 사이의 숫자를 입력하세요.${NC}"
+                    ;;
+            esac
+            echo ""
+            echo -e "${YELLOW}계속하려면 Enter를 누르세요...${NC}"
+            read -r
+            echo ""
+        done
+    else
+        echo -e "${RED}✗ 로그 파일을 찾을 수 없습니다: $log_file${NC}"
+        echo -e "${YELLOW}백그라운드 서버가 실행되지 않았거나 아직 로그가 생성되지 않았을 수 있습니다.${NC}"
+    fi
+    echo ""
+}
+
 
 # 서버 시작
 start_server() {
@@ -188,7 +273,7 @@ start_server() {
 select_menu() {
     while true; do
         print_menu
-        echo -e "${YELLOW}실행할 작업을 선택하세요 (0-7):${NC} "
+        echo -e "${YELLOW}실행할 작업을 선택하세요 (0-8):${NC} "
         read -r choice
 
         case $choice in
@@ -232,12 +317,18 @@ select_menu() {
                 echo -e "${YELLOW}계속하려면 Enter를 누르세요...${NC}"
                 read -r
                 ;;
+            8)
+                echo -e "${YELLOW}로그 파일 확인을 선택했습니다.${NC}"
+                check_log_file
+                echo -e "${YELLOW}계속하려면 Enter를 누르세요...${NC}"
+                read -r
+                ;;
             0)
                 echo -e "${RED}프로그램을 종료합니다.${NC}"
                 exit 0
                 ;;
             *)
-                echo -e "${RED}잘못된 선택입니다. 0-7 사이의 숫자를 입력하세요.${NC}"
+                echo -e "${RED}잘못된 선택입니다. 0-8 사이의 숫자를 입력하세요.${NC}"
                 echo -e "${YELLOW}계속하려면 Enter를 누르세요...${NC}"
                 read -r
                 ;;
@@ -257,6 +348,7 @@ print_help() {
     echo "  ${GREEN}status${NC}    - 서버 상태 확인"
     echo "  ${GREEN}stop${NC}      - 서버 중지"
     echo "  ${GREEN}ip${NC}        - IP 주소 확인"
+    echo "  ${GREEN}log${NC}       - 로그 파일 확인"
     echo "  ${GREEN}menu${NC}      - 대화형 메뉴 모드"
     echo "  ${GREEN}help${NC}      - 이 도움말 출력"
     echo ""
@@ -266,6 +358,7 @@ print_help() {
     echo "  $0 bg       # 백그라운드에서 NAS 서버 시작"
     echo "  $0 status   # 서버 상태 확인"
     echo "  $0 stop     # 서버 중지"
+    echo "  $0 log      # 로그 파일 확인"
     echo "  $0 menu     # 대화형 메뉴 모드"
     echo ""
 }
@@ -296,6 +389,10 @@ main() {
             ;;
         "ip")
             get_ip_addresses
+            exit 0
+            ;;
+        "log")
+            check_log_file
             exit 0
             ;;
     esac
