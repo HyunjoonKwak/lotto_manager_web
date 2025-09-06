@@ -709,8 +709,10 @@ def api_purchase_stats():
 @main_bp.get("/api/check-new-draw")
 @login_required
 def api_check_new_draw():
-    """새로운 추첨 회차가 있는지 확인"""
+    """새로운 추첨 회차가 있는지 확인 (추첨 시간 고려)"""
     try:
+        from datetime import datetime, time, timedelta
+
         # 현재 DB의 최신 회차
         latest_draw = Draw.query.order_by(Draw.round.desc()).first()
         current_round = latest_draw.round if latest_draw else 0
@@ -724,13 +726,69 @@ def api_check_new_draw():
                 "message": "최신 회차 정보를 가져올 수 없습니다"
             })
 
-        has_new = latest_available > current_round
+        # 한국 시간 기준으로 계산 (KST)
+        now_kst = datetime.now()
+
+        # 로또 추첨 시간: 매주 토요일 오후 8시 45분 (KST)
+        # 1회차 추첨일: 2002년 12월 7일 (토요일)
+        first_draw_date = datetime(2002, 12, 7)
+        weeks_since_first = (now_kst - first_draw_date).days // 7
+
+        # 현재 주의 토요일 8시 45분 계산
+        days_until_saturday = (5 - now_kst.weekday()) % 7  # 0=월요일, 5=토요일
+        if now_kst.weekday() == 5:  # 현재가 토요일이면
+            current_saturday = now_kst.replace(hour=0, minute=0, second=0, microsecond=0)
+        else:
+            current_saturday = now_kst + timedelta(days=days_until_saturday)
+            current_saturday = current_saturday.replace(hour=0, minute=0, second=0, microsecond=0)
+
+        draw_time = current_saturday.replace(hour=20, minute=45)  # 오후 8시 45분
+
+        # 현재 시간이 이번 주 추첨 시간을 지났는지 확인
+        draw_completed_this_week = now_kst >= draw_time
+
+        # 예상 회차 계산 (1회차는 2002년 12월 7일)
+        if draw_completed_this_week:
+            expected_round = weeks_since_first + 1
+        else:
+            expected_round = weeks_since_first
+
+        # DB 회차와 비교
+        has_new_by_schedule = expected_round > current_round
+        has_new_by_api = latest_available > current_round
+
+        # 다음 추첨 시간 계산
+        if draw_completed_this_week:
+            next_draw_time = draw_time + timedelta(days=7)  # 다음 주 토요일
+        else:
+            next_draw_time = draw_time  # 이번 주 토요일
+
+        # 더 정교한 메시지 생성
+        if draw_completed_this_week and has_new_by_schedule:
+            if has_new_by_api:
+                message = f"이번 주 추첨({expected_round}회)이 완료되었고, 새로운 결과가 있습니다"
+            else:
+                message = f"이번 주 추첨({expected_round}회)이 완료되었지만, 아직 결과가 공개되지 않았을 수 있습니다"
+        elif not draw_completed_this_week and has_new_by_api:
+            message = f"추첨 전이지만 이전 회차({latest_available}회) 결과를 업데이트할 수 있습니다"
+        elif not draw_completed_this_week and not has_new_by_api:
+            hours_until_draw = int((draw_time - now_kst).total_seconds() // 3600)
+            if hours_until_draw > 0:
+                message = f"다음 추첨까지 약 {hours_until_draw}시간 남았습니다 ({draw_time.strftime('%m-%d %H:%M')})"
+            else:
+                message = f"오늘 {draw_time.strftime('%H:%M')}에 추첨 예정입니다"
+        else:
+            message = "새로운 회차가 없습니다"
 
         return jsonify({
-            "has_new_draw": has_new,
+            "has_new_draw": has_new_by_api,
             "current_round": current_round,
             "latest_round": latest_available,
-            "message": f"새로운 회차가 {'있습니다' if has_new else '없습니다'}"
+            "expected_round": expected_round,
+            "draw_completed": draw_completed_this_week,
+            "next_draw_time": next_draw_time.strftime("%Y-%m-%d %H:%M"),
+            "hours_until_draw": max(0, int((next_draw_time - now_kst).total_seconds() // 3600)),
+            "message": message
         })
 
     except Exception as e:

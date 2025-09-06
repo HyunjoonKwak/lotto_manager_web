@@ -14,6 +14,7 @@
   </div>
   <div class="date-section">
     <div class="current-date" id="currentDate"></div>
+    <div class="countdown-date" id="nextDrawCountdown"></div>
   </div>
 </div>
 
@@ -119,6 +120,18 @@
   font-size: 0.9rem;
   color: #666;
   font-weight: 500;
+  margin-bottom: 0.5rem;
+}
+
+.countdown-date {
+  font-size: 0.85rem;
+  color: #007bff;
+  font-weight: 600;
+  background: linear-gradient(135deg, #e3f2fd, #f0f8ff);
+  padding: 0.3rem 0.6rem;
+  border-radius: 0.4rem;
+  border: 1px solid rgba(0, 123, 255, 0.2);
+  display: inline-block;
 }
 
 /* 새 회차 알림 스타일 */
@@ -254,15 +267,87 @@
 <script>
 // 페이지 로드 시 초기화
 document.addEventListener('DOMContentLoaded', function() {
-  // 오늘 날짜 표시
-  const today = new Date();
-  const dateStr = today.toLocaleDateString('ko-KR', {
-    year: 'numeric',
-    month: 'long',
-    day: 'numeric',
-    weekday: 'long'
-  });
-  document.getElementById('currentDate').textContent = dateStr;
+  // 현재 날짜와 시간 표시 (초단위까지)
+  function updateCurrentTime() {
+    const now = new Date();
+    const dateStr = now.toLocaleDateString('ko-KR', {
+      year: 'numeric',
+      month: 'long',
+      day: 'numeric',
+      weekday: 'long'
+    });
+    const timeStr = now.toLocaleTimeString('ko-KR', {
+      hour: '2-digit',
+      minute: '2-digit',
+      second: '2-digit',
+      hour12: false
+    });
+    document.getElementById('currentDate').textContent = `${dateStr} ${timeStr}`;
+  }
+
+  // 다음 추첨까지 남은 시간 계산 및 표시
+  function updateCountdown() {
+    const now = new Date();
+
+    // 다음 토요일 8시 45분 계산 (로또 추첨 시간)
+    let nextSaturday = new Date(now);
+    const daysUntilSaturday = (6 - now.getDay()) % 7; // 0=일요일, 6=토요일
+
+    if (now.getDay() === 6) {  // 현재가 토요일
+      if (now.getHours() < 20 || (now.getHours() === 20 && now.getMinutes() < 45)) {
+        // 오늘 추첨 전이면 오늘
+        nextSaturday.setHours(20, 45, 0, 0);
+      } else {
+        // 오늘 추첨이 끝났으면 다음 주 토요일
+        nextSaturday.setDate(now.getDate() + 7);
+        nextSaturday.setHours(20, 45, 0, 0);
+      }
+    } else {
+      // 다음 토요일로 설정
+      nextSaturday.setDate(now.getDate() + (daysUntilSaturday === 0 ? 7 : daysUntilSaturday));
+      nextSaturday.setHours(20, 45, 0, 0);
+    }
+
+    const timeDiff = nextSaturday - now;
+
+    if (timeDiff <= 0) {
+      document.getElementById('nextDrawCountdown').textContent = '🎯 추첨이 진행 중입니다';
+      return;
+    }
+
+    const days = Math.floor(timeDiff / (1000 * 60 * 60 * 24));
+    const hours = Math.floor((timeDiff % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60));
+    const minutes = Math.floor((timeDiff % (1000 * 60 * 60)) / (1000 * 60));
+    const seconds = Math.floor((timeDiff % (1000 * 60)) / 1000);
+
+    let countdownText = '🎯 다음 추첨까지 ';
+
+    if (days > 0) {
+      // 날짜 단위로 표시 (하루 이상 남음)
+      countdownText += `${days}일 ${hours}시간`;
+    } else {
+      // 시간/분/초 단위로 표시 (하루 이하 남음)
+      if (hours > 0) {
+        countdownText += `${hours}시간 ${minutes}분 ${seconds}초`;
+      } else if (minutes > 0) {
+        countdownText += `${minutes}분 ${seconds}초`;
+      } else {
+        countdownText += `${seconds}초`;
+      }
+    }
+
+    document.getElementById('nextDrawCountdown').textContent = countdownText;
+  }
+
+  // 초기 시간 표시
+  updateCurrentTime();
+  updateCountdown();
+
+  // 매초마다 시간 및 카운트다운 업데이트
+  setInterval(() => {
+    updateCurrentTime();
+    updateCountdown();
+  }, 1000);
 
   // 새 회차 확인 유도
   checkIfNewDrawNeeded();
@@ -276,13 +361,37 @@ function checkIfNewDrawNeeded() {
   // 추첨날짜 파싱 (YYYY-MM-DD 형식 가정)
   const drawDate = new Date(drawDateText);
   const today = new Date();
-  const daysDiff = Math.floor((today - drawDate) / (1000 * 60 * 60 * 24));
 
-  // 추첨 후 7일이 지났으면 새 회차 확인 알림 표시
-  if (daysDiff >= 7) {
+  // 다음 토요일 8시 45분 계산 (로또 추첨 시간)
+  const nextSaturday = new Date(today);
+  const daysUntilSaturday = (6 - today.getDay()) % 7; // 0=일요일, 6=토요일
+  if (daysUntilSaturday === 0 && today.getHours() < 21) {
+    // 오늘이 토요일이고 추첨 전이면
+    nextSaturday.setHours(20, 45, 0, 0);
+  } else {
+    // 다음 토요일로 설정
+    nextSaturday.setDate(today.getDate() + (daysUntilSaturday || 7));
+    nextSaturday.setHours(20, 45, 0, 0);
+  }
+
+  // 마지막 추첨에서 다음 추첨 시간이 지났는지 확인
+  const weeksSinceLastDraw = Math.floor((today - drawDate) / (1000 * 60 * 60 * 24 * 7));
+  const shouldHaveNewDraw = weeksSinceLastDraw >= 1 && today >= nextSaturday;
+
+  if (shouldHaveNewDraw) {
     const alertDiv = document.getElementById('newDrawAlert');
     if (alertDiv) {
       alertDiv.style.display = 'block';
+      // 알림 메시지도 더 구체적으로 변경
+      const alertMessage = alertDiv.querySelector('.alert-message');
+      if (alertMessage) {
+        const hoursLeft = Math.max(0, Math.floor((nextSaturday - today) / (1000 * 60 * 60)));
+        if (hoursLeft > 0) {
+          alertMessage.textContent = `새로운 회차가 추첨되었을 수 있습니다! (다음 추첨: ${hoursLeft}시간 후)`;
+        } else {
+          alertMessage.textContent = '새로운 회차가 추첨되었을 수 있습니다!';
+        }
+      }
     }
   }
 }
@@ -299,8 +408,26 @@ async function checkForNewDraw() {
     const response = await fetch('/api/check-new-draw');
     const data = await response.json();
 
+    // 상세한 메시지 먼저 표시
+    let alertMessage = data.message || '새로운 추첨 결과가 없습니다.';
+
+    // 추가 정보가 있으면 포함
+    if (data.draw_completed && data.next_draw_time) {
+      alertMessage += `\n다음 추첨: ${data.next_draw_time}`;
+    } else if (!data.draw_completed && data.hours_until_draw > 0) {
+      alertMessage += `\n(${data.hours_until_draw}시간 후 추첨)`;
+    }
+
     if (data.has_new_draw) {
-      const confirmed = confirm(`새로운 ${data.latest_round}회 추첨 결과가 있습니다. 업데이트하시겠습니까?`);
+      // 추첨 완료 여부에 따른 다른 확인 메시지
+      let confirmMessage;
+      if (data.draw_completed) {
+        confirmMessage = `${data.message}\n\n${data.latest_round}회 추첨 결과를 업데이트하시겠습니까?`;
+      } else {
+        confirmMessage = `${data.message}\n\n${data.latest_round}회 결과를 지금 업데이트하시겠습니까?`;
+      }
+
+      const confirmed = confirm(confirmMessage);
 
       if (confirmed) {
         button.innerHTML = '<span class="spinner">⏳</span> 업데이트중...';
@@ -328,7 +455,7 @@ async function checkForNewDraw() {
         }
       }
     } else {
-      alert('새로운 추첨 결과가 없습니다.');
+      alert(alertMessage);
     }
   } catch (error) {
     console.error('Error checking for new draw:', error);
