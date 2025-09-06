@@ -94,8 +94,25 @@ def get_persistent_recommendations(draws: List, user_id: int = None) -> Tuple[Li
         return stored_data
 
     # 저장된 추천번호가 없으면 새로 생성
-    history = [d.numbers_list() for d in draws]
-    auto_recs = auto_recommend(history, count=5)
+    try:
+        history = []
+        for d in draws:
+            try:
+                numbers = d.numbers_list()
+                if numbers and len(numbers) == 6:  # 유효한 번호만 추가
+                    history.append(numbers)
+            except (AttributeError, ValueError, TypeError) as e:
+                # 개별 draw 처리 중 오류가 있어도 계속 진행
+                continue
+        
+        if not history:
+            # 유효한 데이터가 없으면 기본 추천 생성
+            history = [[1, 2, 3, 4, 5, 6]]  # 기본값
+        
+        auto_recs = auto_recommend(history, count=5)
+    except Exception as e:
+        # 전체 추천 생성 실패 시 기본 추천 반환
+        auto_recs = [[7, 14, 21, 28, 35, 42], [3, 9, 15, 27, 33, 39], [5, 11, 17, 23, 29, 41], [8, 16, 24, 32, 36, 44], [2, 12, 18, 26, 34, 43]]
 
     # Generate reasons for recommendations
     recommendation_reasons = []

@@ -174,22 +174,24 @@
       display: flex;
       justify-content: center;
       align-items: center;
-      gap: 0.3rem;
-      flex-wrap: wrap;
+      gap: 0.25rem;
+      flex-wrap: nowrap; /* 한줄로 유지 */
+      overflow-x: auto; /* 필요시 가로 스크롤 */
     }
 
     .numbers .number {
-      width: 2.5rem;
-      height: 2.5rem;
+      width: 2.2rem;
+      height: 2.2rem;
       border-radius: 50%;
       display: flex;
       align-items: center;
       justify-content: center;
       font-weight: 700;
-      font-size: 0.9rem;
+      font-size: 0.85rem;
       color: white;
       background: linear-gradient(135deg, #4299e1, #3182ce);
       box-shadow: 0 2px 8px rgba(66, 153, 225, 0.3);
+      flex-shrink: 0; /* 크기 고정 */
     }
 
     /* 보너스 섹션 */
@@ -207,17 +209,18 @@
     }
 
     .bonus-section .bonus {
-      width: 2.5rem;
-      height: 2.5rem;
+      width: 2.2rem;
+      height: 2.2rem;
       border-radius: 50%;
       display: flex;
       align-items: center;
       justify-content: center;
       font-weight: 700;
-      font-size: 0.9rem;
+      font-size: 0.85rem;
       color: white;
       background: linear-gradient(135deg, #f56565, #e53e3e);
       box-shadow: 0 2px 8px rgba(245, 101, 101, 0.3);
+      flex-shrink: 0; /* 크기 고정 */
     }
 
     .bonus-section .bonus-label {
@@ -373,6 +376,39 @@
       opacity: 0.7;
       cursor: not-allowed;
     }
+
+    /* 대시보드 이동 버튼 */
+    .dashboard-nav {
+      position: fixed;
+      top: 1rem;
+      right: 1rem;
+      z-index: 1000;
+    }
+
+    .btn-dashboard {
+      background: linear-gradient(135deg, #667eea, #764ba2);
+      color: white;
+      border: none;
+      padding: 0.8rem;
+      border-radius: 50%;
+      width: 3.5rem;
+      height: 3.5rem;
+      font-size: 1.2rem;
+      cursor: pointer;
+      text-decoration: none;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      box-shadow: 0 4px 15px rgba(102, 126, 234, 0.3);
+      transition: all 0.3s ease;
+    }
+
+    .btn-dashboard:hover, .btn-dashboard:active {
+      transform: translateY(-2px);
+      box-shadow: 0 6px 20px rgba(102, 126, 234, 0.4);
+      color: white;
+      text-decoration: none;
+    }
   </style>
 
   {% if csrf_token() %}
@@ -382,6 +418,15 @@
   {% endif %}
 </head>
 <body>
+  <!-- 대시보드 이동 버튼 (대시보드가 아닌 페이지에서만 표시) -->
+  {% if request.endpoint != 'main.mobile_index' %}
+  <div class="dashboard-nav">
+    <a href="{{ url_for('main.mobile_index') }}" class="btn-dashboard" title="대시보드">
+      🏠
+    </a>
+  </div>
+  {% endif %}
+  
   {% block content %}{% endblock %}
   {% block scripts %}{% endblock %}
 </body>

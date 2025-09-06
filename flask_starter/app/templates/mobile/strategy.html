@@ -22,22 +22,18 @@
   {% for rec in recommendations[:3] %}
   <div class="recommendation-item">
     <div class="rec-header">
-      <span class="rec-type">{{ rec.recommendation_type }}</span>
-      <span class="rec-score">신뢰도 {{ "%.0f"|format(rec.confidence * 100) }}%</span>
+      <span class="rec-type">AI 추천 #{{ loop.index }}</span>
+      <span class="rec-score">추천</span>
     </div>
 
     <div class="numbers">
-      {% for num in rec.numbers.split(',') %}
+      {% for num in rec %}
       <span class="number">{{ num }}</span>
       {% endfor %}
     </div>
 
-    {% if rec.reason %}
-    <div class="rec-reason">{{ rec.reason }}</div>
-    {% endif %}
-
     <div class="rec-actions">
-      <button class="btn-small btn-primary" onclick="addToPurchase('{{ rec.numbers }}')">
+      <button class="btn-small btn-primary" onclick="addToPurchase('{{ rec|join(',') }}')">
         구매 추가
       </button>
     </div>

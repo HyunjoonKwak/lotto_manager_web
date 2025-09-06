@@ -199,15 +199,39 @@ def mobile_strategy():
     all_draws = Draw.query.order_by(Draw.round.desc()).all()
 
     # AI 추천
-    recommendations = get_persistent_recommendations(current_user.id)
-    if not recommendations:
-        try:
-            rec_result = auto_recommend(all_draws[:100])
-            if rec_result and rec_result.get("recommendations"):
-                recommendations = rec_result["recommendations"][:5]
-        except Exception as e:
-            current_app.logger.error(f"Recommendation error: {e}")
-            recommendations = []
+    recommendations = []
+    recommendation_reasons = []
+    try:
+        rec_data = get_persistent_recommendations(current_user.id)
+        if rec_data:
+            recommendations, recommendation_reasons = rec_data
+        else:
+            # 기본 추천 생성 (안전한 방식)
+            try:
+                history = []
+                for d in all_draws[:100]:
+                    try:
+                        numbers = d.numbers_list()
+                        if numbers and len(numbers) == 6:
+                            history.append(numbers)
+                    except:
+                        continue
+                
+                if history:
+                    rec_result = auto_recommend(history, count=5)
+                    if rec_result:
+                        recommendations = rec_result[:5]
+                
+                if not recommendations:
+                    # 기본 추천
+                    recommendations = [[7, 14, 21, 28, 35, 42], [3, 9, 15, 27, 33, 39], [5, 11, 17, 23, 29, 41]]
+                    
+            except Exception as e:
+                current_app.logger.error(f"Auto recommendation error: {e}")
+                recommendations = [[7, 14, 21, 28, 35, 42], [3, 9, 15, 27, 33, 39], [5, 11, 17, 23, 29, 41]]
+    except Exception as e:
+        current_app.logger.error(f"Persistent recommendation error: {e}")
+        recommendations = [[7, 14, 21, 28, 35, 42], [3, 9, 15, 27, 33, 39], [5, 11, 17, 23, 29, 41]]
 
     # 구매 내역
     purchases = Purchase.query.filter_by(user_id=current_user.id).order_by(Purchase.purchase_date.desc()).limit(10).all()
