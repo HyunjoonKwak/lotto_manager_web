@@ -23,19 +23,28 @@ def nas_main() -> None:
     host = "0.0.0.0"
     port = 8080
 
-    print(f"포트 {port} 사용 가능 여부를 확인합니다...")
+    # Flask reloader 재시작 시에는 포트 충돌 검사를 건너뛰기
+    is_reloader_process = os.environ.get('WERKZEUG_RUN_MAIN') == 'true'
 
-    # 포트 충돌 확인 및 해결
-    if not handle_port_conflict(host, port):
-        print(f"포트 {port}를 해제할 수 없습니다. 다른 포트를 찾고 있습니다...")
-        try:
-            port = find_available_port(host, port + 1)
-            print(f"사용 가능한 포트 {port}를 찾았습니다.")
-            # 찾은 포트를 환경변수로 설정
-            os.environ['FLASK_PORT_OVERRIDE'] = str(port)
-        except RuntimeError as e:
-            print(f"오류: {e}")
-            sys.exit(1)
+    if not is_reloader_process:
+        print(f"포트 {port} 사용 가능 여부를 확인합니다...")
+
+        # 포트 충돌 확인 및 해결
+        if not handle_port_conflict(host, port):
+            print(f"포트 {port}를 해제할 수 없습니다. 다른 포트를 찾고 있습니다...")
+            try:
+                port = find_available_port(host, port + 1)
+                print(f"사용 가능한 포트 {port}를 찾았습니다.")
+                # 찾은 포트를 환경변수로 설정
+                os.environ['FLASK_PORT_OVERRIDE'] = str(port)
+            except RuntimeError as e:
+                print(f"오류: {e}")
+                sys.exit(1)
+    else:
+        # reloader 프로세스에서는 저장된 포트 사용
+        if 'FLASK_PORT_OVERRIDE' in os.environ:
+            port = int(os.environ['FLASK_PORT_OVERRIDE'])
+            print(f"Reloader: 포트 {port}를 사용합니다.")
 
     print(f"NAS 서버가 http://0.0.0.0:{port}에서 시작됩니다.")
     print("외부에서 접속하려면: http://[NAS_IP]:{port}")
