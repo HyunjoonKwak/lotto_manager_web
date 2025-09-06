@@ -1,0 +1,374 @@
+{% extends "mobile/base.html" %}
+
+{% block title %}모바일 전략분석{% endblock %}
+
+{% block content %}
+<!-- 모바일 헤더 -->
+<div class="mobile-header">
+  <div class="title">
+    <h1>📊 전략분석</h1>
+    <div class="subtitle">AI 기반 번호 추천</div>
+  </div>
+</div>
+
+<!-- 추천 번호 카드 -->
+{% if recommendations %}
+<div class="mobile-card">
+  <div class="card-header">
+    <h2>🎯 AI 추천 번호</h2>
+    <button class="refresh-btn" onclick="refreshRecommendations()">🔄</button>
+  </div>
+
+  {% for rec in recommendations[:3] %}
+  <div class="recommendation-item">
+    <div class="rec-header">
+      <span class="rec-type">{{ rec.recommendation_type }}</span>
+      <span class="rec-score">신뢰도 {{ "%.0f"|format(rec.confidence * 100) }}%</span>
+    </div>
+
+    <div class="numbers">
+      {% for num in rec.numbers.split(',') %}
+      <span class="number">{{ num }}</span>
+      {% endfor %}
+    </div>
+
+    {% if rec.reason %}
+    <div class="rec-reason">{{ rec.reason }}</div>
+    {% endif %}
+
+    <div class="rec-actions">
+      <button class="btn-small btn-primary" onclick="addToPurchase('{{ rec.numbers }}')">
+        구매 추가
+      </button>
+    </div>
+  </div>
+  {% endfor %}
+</div>
+{% endif %}
+
+<!-- 구매 목록 -->
+{% if purchases %}
+<div class="mobile-card">
+  <div class="card-header">
+    <h2>🛒 최근 구매</h2>
+    <span class="count">{{ purchases|length }}건</span>
+  </div>
+
+  <div class="purchase-list">
+    {% for purchase in purchases[:5] %}
+    <div class="purchase-item">
+      <div class="purchase-header">
+        <span class="purchase-date">{{ purchase.purchase_date.strftime('%m/%d %H:%M') }}</span>
+        <span class="purchase-round">{{ purchase.round }}회</span>
+      </div>
+
+      <div class="numbers">
+        {% for num in purchase.numbers.split(',') %}
+        <span class="number small">{{ num }}</span>
+        {% endfor %}
+      </div>
+
+      {% if purchase.winning_amount %}
+      <div class="winning-result">
+        <span class="winning-amount">{{ "{:,}".format(purchase.winning_amount) }}원 당첨!</span>
+      </div>
+      {% endif %}
+    </div>
+    {% endfor %}
+
+    {% if purchases|length > 5 %}
+    <div class="more-items">
+      <a href="{{ url_for('main.purchase_history') }}">전체 구매내역 보기 →</a>
+    </div>
+    {% endif %}
+  </div>
+</div>
+{% endif %}
+
+<!-- 통계 카드 -->
+<div class="mobile-card">
+  <div class="card-header">
+    <h2>📈 나의 통계</h2>
+  </div>
+
+  <div class="stats-grid">
+    <div class="stat-item">
+      <div class="stat-number">{{ total_purchases or 0 }}</div>
+      <div class="stat-label">총 구매</div>
+    </div>
+    <div class="stat-item">
+      <div class="stat-number">{{ total_spent or 0 | int }}원</div>
+      <div class="stat-label">총 구매금액</div>
+    </div>
+    <div class="stat-item">
+      <div class="stat-number">{{ total_winnings or 0 | int }}원</div>
+      <div class="stat-label">총 당첨금액</div>
+    </div>
+    <div class="stat-item">
+      <div class="stat-number">{{ win_rate or 0 }}%</div>
+      <div class="stat-label">당첨률</div>
+    </div>
+  </div>
+</div>
+
+<!-- 빠른 액션 -->
+<div class="mobile-card">
+  <div class="card-header">
+    <h2>🎲 빠른 액션</h2>
+  </div>
+
+  <div class="action-buttons">
+    <button class="btn-action" onclick="getNewRecommendation()">
+      <span class="action-icon">🔮</span>
+      <span class="action-text">새 추천받기</span>
+    </button>
+    <button class="btn-action" onclick="quickPurchase()">
+      <span class="action-icon">⚡</span>
+      <span class="action-text">빠른 구매</span>
+    </button>
+    <a href="{{ url_for('main.crawling_page') }}" class="btn-action">
+      <span class="action-icon">🔄</span>
+      <span class="action-text">데이터 업데이트</span>
+    </a>
+  </div>
+</div>
+
+<!-- 데스크톱 버전 링크 -->
+<div class="desktop-link">
+  <a href="{{ url_for('main.strategy') }}?desktop=1" class="link-desktop">
+    🖥️ 데스크톱 버전으로 보기
+  </a>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<style>
+.refresh-btn {
+  background: rgba(255, 255, 255, 0.2);
+  border: 1px solid rgba(255, 255, 255, 0.3);
+  color: white;
+  padding: 0.3rem 0.6rem;
+  border-radius: 0.5rem;
+  font-size: 0.9rem;
+  cursor: pointer;
+}
+
+.recommendation-item {
+  padding: 1rem;
+  border-bottom: 1px solid #e2e8f0;
+  background: #f8fafc;
+  margin-bottom: 0.5rem;
+  border-radius: 0.8rem;
+}
+
+.recommendation-item:last-child {
+  border-bottom: none;
+  margin-bottom: 0;
+}
+
+.rec-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 0.5rem;
+}
+
+.rec-type {
+  background: linear-gradient(135deg, #4299e1, #3182ce);
+  color: white;
+  padding: 0.2rem 0.6rem;
+  border-radius: 1rem;
+  font-size: 0.75rem;
+  font-weight: 600;
+}
+
+.rec-score {
+  font-size: 0.8rem;
+  color: #718096;
+  font-weight: 500;
+}
+
+.rec-reason {
+  font-size: 0.8rem;
+  color: #4a5568;
+  margin: 0.5rem 0;
+  line-height: 1.4;
+}
+
+.rec-actions {
+  margin-top: 0.5rem;
+}
+
+.btn-small {
+  padding: 0.4rem 0.8rem;
+  font-size: 0.8rem;
+  border-radius: 0.5rem;
+  border: none;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.purchase-list {
+  padding: 1rem;
+}
+
+.purchase-item {
+  padding: 0.8rem;
+  background: #f8fafc;
+  margin-bottom: 0.5rem;
+  border-radius: 0.8rem;
+  border-left: 3px solid #4299e1;
+}
+
+.purchase-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 0.5rem;
+}
+
+.purchase-date {
+  font-size: 0.85rem;
+  color: #718096;
+}
+
+.purchase-round {
+  font-size: 0.8rem;
+  background: #e2e8f0;
+  padding: 0.2rem 0.5rem;
+  border-radius: 0.3rem;
+  color: #4a5568;
+  font-weight: 500;
+}
+
+.number.small {
+  width: 2rem;
+  height: 2rem;
+  font-size: 0.75rem;
+}
+
+.winning-result {
+  margin-top: 0.5rem;
+}
+
+.winning-amount {
+  color: #e53e3e;
+  font-weight: 700;
+  font-size: 0.9rem;
+}
+
+.more-items {
+  text-align: center;
+  padding: 0.8rem;
+}
+
+.more-items a {
+  color: #4299e1;
+  text-decoration: none;
+  font-weight: 500;
+  font-size: 0.9rem;
+}
+
+.stats-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 0.5rem;
+  padding: 1rem;
+}
+
+.stat-item {
+  text-align: center;
+  padding: 1rem;
+  background: linear-gradient(135deg, #f7fafc, #edf2f7);
+  border-radius: 0.8rem;
+}
+
+.stat-number {
+  font-size: 1.2rem;
+  font-weight: 700;
+  color: #2d3748;
+  margin-bottom: 0.3rem;
+}
+
+.stat-label {
+  font-size: 0.8rem;
+  color: #718096;
+}
+
+.action-buttons {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  padding: 1rem;
+}
+
+.btn-action {
+  display: flex;
+  align-items: center;
+  gap: 0.8rem;
+  padding: 1rem;
+  background: linear-gradient(135deg, #f7fafc, #edf2f7);
+  border: 1px solid #e2e8f0;
+  border-radius: 0.8rem;
+  text-decoration: none;
+  color: #4a5568;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.btn-action:active {
+  transform: scale(0.98);
+  background: linear-gradient(135deg, #edf2f7, #e2e8f0);
+}
+
+.action-icon {
+  font-size: 1.3rem;
+}
+
+.action-text {
+  font-size: 0.9rem;
+}
+</style>
+
+<script>
+// 추천 새로고침
+async function refreshRecommendations() {
+  const response = await fetch('/api/refresh-recommendations', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' }
+  });
+
+  if (response.ok) {
+    window.location.reload();
+  } else {
+    alert('추천 새로고침에 실패했습니다.');
+  }
+}
+
+// 구매 추가
+function addToPurchase(numbers) {
+  // 간단한 확인 후 구매 페이지로 이동
+  const confirmed = confirm(`추천 번호 ${numbers}를 구매하시겠습니까?`);
+  if (confirmed) {
+    // 구매 페이지로 리다이렉트 (번호 포함)
+    window.location.href = `/purchases?auto_numbers=${encodeURIComponent(numbers)}`;
+  }
+}
+
+// 새 추천받기
+async function getNewRecommendation() {
+  const response = await fetch('/api/recommend');
+  if (response.ok) {
+    window.location.reload();
+  } else {
+    alert('새 추천을 받는데 실패했습니다.');
+  }
+}
+
+// 빠른 구매
+function quickPurchase() {
+  window.location.href = '{{ url_for("main.purchase_history") }}';
+}
+</script>
+{% endblock %}

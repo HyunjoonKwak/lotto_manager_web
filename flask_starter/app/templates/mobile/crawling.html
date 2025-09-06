@@ -1,0 +1,685 @@
+{% extends "mobile/base.html" %}
+
+{% block title %}모바일 데이터수집{% endblock %}
+
+{% block content %}
+<!-- 모바일 헤더 -->
+<div class="mobile-header">
+  <div class="title">
+    <h1>🔄 데이터수집</h1>
+    <div class="subtitle">로또 데이터 업데이트</div>
+  </div>
+</div>
+
+<!-- 현재 상태 -->
+<div class="mobile-card">
+  <div class="card-header">
+    <h2>📊 현재 상태</h2>
+  </div>
+
+  <div class="status-info">
+    <div class="status-item">
+      <span class="status-label">최신 회차</span>
+      <span class="status-value">{{ latest.round if latest else 0 }}회</span>
+    </div>
+    <div class="status-item">
+      <span class="status-label">전체 데이터</span>
+      <span class="status-value">{{ total_rounds }}회</span>
+    </div>
+    <div class="status-item">
+      <span class="status-label">마지막 업데이트</span>
+      <span class="status-value">{{ latest.draw_date.strftime('%Y-%m-%d') if latest and latest.draw_date else '미확인' }}</span>
+    </div>
+  </div>
+</div>
+
+<!-- 진행 상태 -->
+<div id="progressCard" class="mobile-card" style="display: none;">
+  <div class="card-header">
+    <h2>⏳ 진행 상황</h2>
+    <button class="stop-btn" onclick="stopCrawling()">중지</button>
+  </div>
+
+  <div class="progress-info">
+    <div class="progress-bar">
+      <div class="progress-fill" id="progressFill"></div>
+    </div>
+
+    <div class="progress-details">
+      <div id="progressText">준비중...</div>
+      <div id="progressStats"></div>
+    </div>
+
+    <div class="progress-logs" id="progressLogs">
+      <!-- 로그가 여기에 추가됩니다 -->
+    </div>
+  </div>
+</div>
+
+<!-- 빠른 액션 -->
+<div class="mobile-card">
+  <div class="card-header">
+    <h2>⚡ 빠른 업데이트</h2>
+  </div>
+
+  <div class="action-grid">
+    <button class="action-btn primary" onclick="updateLatest()">
+      <div class="action-icon">🔄</div>
+      <div class="action-text">
+        <div class="action-title">최신 회차</div>
+        <div class="action-desc">최신 1회차만</div>
+      </div>
+    </button>
+
+    <button class="action-btn secondary" onclick="updateMissing()">
+      <div class="action-icon">📥</div>
+      <div class="action-text">
+        <div class="action-title">누락 데이터</div>
+        <div class="action-desc">빠진 회차들</div>
+      </div>
+    </button>
+
+    <button class="action-btn warning" onclick="showRangeModal()">
+      <div class="action-icon">📊</div>
+      <div class="action-text">
+        <div class="action-title">범위 업데이트</div>
+        <div class="action-desc">특정 구간</div>
+      </div>
+    </button>
+
+    <button class="action-btn danger" onclick="updateAll()">
+      <div class="action-icon">🔃</div>
+      <div class="action-text">
+        <div class="action-title">전체 업데이트</div>
+        <div class="action-desc">모든 데이터</div>
+      </div>
+    </button>
+  </div>
+</div>
+
+<!-- 업데이트 히스토리 -->
+<div class="mobile-card">
+  <div class="card-header">
+    <h2>📝 최근 활동</h2>
+  </div>
+
+  <div class="activity-list" id="activityList">
+    <div class="activity-item">
+      <div class="activity-time">방금 전</div>
+      <div class="activity-desc">페이지 로드됨</div>
+    </div>
+  </div>
+</div>
+
+<!-- 범위 업데이트 모달 -->
+<div id="rangeModal" class="modal" style="display: none;">
+  <div class="modal-content">
+    <div class="modal-header">
+      <h3>범위 업데이트</h3>
+      <button class="modal-close" onclick="hideRangeModal()">&times;</button>
+    </div>
+
+    <div class="modal-body">
+      <div class="input-group">
+        <label>시작 회차</label>
+        <input type="number" id="startRound" min="1" placeholder="예: 1">
+      </div>
+
+      <div class="input-group">
+        <label>끝 회차</label>
+        <input type="number" id="endRound" min="1" placeholder="예: 100">
+      </div>
+
+      <div class="range-info">
+        <small>⚠️ 많은 회차를 선택하면 시간이 오래 걸릴 수 있습니다.</small>
+      </div>
+
+      <div class="modal-actions">
+        <button class="btn-secondary" onclick="hideRangeModal()">취소</button>
+        <button class="btn-primary" onclick="updateRange()">시작</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- 데스크톱 버전 링크 -->
+<div class="desktop-link">
+  <a href="{{ url_for('main.crawling_page') }}?desktop=1" class="link-desktop">
+    🖥️ 데스크톱 버전으로 보기
+  </a>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<style>
+.stop-btn {
+  background: #e53e3e;
+  color: white;
+  border: none;
+  padding: 0.4rem 0.8rem;
+  border-radius: 0.5rem;
+  font-size: 0.85rem;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.status-info {
+  padding: 1rem;
+}
+
+.status-item {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 0.6rem 0;
+  border-bottom: 1px solid #f1f5f9;
+}
+
+.status-item:last-child {
+  border-bottom: none;
+}
+
+.status-label {
+  color: #718096;
+  font-size: 0.9rem;
+}
+
+.status-value {
+  font-weight: 600;
+  color: #2d3748;
+}
+
+/* 진행 상태 */
+.progress-info {
+  padding: 1rem;
+}
+
+.progress-bar {
+  width: 100%;
+  height: 8px;
+  background: #e2e8f0;
+  border-radius: 4px;
+  overflow: hidden;
+  margin-bottom: 1rem;
+}
+
+.progress-fill {
+  height: 100%;
+  background: linear-gradient(135deg, #4299e1, #3182ce);
+  width: 0%;
+  transition: width 0.3s ease;
+}
+
+.progress-details {
+  margin-bottom: 1rem;
+}
+
+.progress-logs {
+  background: #f8fafc;
+  border-radius: 0.5rem;
+  padding: 0.8rem;
+  max-height: 200px;
+  overflow-y: auto;
+  font-size: 0.85rem;
+  font-family: monospace;
+}
+
+.log-entry {
+  margin-bottom: 0.3rem;
+  color: #4a5568;
+}
+
+.log-entry.success {
+  color: #38a169;
+}
+
+.log-entry.error {
+  color: #e53e3e;
+}
+
+.log-entry.info {
+  color: #4299e1;
+}
+
+/* 액션 그리드 */
+.action-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 0.5rem;
+  padding: 1rem;
+}
+
+.action-btn {
+  display: flex;
+  align-items: center;
+  gap: 0.8rem;
+  padding: 1rem;
+  border: none;
+  border-radius: 0.8rem;
+  cursor: pointer;
+  transition: all 0.2s;
+  text-align: left;
+}
+
+.action-btn:active {
+  transform: scale(0.98);
+}
+
+.action-btn.primary {
+  background: linear-gradient(135deg, #4299e1, #3182ce);
+  color: white;
+}
+
+.action-btn.secondary {
+  background: linear-gradient(135deg, #38a169, #2f855a);
+  color: white;
+}
+
+.action-btn.warning {
+  background: linear-gradient(135deg, #f6ad55, #ed8936);
+  color: white;
+}
+
+.action-btn.danger {
+  background: linear-gradient(135deg, #f56565, #e53e3e);
+  color: white;
+}
+
+.action-icon {
+  font-size: 1.5rem;
+  flex-shrink: 0;
+}
+
+.action-text {
+  flex: 1;
+}
+
+.action-title {
+  font-size: 0.9rem;
+  font-weight: 600;
+  margin-bottom: 0.2rem;
+}
+
+.action-desc {
+  font-size: 0.75rem;
+  opacity: 0.9;
+}
+
+/* 활동 리스트 */
+.activity-list {
+  padding: 1rem;
+  max-height: 300px;
+  overflow-y: auto;
+}
+
+.activity-item {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 0.5rem 0;
+  border-bottom: 1px solid #f1f5f9;
+}
+
+.activity-item:last-child {
+  border-bottom: none;
+}
+
+.activity-time {
+  font-size: 0.8rem;
+  color: #718096;
+  white-space: nowrap;
+}
+
+.activity-desc {
+  flex: 1;
+  font-size: 0.9rem;
+  color: #4a5568;
+  margin-left: 1rem;
+}
+
+/* 모달 */
+.modal {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background: rgba(0, 0, 0, 0.5);
+  z-index: 1000;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.modal-content {
+  background: white;
+  width: 90%;
+  max-width: 400px;
+  border-radius: 1rem;
+  overflow: hidden;
+}
+
+.modal-header {
+  background: linear-gradient(135deg, #4a5568, #2d3748);
+  color: white;
+  padding: 1rem;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.modal-close {
+  background: none;
+  border: none;
+  color: white;
+  font-size: 1.5rem;
+  cursor: pointer;
+}
+
+.modal-body {
+  padding: 1.5rem;
+}
+
+.input-group {
+  margin-bottom: 1rem;
+}
+
+.input-group label {
+  display: block;
+  margin-bottom: 0.5rem;
+  font-weight: 500;
+  color: #4a5568;
+}
+
+.input-group input {
+  width: 100%;
+  padding: 0.8rem;
+  border: 1px solid #e2e8f0;
+  border-radius: 0.5rem;
+  font-size: 1rem;
+}
+
+.range-info {
+  margin-bottom: 1.5rem;
+}
+
+.range-info small {
+  color: #e53e3e;
+  font-size: 0.8rem;
+}
+
+.modal-actions {
+  display: flex;
+  gap: 0.5rem;
+}
+
+.modal-actions button {
+  flex: 1;
+  padding: 0.8rem;
+  border: none;
+  border-radius: 0.5rem;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.btn-secondary {
+  background: #e2e8f0;
+  color: #4a5568;
+}
+
+.btn-primary {
+  background: #4299e1;
+  color: white;
+}
+</style>
+
+<script>
+let progressInterval;
+
+// 활동 로그 추가
+function addActivity(description, type = 'info') {
+  const activityList = document.getElementById('activityList');
+  const now = new Date();
+  const timeStr = now.toLocaleTimeString('ko-KR', { hour: '2-digit', minute: '2-digit' });
+
+  const item = document.createElement('div');
+  item.className = 'activity-item';
+  item.innerHTML = `
+    <div class="activity-time">${timeStr}</div>
+    <div class="activity-desc">${description}</div>
+  `;
+
+  activityList.insertBefore(item, activityList.firstChild);
+
+  // 최대 10개만 유지
+  while (activityList.children.length > 10) {
+    activityList.removeChild(activityList.lastChild);
+  }
+}
+
+// 진행 상태 표시
+function showProgress() {
+  document.getElementById('progressCard').style.display = 'block';
+  startProgressMonitoring();
+}
+
+function hideProgress() {
+  document.getElementById('progressCard').style.display = 'none';
+  if (progressInterval) {
+    clearInterval(progressInterval);
+    progressInterval = null;
+  }
+}
+
+// 진행 상태 모니터링
+function startProgressMonitoring() {
+  if (progressInterval) clearInterval(progressInterval);
+
+  progressInterval = setInterval(async () => {
+    try {
+      const response = await fetch('/api/crawling-progress');
+      const data = await response.json();
+
+      updateProgressDisplay(data);
+
+      if (data.status === 'completed' || data.status === 'error') {
+        hideProgress();
+        addActivity(`작업 완료: ${data.operation_type}`, data.status === 'error' ? 'error' : 'success');
+      }
+    } catch (error) {
+      console.error('Progress monitoring error:', error);
+    }
+  }, 1000);
+}
+
+// 진행 상태 업데이트
+function updateProgressDisplay(data) {
+  const progressFill = document.getElementById('progressFill');
+  const progressText = document.getElementById('progressText');
+  const progressStats = document.getElementById('progressStats');
+
+  const percentage = data.total_rounds > 0 ? (data.current_round / data.total_rounds) * 100 : 0;
+  progressFill.style.width = `${percentage}%`;
+
+  progressText.textContent = `${data.operation_type} - ${data.status}`;
+  progressStats.textContent = `${data.current_round}/${data.total_rounds} (${percentage.toFixed(1)}%)`;
+
+  // 로그 추가
+  if (data.last_log) {
+    addLogEntry(data.last_log);
+  }
+}
+
+// 로그 엔트리 추가
+function addLogEntry(message) {
+  const logs = document.getElementById('progressLogs');
+  const entry = document.createElement('div');
+  entry.className = 'log-entry';
+  entry.textContent = `[${new Date().toLocaleTimeString()}] ${message}`;
+  logs.appendChild(entry);
+
+  // 자동 스크롤
+  logs.scrollTop = logs.scrollHeight;
+
+  // 최대 50개 로그만 유지
+  while (logs.children.length > 50) {
+    logs.removeChild(logs.firstChild);
+  }
+}
+
+// 업데이트 함수들
+async function updateLatest() {
+  if (!confirm('최신 회차를 업데이트하시겠습니까?')) return;
+
+  try {
+    addActivity('최신 회차 업데이트 시작');
+    showProgress();
+
+    const response = await fetch('/update-latest', { method: 'POST' });
+    const data = await response.json();
+
+    if (data.success) {
+      addActivity('최신 회차 업데이트 완료', 'success');
+    } else {
+      addActivity(`업데이트 실패: ${data.message}`, 'error');
+      hideProgress();
+    }
+  } catch (error) {
+    addActivity('업데이트 중 오류 발생', 'error');
+    hideProgress();
+  }
+}
+
+async function updateMissing() {
+  if (!confirm('누락된 회차를 업데이트하시겠습니까?')) return;
+
+  try {
+    addActivity('누락 데이터 업데이트 시작');
+    showProgress();
+
+    const response = await fetch('/update-missing', { method: 'POST' });
+    const data = await response.json();
+
+    if (data.success) {
+      addActivity('누락 데이터 업데이트 완료', 'success');
+    } else {
+      addActivity(`업데이트 실패: ${data.message}`, 'error');
+      hideProgress();
+    }
+  } catch (error) {
+    addActivity('업데이트 중 오류 발생', 'error');
+    hideProgress();
+  }
+}
+
+async function updateAll() {
+  if (!confirm('전체 데이터를 업데이트하시겠습니까? 시간이 오래 걸릴 수 있습니다.')) return;
+
+  try {
+    addActivity('전체 데이터 업데이트 시작');
+    showProgress();
+
+    const response = await fetch('/update-all', { method: 'POST' });
+    const data = await response.json();
+
+    if (data.success) {
+      addActivity('전체 데이터 업데이트 완료', 'success');
+    } else {
+      addActivity(`업데이트 실패: ${data.message}`, 'error');
+      hideProgress();
+    }
+  } catch (error) {
+    addActivity('업데이트 중 오류 발생', 'error');
+    hideProgress();
+  }
+}
+
+// 범위 업데이트 모달
+function showRangeModal() {
+  document.getElementById('rangeModal').style.display = 'flex';
+}
+
+function hideRangeModal() {
+  document.getElementById('rangeModal').style.display = 'none';
+}
+
+async function updateRange() {
+  const startRound = document.getElementById('startRound').value;
+  const endRound = document.getElementById('endRound').value;
+
+  if (!startRound || !endRound) {
+    alert('시작 회차와 끝 회차를 모두 입력해주세요.');
+    return;
+  }
+
+  if (parseInt(startRound) > parseInt(endRound)) {
+    alert('시작 회차가 끝 회차보다 클 수 없습니다.');
+    return;
+  }
+
+  const count = parseInt(endRound) - parseInt(startRound) + 1;
+  if (!confirm(`${startRound}회부터 ${endRound}회까지 ${count}개 회차를 업데이트하시겠습니까?`)) return;
+
+  hideRangeModal();
+
+  try {
+    addActivity(`범위 업데이트 시작: ${startRound}~${endRound}회`);
+    showProgress();
+
+    const response = await fetch('/update-range', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        start_round: parseInt(startRound),
+        end_round: parseInt(endRound)
+      })
+    });
+
+    const data = await response.json();
+
+    if (data.success) {
+      addActivity(`범위 업데이트 완료: ${startRound}~${endRound}회`, 'success');
+    } else {
+      addActivity(`범위 업데이트 실패: ${data.message}`, 'error');
+      hideProgress();
+    }
+  } catch (error) {
+    addActivity('범위 업데이트 중 오류 발생', 'error');
+    hideProgress();
+  }
+}
+
+// 크롤링 중지
+async function stopCrawling() {
+  if (!confirm('진행 중인 작업을 중지하시겠습니까?')) return;
+
+  try {
+    const response = await fetch('/api/stop-crawling', { method: 'POST' });
+    const data = await response.json();
+
+    if (data.success) {
+      addActivity('작업이 중지되었습니다', 'info');
+      hideProgress();
+    } else {
+      addActivity('작업 중지 실패', 'error');
+    }
+  } catch (error) {
+    addActivity('작업 중지 중 오류 발생', 'error');
+  }
+}
+
+// 페이지 로드 시 진행 중인 작업 확인
+document.addEventListener('DOMContentLoaded', function() {
+  // 현재 진행 중인 작업이 있는지 확인
+  fetch('/api/crawling-progress')
+    .then(response => response.json())
+    .then(data => {
+      if (data.status === 'running') {
+        showProgress();
+        addActivity(`진행 중인 작업 발견: ${data.operation_type}`);
+      }
+    })
+    .catch(console.error);
+});
+</script>
+{% endblock %}

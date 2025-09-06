@@ -124,3 +124,11 @@ app/
 - Use blueprint organization for larger applications
 - Implement proper database connection management with WAL mode
 - Use `requests-cache` for external API calls to avoid rate limiting
+
+### Mobile-First Development (MANDATORY)
+- **ALL new user-facing features MUST include mobile implementations**
+- Add `mobile_redirect_check()` to all new route functions
+- Create corresponding `/mobile/*` routes and templates
+- Follow mobile design patterns: card-based layout, large touch targets
+- Test on actual mobile devices, not just browser dev tools
+- See individual project CLAUDE.md files for detailed mobile guidelines

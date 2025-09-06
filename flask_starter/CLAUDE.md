@@ -147,3 +147,113 @@ The application includes intelligent port conflict detection and resolution:
 - **Session Security**: HttpOnly, SameSite cookie configuration
 - **Account Lockout**: Failed login attempt tracking with time-based lockout
 - **Admin Role Management**: Role-based access control with admin-only endpoints
+
+### Mobile-First Development Guidelines
+
+#### **MANDATORY: Mobile Compatibility for All New Features**
+When adding any new functionality to this project, you MUST implement mobile versions alongside desktop versions. This is not optional.
+
+#### **Mobile Development Checklist**
+For every new page or feature, ensure the following:
+
+**1. Auto-Detection & Redirect**
+- Add `mobile_redirect_check()` to main route functions
+- Redirect mobile users to dedicated mobile routes
+- Example:
+```python
+@main_bp.get("/new-feature")
+@login_required
+def new_feature():
+    # REQUIRED: Add mobile redirect
+    if mobile_redirect_check():
+        return redirect(url_for('main.mobile_new_feature'))
+    # ... desktop implementation
+```
+
+**2. Mobile Route Implementation**
+- Create corresponding mobile route: `/mobile/new-feature`
+- Mobile routes should be simpler and touch-optimized
+- Example:
+```python
+@main_bp.get("/mobile/new-feature")
+@login_required
+def mobile_new_feature():
+    # Mobile-specific implementation
+    return render_template("mobile/new_feature.html", ...)
+```
+
+**3. Mobile Template Creation**
+- Create mobile template in `app/templates/mobile/`
+- Extend `mobile/base.html`
+- Follow mobile design patterns:
+  - Card-based layout
+  - Large touch targets (minimum 44px)
+  - Simplified navigation
+  - Limited data per screen
+  - Touch-friendly interactions
+
+**4. Mobile Design Standards**
+- **Layout**: Use `mobile-card` components for content sections
+- **Colors**: Follow established gradient themes
+- **Typography**: Readable font sizes (minimum 16px)
+- **Spacing**: Adequate touch margins (minimum 0.5rem between elements)
+- **Actions**: Large buttons with clear labels
+- **Navigation**: Bottom-aligned or prominent top navigation
+
+**5. Feature Parity Requirements**
+- Core functionality must be available on both desktop and mobile
+- Mobile versions can be simplified but not missing key features
+- All user interactions must work on touch devices
+- Forms should be mobile-optimized with appropriate input types
+
+**6. Testing Requirements**
+- Test on actual mobile devices, not just browser dev tools
+- Verify touch interactions work correctly
+- Ensure responsive behavior across different screen sizes
+- Check performance on slower mobile connections
+
+#### **Mobile Template Structure**
+```html
+{% extends "mobile/base.html" %}
+{% block title %}Mobile Page Title{% endblock %}
+{% block content %}
+<div class="mobile-header">
+  <div class="title">
+    <h1>🎯 Page Title</h1>
+    <div class="subtitle">Page description</div>
+  </div>
+</div>
+
+<div class="mobile-card">
+  <!-- Content goes here -->
+</div>
+
+<!-- Desktop version link -->
+<div class="desktop-link">
+  <a href="{{ url_for('main.feature_name') }}?desktop=1" class="link-desktop">
+    🖥️ 데스크톱 버전으로 보기
+  </a>
+</div>
+{% endblock %}
+```
+
+#### **Existing Mobile Pages Reference**
+- **Dashboard**: `/mobile` - Main overview with real-time updates
+- **Strategy**: `/mobile/strategy` - AI recommendations and purchase stats
+- **Purchases**: `/mobile/purchases` - Purchase management with mobile-optimized forms
+- **Info**: `/mobile/info` - Data browsing with search functionality
+- **Crawling**: `/mobile/crawling` - Data collection with progress tracking
+
+#### **Mobile-First Development Process**
+1. **Plan**: Design mobile experience first, then desktop
+2. **Implement**: Create mobile templates and routes simultaneously with desktop
+3. **Test**: Verify functionality on mobile devices
+4. **Deploy**: Ensure both versions work in production
+
+#### **Enforcement**
+- **All pull requests** must include mobile implementations
+- **No new user-facing features** should be merged without mobile support
+- **Code reviews** must verify mobile compatibility
+- **This is a hard requirement** - not a suggestion
+
+**Remember: Mobile users represent a significant portion of lottery players. Providing an excellent mobile experience is critical for user adoption and satisfaction.**

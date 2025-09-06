@@ -1,0 +1,619 @@
+{% extends "mobile/base.html" %}
+
+{% block title %}모바일 구매내역{% endblock %}
+
+{% block content %}
+<!-- 모바일 헤더 -->
+<div class="mobile-header">
+  <div class="title">
+    <h1>🛒 구매내역</h1>
+    <div class="subtitle">내 로또 구매 관리</div>
+  </div>
+</div>
+
+<!-- 새 구매 버튼 -->
+<div class="mobile-card">
+  <div class="purchase-actions">
+    <button class="btn-primary btn-large" onclick="showPurchaseModal()">
+      ➕ 새 번호 구매
+    </button>
+    <button class="btn-secondary btn-large" onclick="checkAllResults()">
+      🔍 결과 일괄확인
+    </button>
+  </div>
+</div>
+
+<!-- 구매 통계 -->
+<div class="mobile-card">
+  <div class="card-header">
+    <h2>📊 구매 통계</h2>
+  </div>
+
+  <div class="stats-summary">
+    <div class="stat-row">
+      <span class="stat-label">총 구매횟수</span>
+      <span class="stat-value">{{ total_purchases }}회</span>
+    </div>
+    <div class="stat-row">
+      <span class="stat-label">총 구매금액</span>
+      <span class="stat-value">{{ "{:,}".format(total_spent or 0) }}원</span>
+    </div>
+    <div class="stat-row">
+      <span class="stat-label">총 당첨금액</span>
+      <span class="stat-value winning">{{ "{:,}".format(total_winnings or 0) }}원</span>
+    </div>
+    <div class="stat-row">
+      <span class="stat-label">수익률</span>
+      <span class="stat-value {{ 'profit' if profit_rate > 0 else 'loss' }}">
+        {{ profit_rate }}%
+      </span>
+    </div>
+  </div>
+</div>
+
+<!-- 구매 목록 -->
+{% if purchases %}
+<div class="mobile-card">
+  <div class="card-header">
+    <h2>📋 구매 목록</h2>
+    <span class="count">{{ pagination.total }}건</span>
+  </div>
+
+  <div class="purchase-list">
+    {% for purchase in purchases %}
+    <div class="purchase-item {{ 'winning' if purchase.winning_amount else 'no-win' }}">
+      <div class="purchase-header">
+        <div class="purchase-info">
+          <span class="purchase-date">{{ purchase.purchase_date.strftime('%Y-%m-%d %H:%M') }}</span>
+          <span class="purchase-round">{{ purchase.round }}회 추첨</span>
+        </div>
+        {% if purchase.winning_amount %}
+        <div class="winning-badge">
+          {{ "{:,}".format(purchase.winning_amount) }}원
+        </div>
+        {% endif %}
+      </div>
+
+      <div class="numbers-container">
+        <div class="numbers">
+          {% for num in purchase.numbers.split(',') %}
+          <span class="number">{{ num }}</span>
+          {% endfor %}
+        </div>
+
+        {% if purchase.manual_numbers %}
+        <div class="manual-numbers">
+          <span class="manual-label">수동선택:</span>
+          {% for num in purchase.manual_numbers.split(',') %}
+          <span class="number manual">{{ num }}</span>
+          {% endfor %}
+        </div>
+        {% endif %}
+      </div>
+
+      {% if purchase.recommendation_reason %}
+      <div class="recommendation-reason">
+        <span class="reason-icon">💡</span>
+        {{ purchase.recommendation_reason }}
+      </div>
+      {% endif %}
+
+      <div class="purchase-actions-row">
+        {% if not purchase.winning_amount and purchase.round <= current_round %}
+        <button class="btn-small btn-check" onclick="checkResult({{ purchase.id }})">
+          결과확인
+        </button>
+        {% endif %}
+
+        <button class="btn-small btn-copy" onclick="copyNumbers('{{ purchase.numbers }}')">
+          번호복사
+        </button>
+
+        <button class="btn-small btn-delete" onclick="deletePurchase({{ purchase.id }})">
+          삭제
+        </button>
+      </div>
+    </div>
+    {% endfor %}
+  </div>
+
+  <!-- 페이지네이션 -->
+  {% if pagination.pages > 1 %}
+  <div class="pagination-mobile">
+    {% if pagination.has_prev %}
+    <a href="{{ url_for('main.purchase_history', page=pagination.prev_num) }}" class="page-btn">‹ 이전</a>
+    {% endif %}
+
+    <span class="page-info">
+      {{ pagination.page }} / {{ pagination.pages }} 페이지
+    </span>
+
+    {% if pagination.has_next %}
+    <a href="{{ url_for('main.purchase_history', page=pagination.next_num) }}" class="page-btn">다음 ›</a>
+    {% endif %}
+  </div>
+  {% endif %}
+</div>
+{% else %}
+<div class="mobile-card empty-state">
+  <div class="empty-icon">🎲</div>
+  <h3>아직 구매한 로또가 없습니다</h3>
+  <p>AI 추천을 받아서 첫 구매를 해보세요!</p>
+  <button class="btn-primary" onclick="showPurchaseModal()">
+    첫 구매하기
+  </button>
+</div>
+{% endif %}
+
+<!-- 구매 모달 (간단한 형태) -->
+<div id="purchaseModal" class="modal" style="display: none;">
+  <div class="modal-content">
+    <div class="modal-header">
+      <h3>새 번호 구매</h3>
+      <button class="modal-close" onclick="hidePurchaseModal()">&times;</button>
+    </div>
+
+    <div class="modal-body">
+      <div class="input-group">
+        <label>추첨 회차</label>
+        <input type="number" id="roundInput" value="{{ current_round + 1 }}" readonly>
+      </div>
+
+      <div class="input-group">
+        <label>번호 선택</label>
+        <div class="number-input">
+          <input type="text" id="numbersInput" placeholder="1,2,3,4,5,6 형태로 입력" maxlength="20">
+          <button class="btn-random" onclick="generateRandomNumbers()">랜덤</button>
+        </div>
+      </div>
+
+      <div class="modal-actions">
+        <button class="btn-secondary" onclick="hidePurchaseModal()">취소</button>
+        <button class="btn-primary" onclick="submitPurchase()">구매하기</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- 데스크톱 버전 링크 -->
+<div class="desktop-link">
+  <a href="{{ url_for('main.purchase_history') }}?desktop=1" class="link-desktop">
+    🖥️ 데스크톱 버전으로 보기
+  </a>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<style>
+.purchase-actions {
+  padding: 1rem;
+  display: flex;
+  gap: 0.5rem;
+}
+
+.btn-large {
+  flex: 1;
+  padding: 1rem;
+  border: none;
+  border-radius: 0.8rem;
+  font-weight: 600;
+  cursor: pointer;
+  font-size: 0.9rem;
+}
+
+.btn-secondary {
+  background: linear-gradient(135deg, #e2e8f0, #cbd5e0);
+  color: #4a5568;
+}
+
+.stats-summary {
+  padding: 1rem;
+}
+
+.stat-row {
+  display: flex;
+  justify-content: space-between;
+  padding: 0.5rem 0;
+  border-bottom: 1px solid #f1f5f9;
+}
+
+.stat-row:last-child {
+  border-bottom: none;
+}
+
+.stat-label {
+  color: #718096;
+}
+
+.stat-value {
+  font-weight: 600;
+  color: #2d3748;
+}
+
+.stat-value.winning {
+  color: #e53e3e;
+}
+
+.stat-value.profit {
+  color: #38a169;
+}
+
+.stat-value.loss {
+  color: #e53e3e;
+}
+
+.purchase-item {
+  padding: 1rem;
+  margin-bottom: 0.5rem;
+  border-radius: 0.8rem;
+  border-left: 4px solid #e2e8f0;
+}
+
+.purchase-item.winning {
+  background: linear-gradient(135deg, #fed7d7, #feb2b2);
+  border-left-color: #e53e3e;
+}
+
+.purchase-item.no-win {
+  background: #f8fafc;
+}
+
+.purchase-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  margin-bottom: 0.8rem;
+}
+
+.purchase-info {
+  display: flex;
+  flex-direction: column;
+  gap: 0.2rem;
+}
+
+.purchase-date {
+  font-size: 0.85rem;
+  color: #4a5568;
+  font-weight: 500;
+}
+
+.purchase-round {
+  font-size: 0.8rem;
+  color: #718096;
+}
+
+.winning-badge {
+  background: #e53e3e;
+  color: white;
+  padding: 0.3rem 0.6rem;
+  border-radius: 1rem;
+  font-size: 0.8rem;
+  font-weight: 600;
+}
+
+.numbers-container {
+  margin-bottom: 0.8rem;
+}
+
+.manual-numbers {
+  margin-top: 0.5rem;
+  display: flex;
+  align-items: center;
+  gap: 0.3rem;
+  flex-wrap: wrap;
+}
+
+.manual-label {
+  font-size: 0.8rem;
+  color: #718096;
+}
+
+.number.manual {
+  background: linear-gradient(135deg, #f56565, #e53e3e);
+  box-shadow: 0 2px 8px rgba(245, 101, 101, 0.3);
+}
+
+.recommendation-reason {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  font-size: 0.85rem;
+  color: #4a5568;
+  background: rgba(255, 255, 255, 0.7);
+  padding: 0.5rem;
+  border-radius: 0.5rem;
+  margin-bottom: 0.8rem;
+}
+
+.reason-icon {
+  font-size: 1rem;
+}
+
+.purchase-actions-row {
+  display: flex;
+  gap: 0.5rem;
+  flex-wrap: wrap;
+}
+
+.btn-small {
+  padding: 0.4rem 0.8rem;
+  border: none;
+  border-radius: 0.5rem;
+  font-size: 0.8rem;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.btn-check {
+  background: #4299e1;
+  color: white;
+}
+
+.btn-copy {
+  background: #38a169;
+  color: white;
+}
+
+.btn-delete {
+  background: #e53e3e;
+  color: white;
+}
+
+.pagination-mobile {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 1rem;
+  background: #f8fafc;
+}
+
+.page-btn {
+  background: #4299e1;
+  color: white;
+  padding: 0.5rem 1rem;
+  border-radius: 0.5rem;
+  text-decoration: none;
+  font-size: 0.9rem;
+}
+
+.page-info {
+  font-size: 0.9rem;
+  color: #718096;
+}
+
+.empty-state {
+  text-align: center;
+  padding: 3rem 2rem;
+}
+
+.empty-icon {
+  font-size: 3rem;
+  margin-bottom: 1rem;
+}
+
+.empty-state h3 {
+  color: #4a5568;
+  margin-bottom: 0.5rem;
+}
+
+.empty-state p {
+  color: #718096;
+  margin-bottom: 1.5rem;
+}
+
+/* 모달 스타일 */
+.modal {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background: rgba(0, 0, 0, 0.5);
+  z-index: 1000;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.modal-content {
+  background: white;
+  width: 90%;
+  max-width: 400px;
+  border-radius: 1rem;
+  overflow: hidden;
+}
+
+.modal-header {
+  background: linear-gradient(135deg, #4a5568, #2d3748);
+  color: white;
+  padding: 1rem;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.modal-close {
+  background: none;
+  border: none;
+  color: white;
+  font-size: 1.5rem;
+  cursor: pointer;
+}
+
+.modal-body {
+  padding: 1.5rem;
+}
+
+.input-group {
+  margin-bottom: 1rem;
+}
+
+.input-group label {
+  display: block;
+  margin-bottom: 0.5rem;
+  font-weight: 500;
+  color: #4a5568;
+}
+
+.input-group input {
+  width: 100%;
+  padding: 0.8rem;
+  border: 1px solid #e2e8f0;
+  border-radius: 0.5rem;
+  font-size: 1rem;
+}
+
+.number-input {
+  display: flex;
+  gap: 0.5rem;
+}
+
+.number-input input {
+  flex: 1;
+}
+
+.btn-random {
+  background: #38a169;
+  color: white;
+  border: none;
+  padding: 0.8rem 1rem;
+  border-radius: 0.5rem;
+  font-weight: 600;
+  cursor: pointer;
+  white-space: nowrap;
+}
+
+.modal-actions {
+  display: flex;
+  gap: 0.5rem;
+  margin-top: 1.5rem;
+}
+
+.modal-actions button {
+  flex: 1;
+  padding: 0.8rem;
+  border: none;
+  border-radius: 0.5rem;
+  font-weight: 600;
+  cursor: pointer;
+}
+</style>
+
+<script>
+// 구매 모달 표시/숨김
+function showPurchaseModal() {
+  document.getElementById('purchaseModal').style.display = 'flex';
+}
+
+function hidePurchaseModal() {
+  document.getElementById('purchaseModal').style.display = 'none';
+}
+
+// 랜덤 번호 생성
+function generateRandomNumbers() {
+  const numbers = [];
+  while (numbers.length < 6) {
+    const num = Math.floor(Math.random() * 45) + 1;
+    if (!numbers.includes(num)) {
+      numbers.push(num);
+    }
+  }
+  numbers.sort((a, b) => a - b);
+  document.getElementById('numbersInput').value = numbers.join(',');
+}
+
+// 구매 제출
+async function submitPurchase() {
+  const round = document.getElementById('roundInput').value;
+  const numbers = document.getElementById('numbersInput').value;
+
+  if (!numbers || numbers.split(',').length !== 6) {
+    alert('6개의 번호를 정확히 입력해주세요.');
+    return;
+  }
+
+  const response = await fetch('/purchase', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      round: parseInt(round),
+      numbers: numbers,
+      csrf_token: window.csrfToken
+    })
+  });
+
+  if (response.ok) {
+    alert('구매가 완료되었습니다!');
+    hidePurchaseModal();
+    window.location.reload();
+  } else {
+    alert('구매에 실패했습니다.');
+  }
+}
+
+// 결과 확인
+async function checkResult(purchaseId) {
+  const response = await fetch(`/check-round-result/${purchaseId}`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' }
+  });
+
+  if (response.ok) {
+    const data = await response.json();
+    alert(data.message || '결과 확인이 완료되었습니다.');
+    window.location.reload();
+  } else {
+    alert('결과 확인에 실패했습니다.');
+  }
+}
+
+// 번호 복사
+function copyNumbers(numbers) {
+  navigator.clipboard.writeText(numbers).then(() => {
+    alert('번호가 복사되었습니다: ' + numbers);
+  });
+}
+
+// 구매 삭제
+async function deletePurchase(purchaseId) {
+  if (!confirm('이 구매를 삭제하시겠습니까?')) return;
+
+  const response = await fetch(`/api/delete-purchase/${purchaseId}`, {
+    method: 'POST'
+  });
+
+  if (response.ok) {
+    alert('삭제되었습니다.');
+    window.location.reload();
+  } else {
+    alert('삭제에 실패했습니다.');
+  }
+}
+
+// 전체 결과 확인
+async function checkAllResults() {
+  const response = await fetch('/check-results', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' }
+  });
+
+  if (response.ok) {
+    const data = await response.json();
+    alert(data.message || '전체 결과 확인이 완료되었습니다.');
+    window.location.reload();
+  } else {
+    alert('결과 확인에 실패했습니다.');
+  }
+}
+
+// URL 파라미터에서 auto_numbers 확인
+document.addEventListener('DOMContentLoaded', function() {
+  const urlParams = new URLSearchParams(window.location.search);
+  const autoNumbers = urlParams.get('auto_numbers');
+  if (autoNumbers) {
+    document.getElementById('numbersInput').value = autoNumbers;
+    showPurchaseModal();
+  }
+});
+</script>
+{% endblock %}

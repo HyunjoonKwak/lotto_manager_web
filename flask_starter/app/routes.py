@@ -190,6 +190,121 @@ def mobile_index():
     )
 
 
+@main_bp.get("/mobile/strategy")
+@login_required
+def mobile_strategy():
+    """모바일 전용 전략분석"""
+    draws = Draw.query.order_by(Draw.round.desc()).limit(10).all()
+    total_draws = Draw.query.count()
+    all_draws = Draw.query.order_by(Draw.round.desc()).all()
+
+    # AI 추천
+    recommendations = get_persistent_recommendations(current_user.id)
+    if not recommendations:
+        try:
+            rec_result = auto_recommend(all_draws[:100])
+            if rec_result and rec_result.get("recommendations"):
+                recommendations = rec_result["recommendations"][:5]
+        except Exception as e:
+            current_app.logger.error(f"Recommendation error: {e}")
+            recommendations = []
+
+    # 구매 내역
+    purchases = Purchase.query.filter_by(user_id=current_user.id).order_by(Purchase.purchase_date.desc()).limit(10).all()
+
+    # 통계
+    total_purchases = Purchase.query.filter_by(user_id=current_user.id).count()
+    total_spent = sum(p.cost or 1000 for p in purchases) if purchases else 0
+    total_winnings = sum(p.winning_amount or 0 for p in purchases) if purchases else 0
+    win_rate = (len([p for p in purchases if p.winning_amount and p.winning_amount > 0]) / total_purchases * 100) if total_purchases > 0 else 0
+
+    return render_template(
+        "mobile/strategy.html",
+        title="모바일 전략분석",
+        draws=draws,
+        total_draws=total_draws,
+        recommendations=recommendations,
+        purchases=purchases,
+        total_purchases=total_purchases,
+        total_spent=total_spent,
+        total_winnings=total_winnings,
+        win_rate=round(win_rate, 1)
+    )
+
+
+@main_bp.get("/mobile/purchases")
+@login_required
+def mobile_purchases():
+    """모바일 전용 구매내역"""
+    page = int(request.args.get('page', '1'))
+    per_page = 10
+
+    purchases = Purchase.query.filter_by(user_id=current_user.id).order_by(Purchase.purchase_date.desc()).paginate(
+        page=page, per_page=per_page, error_out=False
+    )
+
+    # 통계 계산
+    all_purchases = Purchase.query.filter_by(user_id=current_user.id).all()
+    total_purchases = len(all_purchases)
+    total_spent = sum(p.cost or 1000 for p in all_purchases)
+    total_winnings = sum(p.winning_amount or 0 for p in all_purchases)
+    profit_rate = round(((total_winnings - total_spent) / total_spent * 100) if total_spent > 0 else 0, 1)
+
+    # 현재 회차
+    latest_draw = Draw.query.order_by(Draw.round.desc()).first()
+    current_round = latest_draw.round if latest_draw else 0
+
+    return render_template(
+        "mobile/purchases.html",
+        title="모바일 구매내역",
+        purchases=purchases.items,
+        pagination=purchases,
+        total_purchases=total_purchases,
+        total_spent=total_spent,
+        total_winnings=total_winnings,
+        profit_rate=profit_rate,
+        current_round=current_round
+    )
+
+
+@main_bp.get("/mobile/info")
+@login_required
+def mobile_info():
+    """모바일 전용 정보조회"""
+    latest = Draw.query.order_by(Draw.round.desc()).first()
+    recent_draws = Draw.query.order_by(Draw.round.desc()).limit(10).all()
+    total_rounds = Draw.query.count()
+
+    # 당첨점 통계
+    total_shops_1 = WinningShop.query.filter_by(rank=1).count()
+    total_shops_2 = WinningShop.query.filter_by(rank=2).count()
+
+    return render_template(
+        "mobile/info.html",
+        title="모바일 정보조회",
+        latest=latest,
+        recent_draws=recent_draws,
+        total_rounds=total_rounds,
+        total_shops_1=total_shops_1,
+        total_shops_2=total_shops_2
+    )
+
+
+@main_bp.get("/mobile/crawling")
+@login_required
+def mobile_crawling():
+    """모바일 전용 데이터수집"""
+    latest = Draw.query.order_by(Draw.round.desc()).first()
+    total_rounds = Draw.query.count()
+
+    return render_template(
+        "mobile/crawling.html",
+        title="모바일 데이터수집",
+        latest=latest,
+        total_rounds=total_rounds
+    )
+
+
 def _perform_update(round_no: int) -> None:
     svc_perform_update(round_no)
 
@@ -428,6 +543,10 @@ def api_shops(round_no: int):
 @main_bp.get("/strategy")
 @login_required
 def strategy():
+    # 모바일 기기 감지 및 리다이렉트
+    if mobile_redirect_check():
+        return redirect(url_for('main.mobile_strategy'))
+
     # Get recent draws for display
     draws = Draw.query.order_by(Draw.round.desc()).limit(10).all()
     total_draws = Draw.query.count()
@@ -499,6 +618,10 @@ def draw_info():
 @main_bp.get("/info")
 @login_required
 def info_page():
+    # 모바일 기기 감지 및 리다이렉트
+    if mobile_redirect_check():
+        return redirect(url_for('main.mobile_info'))
+
     latest = Draw.query.order_by(Draw.round.desc()).first()
     draws = Draw.query.order_by(Draw.round.desc()).limit(10).all()
     total_rounds = Draw.query.count()
@@ -569,6 +692,10 @@ def info_page():
 @main_bp.get("/crawling")
 @login_required
 def crawling_page():
+    # 모바일 기기 감지 및 리다이렉트
+    if mobile_redirect_check():
+        return redirect(url_for('main.mobile_crawling'))
+
     latest = Draw.query.order_by(Draw.round.desc()).first()
     total_rounds = Draw.query.count()
 
@@ -704,6 +831,10 @@ def purchase_lottery():
 @login_required
 def purchase_history():
     """구매 이력 페이지"""
+    # 모바일 기기 감지 및 리다이렉트
+    if mobile_redirect_check():
+        return redirect(url_for('main.mobile_purchases'))
+
     page = int(request.args.get('page', '1'))
     per_page = 20
 
