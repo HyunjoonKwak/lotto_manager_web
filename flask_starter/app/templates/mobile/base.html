@@ -164,6 +164,10 @@
     .numbers-section {
       padding: 1.5rem 1rem;
       background: linear-gradient(135deg, #f7fafc, #edf2f7);
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 1rem;
     }
 
     .numbers {
@@ -188,16 +192,39 @@
       box-shadow: 0 2px 8px rgba(66, 153, 225, 0.3);
     }
 
-    .numbers .bonus {
-      background: linear-gradient(135deg, #f56565, #e53e3e);
-      box-shadow: 0 2px 8px rgba(245, 101, 101, 0.3);
+    /* 보너스 섹션 */
+    .bonus-section {
+      display: flex;
+      align-items: center;
+      gap: 0.3rem;
     }
 
-    .numbers .plus {
+    .bonus-section .plus {
       font-size: 1.2rem;
       color: #718096;
       font-weight: 600;
       margin: 0 0.3rem;
+    }
+
+    .bonus-section .bonus {
+      width: 2.5rem;
+      height: 2.5rem;
+      border-radius: 50%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-weight: 700;
+      font-size: 0.9rem;
+      color: white;
+      background: linear-gradient(135deg, #f56565, #e53e3e);
+      box-shadow: 0 2px 8px rgba(245, 101, 101, 0.3);
+    }
+
+    .bonus-section .bonus-label {
+      font-size: 0.75rem;
+      color: #718096;
+      font-weight: 500;
+      margin-left: 0.2rem;
     }
 
     /* 모바일 액션 버튼 */

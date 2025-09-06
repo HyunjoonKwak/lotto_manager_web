@@ -3,6 +3,12 @@
 {% block title %}모바일 대시보드{% endblock %}
 
 {% block content %}
+<!-- CSRF Token for AJAX requests -->
+<input type="hidden" id="csrf-token" name="csrf_token" value="{{ csrf_token() }}"/>
+<script>
+  window.csrfToken = '{{ csrf_token() }}';
+</script>
+
 <!-- 모바일 헤더 -->
 <div class="mobile-header">
   <div class="title">
@@ -20,10 +26,10 @@
 <!-- 새 회차 알림 (모바일용) -->
 <div class="mobile-alert" id="newDrawAlert" style="display: none;">
   <div class="alert-content">
-    <span class="alert-icon">🔔</span>
-    <span class="alert-text">새로운 회차가 추첨되었을 수 있습니다!</span>
+    <span class="alert-icon">⚡</span>
+    <span class="alert-text" id="alertMessage">새로운 회차가 추첨되었을 수 있습니다!</span>
   </div>
-  <button class="alert-btn" onclick="checkForNewDraw()">확인</button>
+  <button class="alert-btn" onclick="checkForNewDraw()">지금 확인하기</button>
 </div>
 
 <!-- 최신 추첨 결과 -->
@@ -36,11 +42,14 @@
 
   <div class="numbers-section">
     <div class="numbers">
-      {% for num in latest.numbers.split(',') %}
+      {% for num in latest.numbers_list() %}
       <span class="number">{{ num }}</span>
       {% endfor %}
+    </div>
+    <div class="bonus-section">
       <span class="plus">+</span>
       <span class="bonus number">{{ latest.bonus }}</span>
+      <span class="bonus-label">보너스</span>
     </div>
   </div>
 
@@ -202,41 +211,127 @@ document.addEventListener('DOMContentLoaded', function() {
   checkIfNewDrawNeeded();
 });
 
-// 새 회차 확인 함수 (모바일용 간소화)
+// 새 회차 확인이 필요한지 체크 (일반 페이지와 동일한 로직 적용)
 function checkIfNewDrawNeeded() {
   const drawDateText = document.querySelector('.draw-date');
-  if (!drawDateText) return;
+  if (!drawDateText || !drawDateText.textContent.trim()) return;
 
+  // 추첨날짜 파싱 (YYYY-MM-DD 형식 가정)
   const drawDate = new Date(drawDateText.textContent.trim());
   const today = new Date();
-  const daysDiff = Math.floor((today - drawDate) / (1000 * 60 * 60 * 24));
 
-  if (daysDiff >= 7) {
-    document.getElementById('newDrawAlert').style.display = 'block';
+  // 한국 시간 기준으로 계산 (KST)
+  const now_kst = new Date();
+
+  // 로또 추첨 시간: 매주 토요일 오후 8시 45분 (KST)
+  // 1회차 추첨일: 2002년 12월 7일 (토요일)
+  const first_draw_date = new Date(2002, 11, 7); // 월은 0부터 시작
+  const weeks_since_first = Math.floor((now_kst - first_draw_date) / (1000 * 60 * 60 * 24 * 7));
+
+  // 현재 주의 토요일 8시 45분 계산
+  const days_until_saturday = (5 - now_kst.getDay()) % 7;  // 0=월요일, 5=토요일
+  let current_saturday;
+  
+  if (now_kst.getDay() === 5) {  // 현재가 토요일이면
+    current_saturday = new Date(now_kst);
+    current_saturday.setHours(0, 0, 0, 0);
+  } else {
+    current_saturday = new Date(now_kst);
+    current_saturday.setDate(now_kst.getDate() + days_until_saturday);
+    current_saturday.setHours(0, 0, 0, 0);
+  }
+
+  const draw_time = new Date(current_saturday);
+  draw_time.setHours(20, 45, 0, 0);  // 오후 8시 45분
+
+  // 현재 시간이 이번 주 추첨 시간을 지났는지 확인
+  const draw_completed_this_week = now_kst >= draw_time;
+
+  // 예상 회차 계산 (1회차는 2002년 12월 7일)
+  let expected_round;
+  if (draw_completed_this_week) {
+    expected_round = weeks_since_first + 1;
+  } else {
+    expected_round = weeks_since_first;
+  }
+
+  // 마지막 추첨에서 다음 추첨 시간이 지났는지 확인
+  const weeks_since_last_draw = Math.floor((today - drawDate) / (1000 * 60 * 60 * 24 * 7));
+  const should_have_new_draw = weeks_since_last_draw >= 1 && draw_completed_this_week;
+
+  if (should_have_new_draw) {
+    const alertDiv = document.getElementById('newDrawAlert');
+    const alertMessage = document.getElementById('alertMessage');
+    
+    if (alertDiv && alertMessage) {
+      alertDiv.style.display = 'block';
+      
+      // 다음 추첨 시간 계산
+      const next_draw_time = draw_completed_this_week ? 
+        new Date(draw_time.getTime() + (7 * 24 * 60 * 60 * 1000)) : // 다음 주 토요일
+        draw_time; // 이번 주 토요일
+
+      const hours_left = Math.max(0, Math.floor((next_draw_time - now_kst) / (1000 * 60 * 60)));
+      
+      if (hours_left > 0) {
+        alertMessage.textContent = `새로운 회차가 추첨되었을 수 있습니다! (다음 추첨: ${hours_left}시간 후)`;
+      } else {
+        alertMessage.textContent = '새로운 회차가 추첨되었을 수 있습니다!';
+      }
+    }
   }
 }
 
-// 새 회차 확인 함수
+// 새 회차 확인 함수 (일반 페이지와 동일한 로직 적용)
 async function checkForNewDraw() {
   const button = document.getElementById('checkNewDrawBtn');
   const originalText = button.innerHTML;
 
   button.disabled = true;
-  button.innerHTML = '⏳ 확인중...';
+  button.innerHTML = '<span class="spinner">⏳</span> 확인중...';
 
   try {
+    // 새로운 회차가 있는지 확인
     const response = await fetch('/api/check-new-draw');
     const data = await response.json();
 
+    // 상세한 메시지 먼저 표시
+    let alertMessage = data.message || '새로운 추첨 결과가 없습니다.';
+
+    // 추가 정보가 있으면 포함 (모바일에서는 간소화)
+    if (data.draw_completed && data.next_draw_time) {
+      const nextDrawDate = new Date(data.next_draw_time);
+      const formattedTime = nextDrawDate.toLocaleDateString('ko-KR', {
+        month: 'short',
+        day: 'numeric',
+        hour: '2-digit',
+        minute: '2-digit'
+      });
+      alertMessage += `\n다음 추첨: ${formattedTime}`;
+    } else if (!data.draw_completed && data.hours_until_draw > 0) {
+      alertMessage += `\n(${data.hours_until_draw}시간 후 추첨)`;
+    }
+
     if (data.has_new_draw) {
-      const confirmed = confirm(`새로운 ${data.latest_round}회 추첨 결과가 있습니다.\n\n업데이트하시겠습니까?`);
+      // 추첨 완료 여부에 따른 다른 확인 메시지 (모바일 최적화)
+      let confirmMessage;
+      if (data.draw_completed) {
+        confirmMessage = `🎯 ${data.latest_round}회 추첨이 완료되었습니다!\n\n새로운 결과를 업데이트하시겠습니까?`;
+      } else {
+        confirmMessage = `📈 ${data.latest_round}회 결과를 확인했습니다.\n\n지금 업데이트하시겠습니까?`;
+      }
+
+      const confirmed = confirm(confirmMessage);
 
       if (confirmed) {
-        button.innerHTML = '⏳ 업데이트중...';
+        button.innerHTML = '<span class="spinner">⏳</span> 업데이트중...';
 
+        // 최신 회차 데이터 업데이트
         const updateResponse = await fetch('/api/update-new-draw', {
           method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
+          headers: {
+            'Content-Type': 'application/json'
+          },
           body: JSON.stringify({
             round: data.latest_round,
             csrf_token: window.csrfToken
@@ -246,18 +341,24 @@ async function checkForNewDraw() {
         const updateData = await updateResponse.json();
 
         if (updateData.success) {
-          alert(`${data.latest_round}회 추첨 결과가 업데이트되었습니다!`);
+          alert(`✅ ${data.latest_round}회 추첨 결과가 업데이트되었습니다!`);
+          // 알림 숨기기
+          const alertDiv = document.getElementById('newDrawAlert');
+          if (alertDiv) {
+            alertDiv.style.display = 'none';
+          }
+          // 페이지 새로고침
           window.location.reload();
         } else {
-          alert(`업데이트 실패: ${updateData.message}`);
+          alert(`❌ 업데이트 실패: ${updateData.message}`);
         }
       }
     } else {
-      alert(data.message || '새로운 추첨 결과가 없습니다.');
+      alert(alertMessage);
     }
   } catch (error) {
     console.error('Error checking for new draw:', error);
-    alert('확인 중 오류가 발생했습니다.');
+    alert('❌ 확인 중 오류가 발생했습니다.');
   } finally {
     button.disabled = false;
     button.innerHTML = originalText;
