@@ -15,10 +15,23 @@ pip install -r requirements.txt
 ```
 
 ### Running the Application
+
+#### Recommended: Shell Script (Interactive)
 ```bash
-python run.py                    # Development server on http://127.0.0.1:5000
-python run_local.py              # Explicit local development (port 5000)
-python run_nas.py                # NAS environment (0.0.0.0:8080)
+chmod +x start.sh                    # First time only
+./start.sh menu                      # Interactive menu mode (recommended)
+./start.sh local                     # Local development (port 5000)
+./start.sh nas                       # NAS environment (port 8080, external access)
+./start.sh bg                        # Background mode (NAS environment)
+./start.sh status                    # Check server status
+./start.sh stop                      # Stop background server
+```
+
+#### Manual Execution
+```bash
+python run.py                        # Development server on http://127.0.0.1:5000
+python run_local.py                  # Explicit local development (port 5000)
+python run_nas.py                    # NAS environment (0.0.0.0:8080)
 
 # Using environment variables
 FLASK_ENV=development python run.py  # Development mode
@@ -28,10 +41,17 @@ FLASK_ENV=production python run.py   # Production mode
 
 ### Database Management
 ```bash
-python scripts/init_db.py       # Initialize database with tables and sample data
-python scripts/update_all.py    # Update all lottery data to latest round
-python scripts/update_rounds.py # Update missing rounds incrementally
-python scripts/migrate.py       # Database migrations
+python scripts/init_db.py           # Initialize database with tables and sample data
+python scripts/update_all.py        # Update all lottery data to latest round
+python scripts/update_rounds.py     # Update missing rounds incrementally
+python scripts/migrate.py           # Database migrations
+```
+
+### Development Tools
+```bash
+# No specific linting/testing commands found in codebase
+# Check if pytest is available:
+python -m pytest                    # Run tests (if test files exist)
 ```
 
 ## Architecture
@@ -88,5 +108,42 @@ The application includes a sophisticated background crawling system with real-ti
 ### Authentication System
 - User registration and login with Flask-Login
 - Password hashing using Werkzeug security
+- Failed login attempt tracking with account locking (5 attempts = 15 min lockout)
+- Admin user management system with role-based access
 - User-specific purchase tracking and recommendation management
 - Session-based authentication with Korean language support
+
+### Port Conflict Resolution System
+The application includes intelligent port conflict detection and resolution:
+- Automatic detection of port conflicts using `lsof` (macOS) and `fuser` (Linux)
+- Special handling for macOS AirPlay service conflicts on port 5000
+- Automatic port reallocation when conflicts cannot be resolved
+- Process termination capabilities for conflicting services
+
+## Development Guidelines
+
+### Code Architecture Patterns
+- **App Factory Pattern**: All Flask apps use `create_app()` factory in `app/__init__.py`
+- **Blueprint Organization**: Main routes in `app/routes.py` using `main_bp` blueprint
+- **Service Layer Separation**: Business logic isolated in `app/services/` modules
+- **Instance-relative Configuration**: Database and sensitive files stored in Flask instance folder
+- **Retry Pattern**: All external HTTP requests use `_with_retries()` wrapper for robustness
+
+### Database Patterns
+- **SQLAlchemy 3.x Modern Syntax**: Uses current declarative patterns, avoid legacy session usage
+- **SQLite WAL Mode**: Configured for concurrent access optimization
+- **Migration Scripts**: Database schema changes handled via `scripts/migrate.py`
+- **Instance Folder**: Database stored at `instance/lotto.db` for deployment flexibility
+
+### Error Handling & Robustness
+- **Retry Logic**: External API calls wrapped with exponential backoff and retry mechanisms
+- **Port Conflict Resolution**: Automatic detection and resolution of port conflicts in `run.py`
+- **Background Process Management**: PID file-based process tracking for background execution
+- **Thread-safe Progress Tracking**: Concurrent operations with real-time status updates
+
+### Security Implementation
+- **CSRF Protection**: Flask-WTF CSRF tokens on all forms
+- **Password Security**: Werkzeug password hashing with strength validation
+- **Session Security**: HttpOnly, SameSite cookie configuration
+- **Account Lockout**: Failed login attempt tracking with time-based lockout
+- **Admin Role Management**: Role-based access control with admin-only endpoints
