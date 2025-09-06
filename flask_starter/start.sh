@@ -147,45 +147,6 @@ get_ip_addresses() {
     echo ""
 }
 
-# 포트 사용 여부 확인
-check_port() {
-    local port=$1
-    if command -v lsof &> /dev/null; then
-        lsof -i :$port > /dev/null 2>&1
-    elif command -v netstat &> /dev/null; then
-        netstat -tuln | grep ":$port " > /dev/null 2>&1
-    else
-        return 1
-    fi
-}
-
-# 포트 사용 프로세스 종료
-kill_port_process() {
-    local port=$1
-    echo -e "${YELLOW}포트 $port 사용 가능 여부를 확인합니다...${NC}"
-
-    if check_port $port; then
-        echo -e "${YELLOW}포트 $port이 이미 사용 중입니다.${NC}"
-
-        # 포트를 사용하는 프로세스 찾기
-        local pids=""
-        if command -v lsof &> /dev/null; then
-            pids=$(lsof -ti :$port 2>/dev/null)
-        elif command -v netstat &> /dev/null; then
-            pids=$(netstat -tulnp | grep ":$port " | awk '{print $7}' | cut -d'/' -f1 | grep -v '-' | sort -u)
-        fi
-
-        if [[ -n "$pids" ]]; then
-            echo -e "${YELLOW}포트 $port을 사용하는 프로세스: $pids${NC}"
-            echo -e "${YELLOW}기존 프로세스를 종료합니다...${NC}"
-            echo $pids | xargs kill -9 2>/dev/null || true
-            sleep 2
-            echo -e "${GREEN}✓ 기존 프로세스가 종료되었습니다.${NC}"
-        fi
-    else
-        echo -e "${GREEN}✓ 포트 $port이 사용 가능합니다.${NC}"
-    fi
-}
 
 # 서버 시작
 start_server() {
@@ -200,7 +161,6 @@ start_server() {
             ;;
         "nas")
             echo -e "${GREEN}🚀 NAS 서버를 시작합니다...${NC}"
-            kill_port_process 8080
             echo -e "${CYAN}접속 URL: http://0.0.0.0:8080${NC}"
             echo -e "${CYAN}외부 접속: http://[NAS_IP]:8080${NC}"
             export FLASK_ENV=nas
@@ -213,7 +173,6 @@ start_server() {
             fi
 
             echo -e "${GREEN}🚀 백그라운드에서 NAS 서버를 시작합니다...${NC}"
-            kill_port_process 8080
             echo -e "${CYAN}접속 URL: http://0.0.0.0:8080${NC}"
             export FLASK_ENV=nas
             nohup python -u run_nas.py > flask_app.log 2>&1 &

@@ -87,29 +87,35 @@ def handle_port_conflict(host: str, port: int) -> bool:
     # 프로세스 종료
     if kill_processes(pids):
         # 잠시 대기 후 포트 상태 재확인
-        time.sleep(2)  # 대기 시간 증가
+        time.sleep(2)
 
         # 여러 번 확인 (일부 서비스가 재시작될 수 있음)
         for i in range(3):
             if not is_port_in_use(host, port):
-                print(f"포트 {port} 해제 완료")
+                print(f"✓ 포트 {port} 해제 완료")
                 return True
             if i < 2:
                 print(f"포트 해제 대기 중... ({i+1}/3)")
                 time.sleep(1)
 
-        print(f"포트 {port} 해제 실패 - 서비스가 자동으로 재시작되었을 수 있습니다.")
+        print(f"⚠ 포트 {port} 해제 실패 - 서비스가 자동으로 재시작되었을 수 있습니다.")
         return False
     else:
-        print("일부 프로세스 종료에 실패했습니다.")
+        print("⚠ 일부 프로세스 종료에 실패했습니다.")
         return False
 
 
 def find_available_port(host: str, start_port: int, max_attempts: int = 10) -> int:
     """사용 가능한 포트 찾기"""
+    print(f"포트 {start_port}부터 {max_attempts}개 포트를 확인합니다...")
+
     for port in range(start_port, start_port + max_attempts):
         if not is_port_in_use(host, port):
+            print(f"✓ 사용 가능한 포트 {port}를 찾았습니다.")
             return port
+        else:
+            print(f"포트 {port} 사용 중...")
+
     raise RuntimeError(f"포트 {start_port}-{start_port + max_attempts - 1} 범위에서 사용 가능한 포트를 찾을 수 없습니다.")
 
 
