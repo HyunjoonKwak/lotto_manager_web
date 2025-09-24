@@ -104,6 +104,11 @@ class Purchase(db.Model):
     purchase_method = db.Column(db.String(20), nullable=True)  # 자동/수동/반자동
     purchase_date = db.Column(db.DateTime, nullable=False, default=datetime.utcnow)
 
+    # QR/OCR 수집 관련 필드
+    recognition_method = db.Column(db.String(10), nullable=True)  # 'QR', 'OCR'
+    confidence_score = db.Column(db.Float, nullable=True)  # 인식 신뢰도 (0-100)
+    source = db.Column(db.String(50), nullable=True)  # 'local_collector', 'manual'
+
     # User 관계 설정
     user = db.relationship('User', backref=db.backref('purchases', lazy=True))
 

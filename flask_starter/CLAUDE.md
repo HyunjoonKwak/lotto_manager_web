@@ -20,7 +20,7 @@ pip install -r requirements.txt
 ```bash
 chmod +x start.sh                    # First time only
 ./start.sh menu                      # Interactive menu mode (recommended)
-./start.sh local                     # Local development (port 5000)
+./start.sh local                     # Local development (port 5001)
 ./start.sh nas                       # NAS environment (port 8080, external access)
 ./start.sh bg                        # Background mode (NAS environment)
 ./start.sh status                    # Check server status
@@ -29,8 +29,8 @@ chmod +x start.sh                    # First time only
 
 #### Manual Execution
 ```bash
-python run.py                        # Development server on http://127.0.0.1:5000
-python run_local.py                  # Explicit local development (port 5000)
+python run.py                        # Development server on http://127.0.0.1:5001
+python run_local.py                  # Explicit local development (port 5001)
 python run_nas.py                    # NAS environment (0.0.0.0:8080)
 
 # Using environment variables
@@ -95,7 +95,7 @@ python -m pytest                    # Run tests (if test files exist)
 - Automatic handling of both single round updates and batch range updates
 
 ### Configuration Classes
-- `DevelopmentConfig`: Local development (127.0.0.1:5000, DEBUG=True)
+- `DevelopmentConfig`: Local development (127.0.0.1:5001, DEBUG=True)
 - `NASConfig`: External access allowed (0.0.0.0:8080, DEBUG=True)
 - `ProductionConfig`: Production deployment (0.0.0.0:8080, DEBUG=False)
 
@@ -257,3 +257,9 @@ def mobile_new_feature():
 - **This is a hard requirement** - not a suggestion
 
 **Remember: Mobile users represent a significant portion of lottery players. Providing an excellent mobile experience is critical for user adoption and satisfaction.**
+
+# important-instruction-reminders
+Do what has been asked; nothing more, nothing less.
+NEVER create files unless they're absolutely necessary for achieving your goal.
+ALWAYS prefer editing an existing file to creating a new one.
+NEVER proactively create documentation files (*.md) or README files. Only create documentation files if explicitly requested by the User.

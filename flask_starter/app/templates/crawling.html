@@ -75,6 +75,72 @@
     </div>
   </section>
 
+  <!-- 회차 정보 모달 -->
+  <div id="round-modal" class="modal" style="display: none;">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h3 id="modal-title">회차 정보</h3>
+        <button type="button" class="btn-close" onclick="closeRoundModal()">×</button>
+      </div>
+      
+      <div class="modal-body">
+        <div id="modal-loading" class="loading-indicator">정보를 불러오는 중...</div>
+        
+        <div id="modal-content" style="display: none;">
+          <!-- 회차 기본 정보 -->
+          <div class="round-info-section">
+            <h4>📅 기본 정보</h4>
+            <div class="info-row">
+              <span class="info-label">회차:</span>
+              <span id="modal-round" class="info-value">-</span>
+            </div>
+            <div class="info-row">
+              <span class="info-label">추첨일:</span>
+              <span id="modal-date" class="info-value">-</span>
+            </div>
+            <div class="info-row">
+              <span class="info-label">상태:</span>
+              <span id="modal-status" class="info-value">-</span>
+            </div>
+          </div>
+
+          <!-- 당첨 번호 -->
+          <div class="winning-numbers-section">
+            <h4>🎯 당첨 번호</h4>
+            <div id="modal-numbers" class="numbers-display">
+              <div class="numbers">
+                <!-- 번호들이 JavaScript로 동적 생성 -->
+              </div>
+              <div class="bonus-section">
+                <span class="plus">+</span>
+                <span class="bonus" id="modal-bonus">-</span>
+                <span class="bonus-label">보너스</span>
+              </div>
+            </div>
+          </div>
+
+          <!-- 판매점 정보 -->
+          <div class="shops-section">
+            <h4>🏪 당첨 판매점</h4>
+            <div id="modal-shops">
+              <!-- 판매점 정보가 JavaScript로 동적 생성 -->
+            </div>
+          </div>
+
+          <!-- 액션 버튼들 -->
+          <div class="modal-actions">
+            <button type="button" class="btn-action" onclick="crawlSpecificRound()">
+              🔄 이 회차 재수집
+            </button>
+            <button type="button" class="btn-action" onclick="viewDrawDetail()">
+              📊 상세 분석 보기
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
   <!-- Data Collection Panel -->
   <section id="data-collection" class="card actions-card">
     <div class="card-header">
@@ -751,6 +817,233 @@
   .summary-stats {
     grid-template-columns: 1fr;
   }
+  
+  .modal-content {
+    width: 95% !important;
+    max-height: 90vh !important;
+    margin: 2.5vh auto !important;
+  }
+  
+  .modal-actions {
+    flex-direction: column !important;
+  }
+}
+
+/* 회차 정보 모달 스타일 */
+.modal {
+  position: fixed;
+  z-index: 1000;
+  left: 0;
+  top: 0;
+  width: 100%;
+  height: 100%;
+  background-color: rgba(0, 0, 0, 0.5);
+  backdrop-filter: blur(5px);
+  display: flex;
+  justify-content: center;
+  align-items: center;
+}
+
+.modal-content {
+  background: white;
+  width: 80%;
+  max-width: 800px;
+  max-height: 80vh;
+  border-radius: 1rem;
+  box-shadow: 0 10px 40px rgba(0, 0, 0, 0.3);
+  overflow: hidden;
+  animation: modalSlideIn 0.3s ease;
+}
+
+@keyframes modalSlideIn {
+  from { opacity: 0; transform: translateY(-50px) scale(0.9); }
+  to { opacity: 1; transform: translateY(0) scale(1); }
+}
+
+.modal-header {
+  background: linear-gradient(135deg, #667eea, #764ba2);
+  color: white;
+  padding: 1.5rem;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.modal-header h3 {
+  margin: 0;
+  font-size: 1.3rem;
+  font-weight: 600;
+}
+
+.modal-body {
+  padding: 2rem;
+  max-height: 60vh;
+  overflow-y: auto;
+}
+
+.round-info-section,
+.winning-numbers-section,
+.shops-section {
+  margin-bottom: 2rem;
+  padding: 1.5rem;
+  background: linear-gradient(135deg, #f8f9fa, #ffffff);
+  border-radius: 0.8rem;
+  border: 1px solid #e9ecef;
+}
+
+.round-info-section h4,
+.winning-numbers-section h4,
+.shops-section h4 {
+  margin: 0 0 1rem 0;
+  color: #333;
+  font-size: 1.1rem;
+  font-weight: 600;
+  border-bottom: 2px solid #667eea;
+  padding-bottom: 0.5rem;
+}
+
+.info-row {
+  display: flex;
+  margin-bottom: 0.8rem;
+  align-items: center;
+}
+
+.info-label {
+  font-weight: 600;
+  color: #666;
+  min-width: 80px;
+  margin-right: 1rem;
+}
+
+.info-value {
+  color: #333;
+  font-weight: 500;
+}
+
+.numbers-display {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  flex-wrap: wrap;
+}
+
+.numbers-display .numbers {
+  display: flex;
+  gap: 0.5rem;
+  flex-wrap: wrap;
+}
+
+.numbers-display .number {
+  width: 2.5rem;
+  height: 2.5rem;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: 700;
+  font-size: 0.9rem;
+  color: white;
+  background: linear-gradient(135deg, #4299e1, #3182ce);
+  box-shadow: 0 2px 8px rgba(66, 153, 225, 0.3);
+}
+
+.numbers-display .bonus-section {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.numbers-display .plus {
+  font-size: 1.5rem;
+  color: #718096;
+  font-weight: 600;
+}
+
+.numbers-display .bonus {
+  width: 2.5rem;
+  height: 2.5rem;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: 700;
+  font-size: 0.9rem;
+  color: white;
+  background: linear-gradient(135deg, #f56565, #e53e3e);
+  box-shadow: 0 2px 8px rgba(245, 101, 101, 0.3);
+}
+
+.numbers-display .bonus-label {
+  font-size: 0.8rem;
+  color: #718096;
+  font-weight: 500;
+}
+
+.shop-item {
+  padding: 1rem;
+  background: #f7fafc;
+  border-radius: 0.5rem;
+  border-left: 4px solid #667eea;
+  margin-bottom: 1rem;
+}
+
+.shop-rank {
+  font-weight: 700;
+  color: #667eea;
+  margin-bottom: 0.5rem;
+}
+
+.shop-name {
+  font-weight: 600;
+  color: #333;
+  margin-bottom: 0.3rem;
+}
+
+.shop-method {
+  font-size: 0.9rem;
+  color: #4299e1;
+  font-weight: 500;
+  margin-bottom: 0.5rem;
+}
+
+.shop-address {
+  font-size: 0.85rem;
+  color: #718096;
+  line-height: 1.4;
+}
+
+.modal-actions {
+  display: flex;
+  gap: 1rem;
+  padding: 1.5rem;
+  background: #f8f9fa;
+  margin: -2rem -2rem 0 -2rem;
+}
+
+.modal-actions .btn-action {
+  flex: 1;
+  padding: 0.8rem 1.2rem;
+  background: linear-gradient(135deg, #667eea, #764ba2);
+  color: white;
+  border: none;
+  border-radius: 0.5rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  text-decoration: none;
+  text-align: center;
+}
+
+.modal-actions .btn-action:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 4px 15px rgba(102, 126, 234, 0.3);
+}
+
+.no-data-message {
+  text-align: center;
+  padding: 2rem;
+  color: #718096;
+  font-style: italic;
 }
 </style>
 
@@ -1217,9 +1510,153 @@ function renderSummaryInfo(data) {
   container.innerHTML = statsHtml;
 }
 
-// 회차 정보 표시 (간단한 알림)
-function showRoundInfo(round) {
-  alert(`${round}회차 정보를 확인합니다.\n\n이 기능은 추후 상세 정보 모달로 확장 예정입니다.`);
+// 회차 정보 모달 열기
+async function showRoundInfo(round) {
+  const modal = document.getElementById('round-modal');
+  const modalTitle = document.getElementById('modal-title');
+  const modalLoading = document.getElementById('modal-loading');
+  const modalContent = document.getElementById('modal-content');
+  
+  // 모달 초기화
+  modalTitle.textContent = `${round}회차 정보`;
+  modalLoading.style.display = 'block';
+  modalContent.style.display = 'none';
+  modal.style.display = 'flex';
+  
+  // 현재 선택된 회차 저장 (액션 버튼에서 사용)
+  window.currentModalRound = round;
+  
+  try {
+    // 회차 데이터 로드
+    const drawResponse = await fetch(`/api/draw/${round}`);
+    const shopsResponse = await fetch(`/api/shops/${round}`);
+    
+    let drawData = null;
+    let shopsData = null;
+    
+    if (drawResponse.ok) {
+      drawData = await drawResponse.json();
+    }
+    
+    if (shopsResponse.ok) {
+      shopsData = await shopsResponse.json();
+    }
+    
+    // 모달 내용 업데이트
+    updateModalContent(round, drawData, shopsData);
+    
+    modalLoading.style.display = 'none';
+    modalContent.style.display = 'block';
+    
+  } catch (error) {
+    console.error('Failed to load round data:', error);
+    modalLoading.innerHTML = '데이터를 불러오는데 실패했습니다.';
+  }
+}
+
+// 모달 내용 업데이트
+function updateModalContent(round, drawData, shopsData) {
+  // 기본 정보 업데이트
+  document.getElementById('modal-round').textContent = `${round}회`;
+  document.getElementById('modal-date').textContent = drawData ? 
+    new Date(drawData.draw_date).toLocaleDateString('ko-KR') : '데이터 없음';
+  document.getElementById('modal-status').textContent = drawData ? '저장됨' : '누락됨';
+  
+  // 당첨 번호 업데이트
+  const numbersContainer = document.querySelector('#modal-numbers .numbers');
+  const bonusElement = document.getElementById('modal-bonus');
+  
+  if (drawData && drawData.numbers) {
+    // 당첨 번호 표시
+    numbersContainer.innerHTML = drawData.numbers.map(num => 
+      `<span class="number">${num}</span>`
+    ).join('');
+    bonusElement.textContent = drawData.bonus || '-';
+  } else {
+    numbersContainer.innerHTML = '<span class="no-data-message">당첨 번호 정보가 없습니다</span>';
+    bonusElement.textContent = '-';
+  }
+  
+  // 판매점 정보 업데이트
+  const shopsContainer = document.getElementById('modal-shops');
+  
+  if (shopsData && shopsData.length > 0) {
+    shopsContainer.innerHTML = shopsData.map(shop => `
+      <div class="shop-item">
+        <div class="shop-rank">${shop.rank}등 당첨점</div>
+        <div class="shop-name">${shop.name}</div>
+        ${shop.method ? `<div class="shop-method">${shop.method}</div>` : ''}
+        ${shop.address ? `<div class="shop-address">${shop.address}</div>` : ''}
+        ${shop.winners_count ? `<div class="shop-winners">당첨자 수: ${shop.winners_count}명</div>` : ''}
+      </div>
+    `).join('');
+  } else {
+    shopsContainer.innerHTML = '<div class="no-data-message">판매점 정보가 없습니다</div>';
+  }
+}
+
+// 모달 닫기
+function closeRoundModal() {
+  document.getElementById('round-modal').style.display = 'none';
+  window.currentModalRound = null;
+}
+
+// 모달 바깥 영역 클릭시 닫기
+document.addEventListener('DOMContentLoaded', function() {
+  const modal = document.getElementById('round-modal');
+  modal.addEventListener('click', function(event) {
+    if (event.target === modal) {
+      closeRoundModal();
+    }
+  });
+  
+  // ESC 키로 모달 닫기
+  document.addEventListener('keydown', function(event) {
+    if (event.key === 'Escape') {
+      closeRoundModal();
+    }
+  });
+});
+
+// 특정 회차 재수집
+async function crawlSpecificRound() {
+  if (!window.currentModalRound) return;
+  
+  const confirmed = confirm(`${window.currentModalRound}회차를 다시 수집하시겠습니까?`);
+  if (!confirmed) return;
+  
+  try {
+    const formData = new FormData();
+    formData.append('round', window.currentModalRound);
+    formData.append('data_type', 'both');
+    formData.append('csrf_token', window.csrfToken);
+    
+    const response = await fetch('/update', {
+      method: 'POST',
+      body: formData
+    });
+    
+    if (response.ok) {
+      alert(`${window.currentModalRound}회차 수집이 시작되었습니다.`);
+      closeRoundModal();
+      // 크롤링 진행 상태 모니터링 시작
+      startProgressMonitoring();
+    } else {
+      alert('수집 요청에 실패했습니다.');
+    }
+  } catch (error) {
+    console.error('Crawl request failed:', error);
+    alert('수집 요청 중 오류가 발생했습니다.');
+  }
+}
+
+// 상세 분석 보기
+function viewDrawDetail() {
+  if (!window.currentModalRound) return;
+  
+  // 새 탭에서 회차 상세 페이지 열기
+  const url = `/draw-info?round=${window.currentModalRound}`;
+  window.open(url, '_blank');
 }
 </script>
 {% endblock %}

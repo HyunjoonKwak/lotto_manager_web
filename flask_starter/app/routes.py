@@ -8,7 +8,7 @@ import secrets
 from datetime import timedelta, datetime
 from typing import Optional, List
 
-from .extensions import db
+from .extensions import db, csrf
 from .models import Draw, WinningShop, Purchase, User, PasswordResetToken, RecommendationSet
 from .services.lotto_fetcher import fetch_draw, fetch_winning_shops
 from .services.updater import (
@@ -1822,3 +1822,277 @@ def api_draw_info(round_no: int):
             "success": False,
             "error": f"조회 중 오류가 발생했습니다: {str(e)}"
         }), 400
+
+
+# =================================================================
+# QR/OCR 로컬 수집기용 API 엔드포인트
+# =================================================================
+
+@main_bp.get('/api/health')
+@csrf.exempt
+def api_health_check():
+    """연결 테스트용 헬스 체크"""
+    return jsonify({
+        "status": "ok",
+        "timestamp": datetime.utcnow().isoformat() + "Z",
+        "version": "1.0"
+    })
+
+
+def validate_purchase_data(data):
+    """구매 데이터 검증"""
+    errors = []
+
+    # 필수 필드 검증
+    required_fields = ['numbers', 'draw_number', 'purchase_date']
+    for field in required_fields:
+        if field not in data:
+            errors.append(f"필수 필드 '{field}'가 누락되었습니다")
+
+    if errors:
+        return errors
+
+    # 번호 검증 (6개 번호, 1-45 범위)
+    numbers = data.get('numbers', [])
+    if not isinstance(numbers, list) or len(numbers) != 6:
+        errors.append("번호는 6개여야 합니다")
+    else:
+        for num in numbers:
+            if not isinstance(num, int) or not (1 <= num <= 45):
+                errors.append(f"번호 {num}은 1-45 범위여야 합니다")
+
+        # 중복 번호 검증
+        if len(set(numbers)) != len(numbers):
+            errors.append("중복된 번호가 있습니다")
+
+    # 회차 번호 검증
+    draw_number = data.get('draw_number')
+    if not isinstance(draw_number, int) or draw_number < 1:
+        errors.append("회차 번호는 1 이상의 정수여야 합니다")
+
+    # 신뢰도 점수 검증 (선택적)
+    confidence_score = data.get('confidence_score')
+    if confidence_score is not None:
+        if not isinstance(confidence_score, (int, float)) or not (0 <= confidence_score <= 100):
+            errors.append("신뢰도 점수는 0-100 범위여야 합니다")
+
+    # 인식 방법 검증 (선택적)
+    recognition_method = data.get('recognition_method')
+    if recognition_method is not None and recognition_method not in ['QR', 'OCR']:
+        errors.append("인식 방법은 'QR' 또는 'OCR'이어야 합니다")
+
+    return errors
+
+
+@main_bp.post('/api/purchases')
+@csrf.exempt
+def api_upload_purchase():
+    """단일 구매 정보 업로드"""
+    try:
+        data = request.get_json()
+        if not data:
+            return jsonify({"error": "JSON 데이터가 필요합니다"}), 400
+
+        # 데이터 검증
+        validation_errors = validate_purchase_data(data)
+        if validation_errors:
+            return jsonify({"error": "데이터 검증 실패", "details": validation_errors}), 400
+
+        # 구매 날짜 파싱
+        purchase_date_str = data.get('purchase_date')
+        try:
+            purchase_date = datetime.strptime(purchase_date_str, '%Y-%m-%d')
+        except ValueError:
+            return jsonify({"error": "구매 날짜 형식이 잘못되었습니다 (YYYY-MM-DD)"}), 400
+
+        # 번호를 문자열로 변환
+        numbers_str = ','.join(map(str, sorted(data['numbers'])))
+
+        # 기본 사용자 찾기 (로컬 수집기용 전용 사용자)
+        collector_user = User.query.filter_by(username='local_collector').first()
+        if not collector_user:
+            # 로컬 수집기용 사용자가 없으면 생성
+            collector_user = User(
+                username='local_collector',
+                email='local_collector@system.local',
+                is_active=True
+            )
+            collector_user.set_password('system_collector_2024!')
+            db.session.add(collector_user)
+            db.session.commit()
+
+        # Purchase 객체 생성
+        purchase = Purchase(
+            user_id=collector_user.id,
+            purchase_round=data['draw_number'],
+            numbers=numbers_str,
+            purchase_date=purchase_date,
+            recognition_method=data.get('recognition_method'),
+            confidence_score=data.get('confidence_score'),
+            source=data.get('source', 'local_collector')
+        )
+
+        db.session.add(purchase)
+        db.session.commit()
+
+        return jsonify({
+            "id": purchase.id,
+            "status": "created"
+        }), 201
+
+    except Exception as e:
+        db.session.rollback()
+        return jsonify({"error": f"구매 정보 저장 중 오류가 발생했습니다: {str(e)}"}), 500
+
+
+@main_bp.post('/api/purchases/batch')
+@csrf.exempt
+def api_batch_upload_purchases():
+    """일괄 구매 정보 업로드"""
+    try:
+        data = request.get_json()
+        if not data or 'purchases' not in data:
+            return jsonify({"error": "purchases 배열이 필요합니다"}), 400
+
+        purchases_data = data['purchases']
+        if not isinstance(purchases_data, list):
+            return jsonify({"error": "purchases는 배열이어야 합니다"}), 400
+
+        success_count = 0
+        failed_count = 0
+        errors = []
+
+        # 로컬 수집기용 사용자 확인/생성
+        collector_user = User.query.filter_by(username='local_collector').first()
+        if not collector_user:
+            collector_user = User(
+                username='local_collector',
+                email='local_collector@system.local',
+                is_active=True
+            )
+            collector_user.set_password('system_collector_2024!')
+            db.session.add(collector_user)
+            db.session.flush()
+
+        for i, purchase_data in enumerate(purchases_data):
+            try:
+                # 개별 데이터 검증
+                validation_errors = validate_purchase_data(purchase_data)
+                if validation_errors:
+                    failed_count += 1
+                    errors.append(f"항목 {i+1}: {'; '.join(validation_errors)}")
+                    continue
+
+                # 구매 날짜 파싱
+                purchase_date_str = purchase_data.get('purchase_date')
+                try:
+                    purchase_date = datetime.strptime(purchase_date_str, '%Y-%m-%d')
+                except ValueError:
+                    failed_count += 1
+                    errors.append(f"항목 {i+1}: 구매 날짜 형식이 잘못되었습니다")
+                    continue
+
+                # 번호를 문자열로 변환
+                numbers_str = ','.join(map(str, sorted(purchase_data['numbers'])))
+
+                # Purchase 객체 생성
+                purchase = Purchase(
+                    user_id=collector_user.id,
+                    purchase_round=purchase_data['draw_number'],
+                    numbers=numbers_str,
+                    purchase_date=purchase_date,
+                    recognition_method=purchase_data.get('recognition_method'),
+                    confidence_score=purchase_data.get('confidence_score'),
+                    source=purchase_data.get('source', 'local_collector')
+                )
+
+                db.session.add(purchase)
+                success_count += 1
+
+            except Exception as e:
+                failed_count += 1
+                errors.append(f"항목 {i+1}: {str(e)}")
+
+        # 모든 성공한 항목들을 커밋
+        if success_count > 0:
+            db.session.commit()
+
+        response_data = {
+            "count": success_count,
+            "failed_count": failed_count
+        }
+
+        # 에러가 있으면 에러 정보도 포함
+        if errors:
+            response_data["errors"] = errors
+
+        # 부분 성공인 경우 206, 완전 성공인 경우 200, 완전 실패인 경우 400
+        if failed_count > 0 and success_count > 0:
+            return jsonify(response_data), 206  # Partial Content
+        elif success_count > 0:
+            return jsonify(response_data), 200
+        else:
+            return jsonify(response_data), 400
+
+    except Exception as e:
+        db.session.rollback()
+        return jsonify({"error": f"일괄 업로드 중 오류가 발생했습니다: {str(e)}"}), 500
+
+
+@main_bp.get('/api/purchases/sync')
+@csrf.exempt
+def api_sync_purchases():
+    """동기화용 구매 데이터 조회"""
+    try:
+        # 쿼리 파라미터 처리
+        limit = request.args.get('limit', 100, type=int)
+        offset = request.args.get('offset', 0, type=int)
+        since_date = request.args.get('since_date')  # YYYY-MM-DD 형식
+
+        # 기본 쿼리
+        query = Purchase.query
+
+        # 로컬 수집기 사용자의 데이터만 조회
+        collector_user = User.query.filter_by(username='local_collector').first()
+        if collector_user:
+            query = query.filter(Purchase.user_id == collector_user.id)
+
+        # 날짜 필터링
+        if since_date:
+            try:
+                since_datetime = datetime.strptime(since_date, '%Y-%m-%d')
+                query = query.filter(Purchase.purchase_date >= since_datetime)
+            except ValueError:
+                return jsonify({"error": "since_date 형식이 잘못되었습니다 (YYYY-MM-DD)"}), 400
+
+        # 정렬 및 페이징
+        total_count = query.count()
+        purchases = query.order_by(Purchase.purchase_date.desc()).offset(offset).limit(limit).all()
+
+        # 응답 데이터 구성
+        purchase_list = []
+        for purchase in purchases:
+            purchase_list.append({
+                "id": purchase.id,
+                "numbers": purchase.numbers_list(),
+                "draw_number": purchase.purchase_round,
+                "purchase_date": purchase.purchase_date.strftime('%Y-%m-%d'),
+                "recognition_method": purchase.recognition_method,
+                "confidence_score": purchase.confidence_score,
+                "source": purchase.source,
+                "result_checked": purchase.result_checked,
+                "winning_rank": purchase.winning_rank,
+                "matched_count": purchase.matched_count,
+                "created_at": purchase.purchase_date.isoformat() + "Z"
+            })
+
+        return jsonify({
+            "purchases": purchase_list,
+            "total_count": total_count,
+            "returned_count": len(purchase_list),
+            "offset": offset,
+            "limit": limit
+        })
+
+    except Exception as e:
+        return jsonify({"error": f"데이터 조회 중 오류가 발생했습니다: {str(e)}"}), 500
