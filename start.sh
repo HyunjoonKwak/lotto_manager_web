@@ -370,8 +370,8 @@ start_server() {
             export FLASK_ENV=development
             export FLASK_DEBUG=1
 
-            # Python 스크립트 실행
-            python run.py
+            # 가상환경 활성화 및 Python 스크립트 실행
+            source .venv/bin/activate && python3 run.py
             ;;
         "bg")
             if check_server_status > /dev/null 2>&1; then
@@ -390,7 +390,7 @@ start_server() {
             export FLASK_DEBUG=0
 
             # 백그라운드 실행
-            nohup python -u run_nas.py > flask_app.log 2>&1 &
+            source .venv/bin/activate && nohup python3 -u run_nas.py > flask_app.log 2>&1 &
             local pid=$!
             echo $pid > "$PID_FILE"
             echo -e "${GREEN}✓ 서버가 백그라운드에서 시작되었습니다. (PID: $pid)${NC}"
