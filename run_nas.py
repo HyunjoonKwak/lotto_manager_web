@@ -10,8 +10,6 @@ import subprocess
 import sys
 import time
 
-os.environ['FLASK_ENV'] = 'nas'
-
 from run import main
 
 

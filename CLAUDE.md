@@ -29,12 +29,11 @@ chmod +x start.sh                    # First time only
 
 #### Manual Execution
 ```bash
-python run.py                        # Development server on http://127.0.0.1:5001
-python run_local.py                  # Explicit local development (port 5001)
+python run.py                        # Development server on http://127.0.0.1:5001 (default)
 python run_nas.py                    # NAS environment (0.0.0.0:8080)
 
 # Using environment variables
-FLASK_ENV=development python run.py  # Development mode
+FLASK_ENV=development python run.py  # Development mode (default)
 FLASK_ENV=nas python run.py          # NAS mode (external access)
 FLASK_ENV=production python run.py   # Production mode
 ```
@@ -49,9 +48,13 @@ python scripts/migrate.py           # Database migrations
 
 ### Development Tools
 ```bash
-# No specific linting/testing commands found in codebase
-# Check if pytest is available:
-python -m pytest                    # Run tests (if test files exist)
+# Pre-commit hooks for code quality
+pre-commit install                   # Install git hooks (first time only)
+pre-commit run --all-files          # Run all hooks on existing files
+git commit                           # Hooks run automatically on commit
+
+# Testing (if test files exist)
+python -m pytest                    # Run tests with pytest
 ```
 
 ## Architecture
@@ -63,11 +66,12 @@ python -m pytest                    # Run tests (if test files exist)
 - **Service Layer**: Business logic separated into `app/services/` modules
 
 ### Core Models
-- `User`: User authentication with Flask-Login integration
+- `User`: User authentication with Flask-Login integration and account lockout protection
 - `Draw`: Lottery round results with numbers (comma-separated), bonus, and draw date
 - `WinningShop`: Shop information where winning tickets were sold (ranks 1-2)
 - `Purchase`: User lottery purchases with winning result tracking
 - `RecommendationSet`: Persistent user recommendation storage
+- `PasswordResetToken`: Secure password reset token management
 - `Example`: Sample model for testing database functionality
 
 ### Services Architecture
@@ -140,13 +144,15 @@ The application includes intelligent port conflict detection and resolution:
 - **Port Conflict Resolution**: Automatic detection and resolution of port conflicts in `run.py`
 - **Background Process Management**: PID file-based process tracking for background execution
 - **Thread-safe Progress Tracking**: Concurrent operations with real-time status updates
+- **Pre-commit Hooks**: Automated code quality checks for large files, trailing whitespace, and end-of-file formatting
 
 ### Security Implementation
 - **CSRF Protection**: Flask-WTF CSRF tokens on all forms
 - **Password Security**: Werkzeug password hashing with strength validation
 - **Session Security**: HttpOnly, SameSite cookie configuration
-- **Account Lockout**: Failed login attempt tracking with time-based lockout
+- **Account Lockout**: Failed login attempt tracking with time-based lockout (5 attempts = 15 min lockout)
 - **Admin Role Management**: Role-based access control with admin-only endpoints
+- **Password Reset**: Secure token-based password reset system with `PasswordResetToken` model
 
 ### Mobile-First Development Guidelines
 

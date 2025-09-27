@@ -22,7 +22,7 @@ print_logo() {
     echo -e "${CYAN}"
     echo "╔══════════════════════════════════════════════════════════════╗"
     echo "║                    Flask Lotto Application                   ║"
-    echo "║                      로또 분석 시스템                        ║"
+    echo "║                      로또 분석 시스템                            ║"
     echo "╚══════════════════════════════════════════════════════════════╝"
     echo -e "${NC}"
 }
@@ -30,17 +30,16 @@ print_logo() {
 # 메뉴 출력
 print_menu() {
     echo -e "${WHITE}┌─────────────────────────────────────────────────────────────┐${NC}"
-    echo -e "${WHITE}│                    실행 모드 선택                          │${NC}"
+    echo -e "${WHITE}│                    실행 모드 선택                              │${NC}"
     echo -e "${WHITE}├─────────────────────────────────────────────────────────────┤${NC}"
-    echo -e "${WHITE}│  ${GREEN}1${NC} │ 로컬 개발 환경 (포트 5001)                    │${NC}"
-    echo -e "${WHITE}│  ${GREEN}2${NC} │ NAS 환경 (포트 8080, 외부 접속 허용)         │${NC}"
-    echo -e "${WHITE}│  ${BLUE}3${NC} │ 백그라운드 실행 (NAS 환경)                   │${NC}"
-    echo -e "${WHITE}│  ${YELLOW}4${NC} │ 서버 상태 확인                              │${NC}"
-    echo -e "${WHITE}│  ${RED}5${NC} │ 서버 중지                                    │${NC}"
-    echo -e "${WHITE}│  ${BLUE}6${NC} │ 환경 확인                                   │${NC}"
-    echo -e "${WHITE}│  ${CYAN}7${NC} │ IP 주소 확인                                │${NC}"
-    echo -e "${WHITE}│  ${YELLOW}8${NC} │ 로그 파일 확인 (flask_app.log)              │${NC}"
-    echo -e "${WHITE}│  ${RED}0${NC} │ 종료                                        │${NC}"
+    echo -e "${WHITE}│  ${GREEN}1${NC}  │ 로컬 개발 환경 (포트 5001)                   │${NC}"
+    echo -e "${WHITE}│  ${BLUE}2${NC}   │ 백그라운드 실행 (서버 환경)                    │${NC}"
+    echo -e "${WHITE}│  ${YELLOW}3${NC} │ 서버 상태 확인                              │${NC}"
+    echo -e "${WHITE}│  ${RED}4${NC}    │ 서버 중지                                  │${NC}"
+    echo -e "${WHITE}│  ${BLUE}5${NC}   │ 환경 확인                                  │${NC}"
+    echo -e "${WHITE}│  ${CYAN}6${NC}   │ IP 주소 확인                               │${NC}"
+    echo -e "${WHITE}│  ${YELLOW}7${NC} │ 로그 파일 확인 (flask_app.log)              │${NC}"
+    echo -e "${WHITE}│  ${RED}0${NC}    │ 종료                                      │${NC}"
     echo -e "${WHITE}└─────────────────────────────────────────────────────────────┘${NC}"
     echo ""
 }
@@ -65,24 +64,115 @@ check_server_status() {
 
 # 서버 중지
 stop_server() {
+    echo -e "${BLUE}🔍 서버 중지 작업을 시작합니다...${NC}"
+    local stopped_any=false
+
+    # 1. PID 파일 기반 프로세스 중지
     if [[ -f "$PID_FILE" ]]; then
         local pid=$(cat "$PID_FILE")
         if kill -0 "$pid" 2>/dev/null; then
-            echo -e "${YELLOW}서버를 중지합니다... (PID: $pid)${NC}"
+            echo -e "${YELLOW}📋 PID 파일에서 발견된 서버를 중지합니다... (PID: $pid)${NC}"
             kill "$pid"
             sleep 2
             if kill -0 "$pid" 2>/dev/null; then
-                echo -e "${YELLOW}강제 종료합니다...${NC}"
+                echo -e "${YELLOW}⚡ 강제 종료합니다...${NC}"
                 kill -9 "$pid"
             fi
-            rm -f "$PID_FILE"
-            echo -e "${GREEN}✓ 서버가 중지되었습니다.${NC}"
+            echo -e "${GREEN}✓ PID 기반 서버가 중지되었습니다.${NC}"
+            stopped_any=true
         else
-            echo -e "${YELLOW}프로세스가 이미 종료되었습니다.${NC}"
-            rm -f "$PID_FILE"
+            echo -e "${YELLOW}⚠ PID 파일이 있지만 프로세스가 이미 종료되었습니다.${NC}"
         fi
+        rm -f "$PID_FILE"
+    fi
+
+    # 2. 포트 기반 프로세스 검색 및 정리
+    echo -e "${BLUE}🔍 포트 사용 프로세스를 확인합니다...${NC}"
+    local ports_to_check=(5001 8080)
+
+    for port in "${ports_to_check[@]}"; do
+        local pids
+        if command -v lsof &> /dev/null; then
+            pids=$(lsof -ti ":$port" 2>/dev/null || true)
+        fi
+
+        if [[ -n "$pids" ]]; then
+            echo -e "${YELLOW}📡 포트 $port에서 실행 중인 프로세스 발견: $pids${NC}"
+
+            # 각 PID별로 프로세스 정보 확인
+            for pid in $pids; do
+                if command -v ps &> /dev/null; then
+                    local process_info=$(ps -p "$pid" -o comm= 2>/dev/null || echo "unknown")
+                    echo -e "${CYAN}   - PID $pid: $process_info${NC}"
+                fi
+            done
+
+            # SIGTERM으로 정상 종료 시도
+            echo -e "${YELLOW}🔄 포트 $port 프로세스들을 정상 종료합니다...${NC}"
+            echo "$pids" | xargs kill -TERM 2>/dev/null || true
+            sleep 3
+
+            # 여전히 실행 중이면 SIGKILL로 강제 종료
+            local remaining_pids
+            if command -v lsof &> /dev/null; then
+                remaining_pids=$(lsof -ti ":$port" 2>/dev/null || true)
+            fi
+
+            if [[ -n "$remaining_pids" ]]; then
+                echo -e "${YELLOW}⚡ 포트 $port 프로세스들을 강제 종료합니다...${NC}"
+                echo "$remaining_pids" | xargs kill -KILL 2>/dev/null || true
+                sleep 1
+            fi
+
+            # 최종 확인
+            if command -v lsof &> /dev/null; then
+                local final_check=$(lsof -ti ":$port" 2>/dev/null || true)
+                if [[ -z "$final_check" ]]; then
+                    echo -e "${GREEN}✓ 포트 $port가 정리되었습니다.${NC}"
+                else
+                    echo -e "${RED}⚠ 포트 $port에 여전히 프로세스가 남아있습니다.${NC}"
+                fi
+            fi
+            stopped_any=true
+        else
+            echo -e "${GREEN}✓ 포트 $port는 사용 중이지 않습니다.${NC}"
+        fi
+    done
+
+    # 3. Flask 관련 프로세스 검색 (추가 안전장치)
+    echo -e "${BLUE}🔍 Flask 관련 프로세스를 확인합니다...${NC}"
+    if command -v pgrep &> /dev/null; then
+        local flask_pids=$(pgrep -f "python.*run" 2>/dev/null || true)
+        if [[ -n "$flask_pids" ]]; then
+            echo -e "${YELLOW}🐍 Flask 관련 프로세스 발견: $flask_pids${NC}"
+            for pid in $flask_pids; do
+                if command -v ps &> /dev/null; then
+                    local cmd=$(ps -p "$pid" -o args= 2>/dev/null || echo "unknown")
+                    echo -e "${CYAN}   - PID $pid: $cmd${NC}"
+                fi
+            done
+
+            echo -e "${YELLOW}🔄 Flask 프로세스들을 정리합니다...${NC}"
+            echo "$flask_pids" | xargs kill -TERM 2>/dev/null || true
+            sleep 2
+
+            # 강제 종료 (필요시)
+            local remaining_flask=$(pgrep -f "python.*run" 2>/dev/null || true)
+            if [[ -n "$remaining_flask" ]]; then
+                echo -e "${YELLOW}⚡ Flask 프로세스들을 강제 종료합니다...${NC}"
+                echo "$remaining_flask" | xargs kill -KILL 2>/dev/null || true
+            fi
+            stopped_any=true
+        else
+            echo -e "${GREEN}✓ Flask 관련 프로세스가 없습니다.${NC}"
+        fi
+    fi
+
+    # 최종 결과 출력
+    if [[ "$stopped_any" == true ]]; then
+        echo -e "${GREEN}🎉 모든 서버 프로세스가 정리되었습니다.${NC}"
     else
-        echo -e "${RED}서버가 실행되지 않습니다.${NC}"
+        echo -e "${BLUE}ℹ️  실행 중인 서버가 없었습니다.${NC}"
     fi
 }
 
@@ -281,22 +371,7 @@ start_server() {
             export FLASK_DEBUG=1
 
             # Python 스크립트 실행
-            python run_local.py
-            ;;
-        "nas")
-            echo -e "${GREEN}🚀 NAS 서버를 시작합니다...${NC}"
-            echo -e "${CYAN}접속 URL: http://0.0.0.0:8080${NC}"
-            echo -e "${CYAN}외부 접속: http://[NAS_IP]:8080${NC}"
-
-            # 기존 프로세스 정리
-            cleanup_existing_processes 8080
-
-            # 환경 변수 설정
-            export FLASK_ENV=nas
-            export FLASK_DEBUG=0
-
-            # Python 스크립트 실행
-            python run_nas.py
+            python run.py
             ;;
         "bg")
             if check_server_status > /dev/null 2>&1; then
@@ -328,7 +403,7 @@ start_server() {
 select_menu() {
     while true; do
         print_menu
-        echo -e "${YELLOW}실행할 작업을 선택하세요 (0-8):${NC} "
+        echo -e "${YELLOW}실행할 작업을 선택하세요 (0-7):${NC} "
         read -r choice
 
         case $choice in
@@ -338,41 +413,36 @@ select_menu() {
                 break
                 ;;
             2)
-                echo -e "${GREEN}NAS 환경을 선택했습니다.${NC}"
-                start_server "nas"
-                break
-                ;;
-            3)
                 echo -e "${BLUE}백그라운드 실행을 선택했습니다.${NC}"
                 start_server "bg"
                 echo -e "${YELLOW}계속하려면 Enter를 누르세요...${NC}"
                 read -r
                 ;;
-            4)
+            3)
                 echo -e "${YELLOW}서버 상태 확인을 선택했습니다.${NC}"
                 check_server_status
                 echo -e "${YELLOW}계속하려면 Enter를 누르세요...${NC}"
                 read -r
                 ;;
-            5)
+            4)
                 echo -e "${RED}서버 중지를 선택했습니다.${NC}"
                 stop_server
                 echo -e "${YELLOW}계속하려면 Enter를 누르세요...${NC}"
                 read -r
                 ;;
-            6)
+            5)
                 echo -e "${BLUE}환경 확인을 선택했습니다.${NC}"
                 check_environment
                 echo -e "${YELLOW}계속하려면 Enter를 누르세요...${NC}"
                 read -r
                 ;;
-            7)
+            6)
                 echo -e "${CYAN}IP 주소 확인을 선택했습니다.${NC}"
                 get_ip_addresses
                 echo -e "${YELLOW}계속하려면 Enter를 누르세요...${NC}"
                 read -r
                 ;;
-            8)
+            7)
                 echo -e "${YELLOW}로그 파일 확인을 선택했습니다.${NC}"
                 check_log_file
                 echo -e "${YELLOW}계속하려면 Enter를 누르세요...${NC}"
@@ -383,7 +453,7 @@ select_menu() {
                 exit 0
                 ;;
             *)
-                echo -e "${RED}잘못된 선택입니다. 0-8 사이의 숫자를 입력하세요.${NC}"
+                echo -e "${RED}잘못된 선택입니다. 0-7 사이의 숫자를 입력하세요.${NC}"
                 echo -e "${YELLOW}계속하려면 Enter를 누르세요...${NC}"
                 read -r
                 ;;
@@ -398,7 +468,6 @@ print_help() {
     echo ""
     echo -e "${YELLOW}옵션:${NC}"
     echo "  ${GREEN}local${NC}     - 로컬 개발 환경 (포트 5001)"
-    echo "  ${GREEN}nas${NC}       - NAS 환경 (포트 8080, 외부 접속 허용)"
     echo "  ${GREEN}bg${NC}        - 백그라운드 실행 (NAS 환경)"
     echo "  ${GREEN}status${NC}    - 서버 상태 확인"
     echo "  ${GREEN}stop${NC}      - 서버 중지"
@@ -409,7 +478,6 @@ print_help() {
     echo ""
     echo -e "${YELLOW}예시:${NC}"
     echo "  $0 local    # 로컬 개발 서버 시작"
-    echo "  $0 nas      # NAS 서버 시작"
     echo "  $0 bg       # 백그라운드에서 NAS 서버 시작"
     echo "  $0 status   # 서버 상태 확인"
     echo "  $0 stop     # 서버 중지"

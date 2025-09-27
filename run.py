@@ -130,7 +130,7 @@ def main() -> None:
 
     # 설정에서 host와 port 가져기
     host = getattr(config_class, 'HOST', '127.0.0.1')
-    port = getattr(config_class, 'PORT', 5000)
+    port = getattr(config_class, 'PORT', 5001)
     debug = getattr(config_class, 'DEBUG', True)
 
     print(f"Starting Flask app in {env} mode")
