@@ -35,3 +35,6 @@ build/
 .envrc.bak.*
 .envrc.bak.*
 .envrc.bak.*
+
+#log 파일
+*.log
