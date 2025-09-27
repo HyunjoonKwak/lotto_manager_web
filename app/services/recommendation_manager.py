@@ -104,11 +104,11 @@ def get_persistent_recommendations(draws: List, user_id: int = None) -> Tuple[Li
             except (AttributeError, ValueError, TypeError) as e:
                 # 개별 draw 처리 중 오류가 있어도 계속 진행
                 continue
-        
+
         if not history:
             # 유효한 데이터가 없으면 기본 추천 생성
             history = [[1, 2, 3, 4, 5, 6]]  # 기본값
-        
+
         auto_recs = auto_recommend(history, count=5)
     except Exception as e:
         # 전체 추천 생성 실패 시 기본 추천 반환

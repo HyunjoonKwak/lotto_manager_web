@@ -42,31 +42,31 @@
         <p id="completion-rate">계산 중...</p>
       </div>
     </div>
-    
+
     <!-- 상세 정보 패널 -->
     <div id="data-detail-panel" class="detail-panel" style="display: none;">
       <div class="detail-header">
         <h3>📋 상세 데이터 현황</h3>
         <button type="button" class="btn-close" onclick="toggleDataDetail()">×</button>
       </div>
-      
+
       <div class="detail-tabs">
         <button class="tab-btn active" onclick="showDetailTab('missing')">누락 회차</button>
         <button class="tab-btn" onclick="showDetailTab('existing')">저장된 회차</button>
         <button class="tab-btn" onclick="showDetailTab('summary')">요약 정보</button>
       </div>
-      
+
       <div class="detail-content">
         <div id="missing-tab" class="tab-content active">
           <div class="loading-indicator" id="missing-loading">데이터를 불러오는 중...</div>
           <div id="missing-list" style="display: none;"></div>
         </div>
-        
+
         <div id="existing-tab" class="tab-content">
           <div class="loading-indicator" id="existing-loading">데이터를 불러오는 중...</div>
           <div id="existing-list" style="display: none;"></div>
         </div>
-        
+
         <div id="summary-tab" class="tab-content">
           <div class="loading-indicator" id="summary-loading">데이터를 불러오는 중...</div>
           <div id="summary-info" style="display: none;"></div>
@@ -82,10 +82,10 @@
         <h3 id="modal-title">회차 정보</h3>
         <button type="button" class="btn-close" onclick="closeRoundModal()">×</button>
       </div>
-      
+
       <div class="modal-body">
         <div id="modal-loading" class="loading-indicator">정보를 불러오는 중...</div>
-        
+
         <div id="modal-content" style="display: none;">
           <!-- 회차 기본 정보 -->
           <div class="round-info-section">
@@ -798,32 +798,32 @@
     flex-direction: column;
     gap: 0;
   }
-  
+
   .tab-btn {
     border-bottom: none;
     border-right: 3px solid transparent;
   }
-  
+
   .tab-btn.active {
     border-right-color: #667eea;
     border-bottom-color: transparent;
   }
-  
+
   .round-list {
     grid-template-columns: repeat(auto-fill, minmax(60px, 1fr));
     gap: 0.3rem;
   }
-  
+
   .summary-stats {
     grid-template-columns: 1fr;
   }
-  
+
   .modal-content {
     width: 95% !important;
     max-height: 90vh !important;
     margin: 2.5vh auto !important;
   }
-  
+
   .modal-actions {
     flex-direction: column !important;
   }
@@ -1377,7 +1377,7 @@ async function loadBasicStats() {
   try {
     const response = await fetch('/api/data-stats');
     const data = await response.json();
-    
+
     document.getElementById('missing-count').textContent = `${data.missing_count}회`;
     document.getElementById('completion-rate').textContent = `${data.completion_rate}%`;
   } catch (error) {
@@ -1390,7 +1390,7 @@ async function loadBasicStats() {
 // 상세 정보 패널 토글
 function toggleDataDetail() {
   const panel = document.getElementById('data-detail-panel');
-  
+
   if (panel.style.display === 'none') {
     panel.style.display = 'block';
     loadDetailData();
@@ -1404,11 +1404,11 @@ function showDetailTab(tabName) {
   // 모든 탭 비활성화
   document.querySelectorAll('.tab-btn').forEach(btn => btn.classList.remove('active'));
   document.querySelectorAll('.tab-content').forEach(content => content.classList.remove('active'));
-  
+
   // 선택된 탭 활성화
   document.querySelector(`button[onclick="showDetailTab('${tabName}')"]`).classList.add('active');
   document.getElementById(`${tabName}-tab`).classList.add('active');
-  
+
   // 데이터 로드
   loadTabData(tabName);
 }
@@ -1417,17 +1417,17 @@ function showDetailTab(tabName) {
 async function loadTabData(tabName) {
   const loadingId = `${tabName}-loading`;
   const contentId = `${tabName}-list`;
-  
+
   document.getElementById(loadingId).style.display = 'block';
   document.getElementById(contentId).style.display = 'none';
-  
+
   try {
     const response = await fetch(`/api/data-detail/${tabName}`);
     const data = await response.json();
-    
+
     document.getElementById(loadingId).style.display = 'none';
     document.getElementById(contentId).style.display = 'block';
-    
+
     switch(tabName) {
       case 'missing':
         renderMissingRounds(data);
@@ -1453,36 +1453,36 @@ async function loadDetailData() {
 // 누락 회차 렌더링
 function renderMissingRounds(data) {
   const container = document.getElementById('missing-list');
-  
+
   if (data.rounds.length === 0) {
     container.innerHTML = '<p class="no-data">누락된 회차가 없습니다! 🎉</p>';
     return;
   }
-  
+
   const rangeDisplay = `<div class="range-display">누락 회차: ${data.total_missing}개 (${data.range.start}~${data.range.end} 중)</div>`;
-  const roundsList = `<div class="round-list">${data.rounds.map(round => 
+  const roundsList = `<div class="round-list">${data.rounds.map(round =>
     `<div class="round-item missing" onclick="showRoundInfo(${round})">${round}</div>`
   ).join('')}</div>`;
-  
+
   container.innerHTML = rangeDisplay + roundsList;
 }
 
 // 저장된 회차 렌더링
 function renderExistingRounds(data) {
   const container = document.getElementById('existing-list');
-  
+
   const rangeDisplay = `<div class="range-display">저장된 회차: ${data.total_existing}개 (${data.range.start}~${data.range.end} 중)</div>`;
-  const roundsList = `<div class="round-list">${data.rounds.map(round => 
+  const roundsList = `<div class="round-list">${data.rounds.map(round =>
     `<div class="round-item existing" onclick="showRoundInfo(${round})">${round}</div>`
   ).join('')}</div>`;
-  
+
   container.innerHTML = rangeDisplay + roundsList;
 }
 
 // 요약 정보 렌더링
 function renderSummaryInfo(data) {
   const container = document.getElementById('summary-info');
-  
+
   const statsHtml = `
     <div class="summary-stats">
       <div class="stat-card">
@@ -1506,7 +1506,7 @@ function renderSummaryInfo(data) {
       전체 범위: ${data.range.start}회 ~ ${data.range.end}회
     </div>
   `;
-  
+
   container.innerHTML = statsHtml;
 }
 
@@ -1516,38 +1516,38 @@ async function showRoundInfo(round) {
   const modalTitle = document.getElementById('modal-title');
   const modalLoading = document.getElementById('modal-loading');
   const modalContent = document.getElementById('modal-content');
-  
+
   // 모달 초기화
   modalTitle.textContent = `${round}회차 정보`;
   modalLoading.style.display = 'block';
   modalContent.style.display = 'none';
   modal.style.display = 'flex';
-  
+
   // 현재 선택된 회차 저장 (액션 버튼에서 사용)
   window.currentModalRound = round;
-  
+
   try {
     // 회차 데이터 로드
     const drawResponse = await fetch(`/api/draw/${round}`);
     const shopsResponse = await fetch(`/api/shops/${round}`);
-    
+
     let drawData = null;
     let shopsData = null;
-    
+
     if (drawResponse.ok) {
       drawData = await drawResponse.json();
     }
-    
+
     if (shopsResponse.ok) {
       shopsData = await shopsResponse.json();
     }
-    
+
     // 모달 내용 업데이트
     updateModalContent(round, drawData, shopsData);
-    
+
     modalLoading.style.display = 'none';
     modalContent.style.display = 'block';
-    
+
   } catch (error) {
     console.error('Failed to load round data:', error);
     modalLoading.innerHTML = '데이터를 불러오는데 실패했습니다.';
@@ -1558,17 +1558,17 @@ async function showRoundInfo(round) {
 function updateModalContent(round, drawData, shopsData) {
   // 기본 정보 업데이트
   document.getElementById('modal-round').textContent = `${round}회`;
-  document.getElementById('modal-date').textContent = drawData ? 
+  document.getElementById('modal-date').textContent = drawData ?
     new Date(drawData.draw_date).toLocaleDateString('ko-KR') : '데이터 없음';
   document.getElementById('modal-status').textContent = drawData ? '저장됨' : '누락됨';
-  
+
   // 당첨 번호 업데이트
   const numbersContainer = document.querySelector('#modal-numbers .numbers');
   const bonusElement = document.getElementById('modal-bonus');
-  
+
   if (drawData && drawData.numbers) {
     // 당첨 번호 표시
-    numbersContainer.innerHTML = drawData.numbers.map(num => 
+    numbersContainer.innerHTML = drawData.numbers.map(num =>
       `<span class="number">${num}</span>`
     ).join('');
     bonusElement.textContent = drawData.bonus || '-';
@@ -1576,10 +1576,10 @@ function updateModalContent(round, drawData, shopsData) {
     numbersContainer.innerHTML = '<span class="no-data-message">당첨 번호 정보가 없습니다</span>';
     bonusElement.textContent = '-';
   }
-  
+
   // 판매점 정보 업데이트
   const shopsContainer = document.getElementById('modal-shops');
-  
+
   if (shopsData && shopsData.length > 0) {
     shopsContainer.innerHTML = shopsData.map(shop => `
       <div class="shop-item">
@@ -1609,7 +1609,7 @@ document.addEventListener('DOMContentLoaded', function() {
       closeRoundModal();
     }
   });
-  
+
   // ESC 키로 모달 닫기
   document.addEventListener('keydown', function(event) {
     if (event.key === 'Escape') {
@@ -1621,21 +1621,21 @@ document.addEventListener('DOMContentLoaded', function() {
 // 특정 회차 재수집
 async function crawlSpecificRound() {
   if (!window.currentModalRound) return;
-  
+
   const confirmed = confirm(`${window.currentModalRound}회차를 다시 수집하시겠습니까?`);
   if (!confirmed) return;
-  
+
   try {
     const formData = new FormData();
     formData.append('round', window.currentModalRound);
     formData.append('data_type', 'both');
     formData.append('csrf_token', window.csrfToken);
-    
+
     const response = await fetch('/update', {
       method: 'POST',
       body: formData
     });
-    
+
     if (response.ok) {
       alert(`${window.currentModalRound}회차 수집이 시작되었습니다.`);
       closeRoundModal();
@@ -1653,7 +1653,7 @@ async function crawlSpecificRound() {
 // 상세 분석 보기
 function viewDrawDetail() {
   if (!window.currentModalRound) return;
-  
+
   // 새 탭에서 회차 상세 페이지 열기
   const url = `/draw-info?round=${window.currentModalRound}`;
   window.open(url, '_blank');

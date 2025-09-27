@@ -49,7 +49,7 @@ def _create_session() -> requests.Session:
     """안정적인 HTTP 세션 생성"""
     session = requests.Session()
     session.headers.update(DEFAULT_HEADERS)
-    
+
     # urllib3 레벨에서 재시도 전략 설정
     retry_strategy = Retry(
         total=3,
@@ -57,11 +57,11 @@ def _create_session() -> requests.Session:
         status_forcelist=[429, 500, 502, 503, 504],
         allowed_methods=["HEAD", "GET", "OPTIONS"]
     )
-    
+
     adapter = HTTPAdapter(max_retries=retry_strategy, pool_connections=100, pool_maxsize=100)
     session.mount("http://", adapter)
     session.mount("https://", adapter)
-    
+
     return session
 
 
@@ -123,7 +123,7 @@ def fetch_winning_shops(round_no: int) -> List[Dict]:
         url = SHOPS_URL.format(round=round_no)
         # 전역 세션 재사용
         session = get_session()
-        
+
         def _req_html(page_url: str) -> BeautifulSoup:
             # (연결 타임아웃, 읽기 타임아웃) 튜플로 지정
             resp = session.get(page_url, timeout=(CONNECT_TIMEOUT, READ_TIMEOUT))
