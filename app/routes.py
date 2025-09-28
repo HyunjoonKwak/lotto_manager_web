@@ -1997,22 +1997,26 @@ def api_upload_purchase():
         # 번호를 문자열로 변환
         numbers_str = ','.join(map(str, sorted(data['numbers'])))
 
-        # 기본 사용자 찾기 (로컬 수집기용 전용 사용자)
-        collector_user = User.query.filter_by(username='local_collector').first()
-        if not collector_user:
-            # 로컬 수집기용 사용자가 없으면 생성
-            collector_user = User(
-                username='local_collector',
-                email='local_collector@system.local',
-                is_active=True
-            )
-            collector_user.set_password('system_collector_2024!')
-            db.session.add(collector_user)
-            db.session.commit()
+        # 사용자 결정: 로그인된 사용자가 있으면 그 사용자, 없으면 local_collector 사용
+        if current_user.is_authenticated:
+            target_user = current_user
+        else:
+            # 로컬 수집기용 전용 사용자
+            target_user = User.query.filter_by(username='local_collector').first()
+            if not target_user:
+                # 로컬 수집기용 사용자가 없으면 생성
+                target_user = User(
+                    username='local_collector',
+                    email='local_collector@system.local',
+                    is_active=True
+                )
+                target_user.set_password('system_collector_2024!')
+                db.session.add(target_user)
+                db.session.commit()
 
         # 중복 검증: 동일한 사용자, 회차, 번호 조합 확인
         existing_purchase = Purchase.query.filter_by(
-            user_id=collector_user.id,
+            user_id=target_user.id,
             purchase_round=data['draw_number'],
             numbers=numbers_str
         ).first()
@@ -2027,7 +2031,7 @@ def api_upload_purchase():
 
         # Purchase 객체 생성
         purchase = Purchase(
-            user_id=collector_user.id,
+            user_id=target_user.id,
             purchase_round=data['draw_number'],
             numbers=numbers_str,
             purchase_date=purchase_date,
@@ -2144,22 +2148,32 @@ def api_batch_upload_purchases():
 
 
 @main_bp.post('/api/purchases/qr')
+@csrf.exempt
 @login_required
 def api_upload_qr_purchase():
     """Upload purchase data from QR code scan"""
     try:
+        current_app.logger.info(f"QR 업로드 요청 수신 - Content-Type: {request.content_type}")
+        current_app.logger.info(f"요청 헤더: {dict(request.headers)}")
+
         data = request.get_json()
+        current_app.logger.info(f"수신된 JSON 데이터: {data}")
+
         if not data:
+            current_app.logger.error("JSON 데이터가 없음")
             return jsonify({"error": "JSON 데이터가 필요합니다"}), 400
 
         qr_url = data.get('qr_url')
         if not qr_url:
+            current_app.logger.error("QR URL이 없음")
             return jsonify({"error": "QR URL이 필요합니다"}), 400
 
         confidence_score = data.get('confidence_score', 95.0)
 
         # Parse QR code URL
+        current_app.logger.info(f"QR URL 파싱 시작: {qr_url}")
         parsed_qr = parse_lotto_qr_url(qr_url)
+        current_app.logger.info(f"QR 파싱 결과: {parsed_qr}")
 
         if not parsed_qr['valid']:
             return jsonify({

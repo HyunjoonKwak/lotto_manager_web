@@ -68,29 +68,47 @@ class APIClient:
 
             resp = self.session.post(login_url, data=login_data, headers=headers, timeout=10, allow_redirects=False)
 
-            # 로그인 성공 확인 (리다이렉트 또는 성공 응답)
-            if resp.status_code in [200, 302]:
-                # 사용자 정보 가져오기
-                user_info = self.get_user_info()
-                if user_info["success"]:
-                    self.is_authenticated = True
-                    self.user_info = user_info["data"]
-                    return {
-                        "success": True,
-                        "message": f"{self.user_info.get('username')}님으로 로그인되었습니다.",
-                        "user_info": self.user_info
-                    }
-                else:
-                    return {
-                        "success": False,
-                        "error": "로그인 후 사용자 정보 조회 실패"
-                    }
-            else:
+            # 로그인 성공 확인 - 다중 검증 방식
+
+            # 1. 응답 내용 확인 (로그인 실패 메시지 체크)
+            response_text = resp.text.lower()
+            if any(error_text in response_text for error_text in [
+                '잘못된', '실패', 'invalid', 'failed', '오류', 'error',
+                '비밀번호', 'password', '사용자', 'username'
+            ]):
                 return {
                     "success": False,
                     "error": "로그인 실패",
                     "details": "사용자명 또는 비밀번호가 올바르지 않습니다."
                 }
+
+            # 2. 사용자 정보 조회로 실제 로그인 여부 확인
+            user_info = self.get_user_info()
+
+            if user_info["success"]:
+                # 로그인 성공
+                self.is_authenticated = True
+                self.user_info = user_info["data"]
+                return {
+                    "success": True,
+                    "message": f"{self.user_info.get('username')}님으로 로그인되었습니다.",
+                    "user_info": self.user_info
+                }
+            else:
+                # 로그인 실패 - 사용자 정보 조회 실패는 인증 실패를 의미
+                error_msg = user_info.get("error", "로그인 실패")
+                if "인증" in error_msg or "로그인" in error_msg:
+                    return {
+                        "success": False,
+                        "error": "로그인 실패",
+                        "details": "사용자명 또는 비밀번호가 올바르지 않습니다."
+                    }
+                else:
+                    return {
+                        "success": False,
+                        "error": "로그인 후 사용자 정보 조회 실패",
+                        "details": error_msg
+                    }
 
         except requests.exceptions.ConnectionError:
             return {
@@ -190,9 +208,8 @@ class APIClient:
                     "details": validation_result["errors"]
                 }
 
-            # QR 업로드용 API 엔드포인트 사용 (로그인된 사용자 자동 적용)
-            qr_upload_url = f"{WEB_APP_URL}/api/purchases/qr"
-            response = self.session.post(qr_upload_url, json=purchase_data, timeout=30)
+            # 개별 게임 업로드는 기존 API 사용
+            response = self.session.post(API_ENDPOINT, json=purchase_data, timeout=30)
 
             if response.status_code in [200, 201]:
                 return {
@@ -341,10 +358,15 @@ class APIClient:
                 errors.append("QR URL이 필요합니다.")
             elif not qr_url.startswith("http"):
                 errors.append("유효한 QR URL이 아닙니다.")
+            # QR URL이 있으면 다른 필드 검증 생략
+            return {
+                "valid": len(errors) == 0,
+                "errors": errors
+            }
         else:
             errors.append("필수 필드 누락: games, numbers 또는 qr_url")
 
-        # 회차 검증 (round 또는 draw_number)
+        # 회차 검증 (round 또는 draw_number) - QR URL 형식이 아닌 경우만
         round_num = data.get("round") or data.get("draw_number")
         if round_num is not None:
             if not isinstance(round_num, int) or round_num < 1:

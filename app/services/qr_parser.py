@@ -33,25 +33,34 @@ def parse_lotto_qr_url(qr_url: str) -> Dict:
         }
     """
     try:
+        print(f"[QR Parser] 파싱 시작: {qr_url}")
+
         # Parse URL
         parsed_url = urlparse(qr_url)
+        print(f"[QR Parser] URL 파싱 결과: {parsed_url}")
 
         # Extract 'v' parameter which contains the lottery data
         query_params = parse_qs(parsed_url.query)
+        print(f"[QR Parser] 쿼리 파라미터: {query_params}")
+
         if 'v' not in query_params:
+            error_msg = f'No lottery data found in QR URL. Query params: {query_params}'
+            print(f"[QR Parser] 오류: {error_msg}")
             return {
                 'round': None,
                 'games': [],
                 'raw_url': qr_url,
                 'valid': False,
-                'error': 'No lottery data found in QR URL'
+                'error': error_msg
             }
 
         lottery_data = query_params['v'][0]
+        print(f"[QR Parser] 로또 데이터: {lottery_data}")
 
         # Parse the lottery data string
         # Format: {round}q{game1}q{game2}q{game3}...
         parts = lottery_data.split('q')
+        print(f"[QR Parser] 분할된 데이터: {parts}")
 
         if len(parts) < 2:
             return {
@@ -80,7 +89,10 @@ def parse_lotto_qr_url(qr_url: str) -> Dict:
             if not game_data:
                 continue
 
+            print(f"[QR Parser] 게임 {i} 파싱: {game_data}")
             numbers = parse_game_numbers(game_data)
+            print(f"[QR Parser] 게임 {i} 결과: {numbers}")
+
             if numbers:
                 games.append({
                     'numbers': numbers,
@@ -88,13 +100,15 @@ def parse_lotto_qr_url(qr_url: str) -> Dict:
                     'game_index': i
                 })
 
-        return {
+        result = {
             'round': round_number,
             'games': games,
             'raw_url': qr_url,
             'valid': len(games) > 0,
             'error': None if len(games) > 0 else 'No valid games found'
         }
+        print(f"[QR Parser] 최종 결과: {result}")
+        return result
 
     except Exception as e:
         return {

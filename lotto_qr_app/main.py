@@ -461,30 +461,117 @@ class LottoQRApp:
         threading.Thread(target=self._upload_data_thread, daemon=True).start()
 
     def _upload_data_thread(self):
-        """업로드 스레드 - QR URL 직접 업로드"""
+        """업로드 스레드 - 개별 게임 데이터 업로드"""
         try:
             # 업로드할 데이터 내용 로그 출력
             self.root.after(0, lambda: self.log("=" * 40))
-            self.root.after(0, lambda: self.log("📤 QR URL 업로드 시작:"))
+            self.root.after(0, lambda: self.log("📤 업로드 데이터 내용:"))
             self.root.after(0, lambda: self.log(f"회차: {self.parsed_lottery_data['round']}"))
             self.root.after(0, lambda: self.log(f"게임 수: {len(self.parsed_lottery_data['games'])}게임"))
 
-            # QR URL 직접 업로드 (서버에서 파싱)
-            qr_url = self.qr_data.get('url', '')
-            confidence_score = self.qr_data.get('confidence_score', 95.0)
-
-            if not qr_url:
-                self.root.after(0, lambda: self.log("❌ QR URL이 없습니다"))
+            # 로그인 상태 재확인
+            if not self.api_client.is_authenticated:
+                self.root.after(0, lambda: self.log("❌ 로그인 상태가 아닙니다"))
                 return
 
-            # QR 업로드용 데이터 생성
-            upload_data = self.api_client.create_qr_upload_data(qr_url, confidence_score)
+            # 사용자 정보 확인
+            user_info_result = self.api_client.get_user_info()
+            self.root.after(0, lambda info=user_info_result: self.log(f"🔍 사용자 정보 확인: {info}"))
 
-            self.root.after(0, lambda data=upload_data: self.log(f"📤 업로드 요청 데이터: {data}"))
-            result = self.api_client.upload_purchase_data(upload_data)
-            self.root.after(0, lambda res=result: self.log(f"📨 서버 응답: {res}"))
+            if not user_info_result["success"]:
+                self.root.after(0, lambda: self.log("❌ 사용자 정보 조회 실패 - 재로그인 필요"))
+                # 인증 상태 초기화
+                self.api_client.is_authenticated = False
+                self.api_client.user_info = None
+                self.root.after(0, lambda: self.update_login_ui())
+                return
+
+            # 각 게임을 개별적으로 업로드
+            success_count = 0
+            failed_count = 0
+            duplicate_count = 0
+            errors = []
+
+            for i, game in enumerate(self.parsed_lottery_data['games'], 1):
+                numbers_str = " ".join(f"{n:02d}" for n in game['numbers'])
+                self.root.after(0, lambda i=i, numbers=numbers_str: self.log(f"게임 {i}: {numbers}"))
+
+                # 웹앱 형식에 맞는 개별 게임 데이터 생성
+                game_data = {
+                    "numbers": game['numbers'],
+                    "draw_number": self.parsed_lottery_data['round'],
+                    "purchase_date": self.qr_data.get('purchase_date') or datetime.now().strftime('%Y-%m-%d')
+                }
+
+                # 개별 게임 업로드
+                self.root.after(0, lambda data=game_data: self.log(f"📤 업로드 요청 데이터: {data}"))
+                result = self.api_client.upload_purchase_data(game_data)
+                self.root.after(0, lambda res=result: self.log(f"📨 서버 응답: {res}"))
+
+                if result["success"]:
+                    success_count += 1
+                    self.root.after(0, lambda i=i: self.log(f"  ✅ 게임 {i} 업로드 성공"))
+                else:
+                    error_msg = result.get('error', '알 수 없는 오류')
+                    error_details = result.get('details', '')
+
+                    # 중복은 스킵으로 처리 (오류가 아님)
+                    if error_msg == "중복 데이터":
+                        duplicate_count += 1
+                        self.root.after(0, lambda i=i, details=error_details: self.log(f"  ℹ️ 게임 {i} 스킵: 이미 등록된 번호입니다"))
+                    else:
+                        failed_count += 1
+                        errors.append(f"게임 {i}: {error_msg}")
+                        self.root.after(0, lambda i=i, err=error_msg: self.log(f"  ❌ 게임 {i} 업로드 실패: {err}"))
 
             self.root.after(0, lambda: self.log("=" * 40))
+
+            # 전체 결과 정리
+            total_games = len(self.parsed_lottery_data['games'])
+
+            if success_count == total_games:
+                # 모든 게임이 성공
+                result = {
+                    "success": True,
+                    "message": f"✅ {success_count}개 게임이 모두 성공적으로 업로드되었습니다."
+                }
+            elif success_count > 0 and failed_count == 0:
+                # 일부 성공, 나머지는 중복
+                result = {
+                    "success": True,
+                    "message": f"✅ {success_count}개 게임 업로드 완료, {duplicate_count}개 게임은 이미 등록되어 스킵되었습니다."
+                }
+            elif success_count > 0 and failed_count > 0:
+                # 성공, 실패, 중복 혼재
+                message_parts = [f"✅ {success_count}개 게임 업로드 완료"]
+                if duplicate_count > 0:
+                    message_parts.append(f"ℹ️ {duplicate_count}개 게임 스킵(중복)")
+                if failed_count > 0:
+                    message_parts.append(f"❌ {failed_count}개 게임 실패")
+                    message_parts.append(f"실패 원인: {'; '.join(errors[:3])}")
+
+                result = {
+                    "success": True,
+                    "message": "\n".join(message_parts)
+                }
+            elif duplicate_count == total_games:
+                # 모든 게임이 중복
+                result = {
+                    "success": True,
+                    "message": f"ℹ️ 모든 게임({duplicate_count}개)이 이미 등록되어 있어 스킵되었습니다."
+                }
+            elif failed_count > 0 and duplicate_count > 0:
+                # 실패와 중복만 있음
+                result = {
+                    "success": False,
+                    "error": f"❌ {failed_count}개 게임 실패, {duplicate_count}개 게임 스킵(중복)\n실패 원인: {'; '.join(errors[:3])}"
+                }
+            else:
+                # 모든 게임이 실패
+                result = {
+                    "success": False,
+                    "error": f"❌ 모든 게임({failed_count}개) 업로드 실패\n원인: {'; '.join(errors[:3])}"
+                }
 
             # 결과 처리
             if result["success"]:
