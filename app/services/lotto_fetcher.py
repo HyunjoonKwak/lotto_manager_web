@@ -19,17 +19,29 @@ except ImportError:
 NUMBERS_URL = "https://www.dhlottery.co.kr/common.do?method=getLottoNumber&drwNo={round}"
 SHOPS_URL = "https://www.dhlottery.co.kr/store.do?method=topStore&pageGubun=L645&drwNo={round}"
 DEFAULT_HEADERS = {
-    "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36",
-    "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,*/*;q=0.8",
-    "Accept-Language": "ko-KR,ko;q=0.8,en-US;q=0.5,en;q=0.3",
-    "Accept-Encoding": "gzip, deflate, br",
+    "User-Agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/130.0.0.0 Safari/537.36",
+    "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8,application/signed-exchange;v=b3;q=0.7",
+    "Accept-Language": "ko-KR,ko;q=0.9,en-US;q=0.8,en;q=0.7",
+    "Accept-Encoding": "gzip, deflate, br, zstd",
     "DNT": "1",
     "Connection": "keep-alive",
-    "Upgrade-Insecure-Requests": "1"
+    "Upgrade-Insecure-Requests": "1",
+    "Sec-Fetch-Dest": "document",
+    "Sec-Fetch-Mode": "navigate",
+    "Sec-Fetch-Site": "none",
+    "Sec-Fetch-User": "?1",
+    "Sec-Ch-Ua": '"Chromium";v="130", "Google Chrome";v="130", "Not?A_Brand";v="99"',
+    "Sec-Ch-Ua-Mobile": "?0",
+    "Sec-Ch-Ua-Platform": '"macOS"',
+    "Cache-Control": "max-age=0",
+    "Referer": "https://www.dhlottery.co.kr/"
 }
-# 연결 타임아웃과 읽기 타임아웃을 분리
-CONNECT_TIMEOUT = 15
-READ_TIMEOUT = 30
+# 연결 타임아웃과 읽기 타임아웃을 분리 (더 넉넉하게 설정)
+CONNECT_TIMEOUT = 30
+READ_TIMEOUT = 60
+
+# 요청 간격 설정 (서버 부하 방지)
+REQUEST_DELAY = 1.5  # 요청 간 1.5초 대기
 
 T = TypeVar("T")
 
@@ -50,35 +62,87 @@ def _create_session() -> requests.Session:
     session = requests.Session()
     session.headers.update(DEFAULT_HEADERS)
 
-    # urllib3 레벨에서 재시도 전략 설정
+    # urllib3 레벨에서 재시도 전략 설정 (더 강화)
     retry_strategy = Retry(
-        total=3,
-        backoff_factor=1,
-        status_forcelist=[429, 500, 502, 503, 504],
-        allowed_methods=["HEAD", "GET", "OPTIONS"]
+        total=5,  # 최대 5회 재시도
+        backoff_factor=2,  # 백오프 팩터 증가
+        status_forcelist=[429, 500, 502, 503, 504, 522, 524],  # 더 많은 상태 코드 포함
+        allowed_methods=["HEAD", "GET", "OPTIONS"],
+        raise_on_status=False  # 상태 오류 시 즉시 예외 발생하지 않음
     )
 
     adapter = HTTPAdapter(max_retries=retry_strategy, pool_connections=100, pool_maxsize=100)
     session.mount("http://", adapter)
     session.mount("https://", adapter)
 
+    # 쿠키 지원 활성화 (브라우저처럼 동작)
+    session.cookies.set_policy(None)
+
+    # cookies.txt 파일이 있으면 로드
+    import os
+    cookies_file = os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(__file__))), 'cookies.txt')
+    if os.path.exists(cookies_file):
+        try:
+            from http.cookiejar import MozillaCookieJar
+            jar = MozillaCookieJar(cookies_file)
+            jar.load(ignore_discard=True, ignore_expires=True)
+            session.cookies = jar
+            print(f"쿠키 파일 로드됨: {len(jar)} 개 쿠키")
+        except Exception as e:
+            print(f"쿠키 파일 로드 실패: {e}")
+
     return session
 
 
-def _with_retries(fn: Callable[[], T], retries: int = 5, delay: float = 2.0) -> T:
+# 마지막 요청 시간 추적 (전역)
+_last_request_time = 0.0
+
+def _rate_limit():
+    """요청 간격 제한 (서버 부하 방지)"""
+    global _last_request_time
+    current_time = time.time()
+    elapsed = current_time - _last_request_time
+
+    if elapsed < REQUEST_DELAY:
+        sleep_time = REQUEST_DELAY - elapsed
+        print(f"요청 간격 제한: {sleep_time:.1f}초 대기")
+        time.sleep(sleep_time)
+
+    _last_request_time = time.time()
+
+def _with_retries(fn: Callable[[], T], retries: int = 5, delay: float = 3.0) -> T:
     """재시도 로직 - 지수 백오프와 지연 시간 포함"""
     last_exc: Optional[Exception] = None
     for attempt in range(retries):
         try:
-            return fn()
-        except Exception as exc:  # network or parse errors
+            # 요청 간격 제한 적용
+            _rate_limit()
+            result = fn()
+            if attempt > 0:  # 재시도가 있었던 경우
+                print(f"재시도 {attempt + 1}회차에서 성공")
+            return result
+        except (requests.exceptions.Timeout, requests.exceptions.ConnectionError,
+                requests.exceptions.HTTPError, socket.timeout) as exc:
             last_exc = exc
             if attempt < retries - 1:  # 마지막 시도가 아닌 경우만 대기
                 wait_time = delay * (2 ** attempt)  # 지수 백오프
-                print(f"재시도 {attempt + 1}/{retries} 실패, {wait_time:.1f}초 후 재시도: {str(exc)}")
+                print(f"네트워크 오류로 재시도 {attempt + 1}/{retries}, {wait_time:.1f}초 후 재시도: {type(exc).__name__}: {str(exc)}")
                 time.sleep(wait_time)
             else:
-                print(f"모든 재시도 실패: {str(exc)}")
+                print(f"모든 재시도 실패: {type(exc).__name__}: {str(exc)}")
+        except requests.exceptions.RequestException as exc:  # 기타 요청 관련 오류
+            last_exc = exc
+            if attempt < retries - 1:
+                wait_time = delay * (2 ** attempt)
+                print(f"요청 오류로 재시도 {attempt + 1}/{retries}, {wait_time:.1f}초 후 재시도: {type(exc).__name__}: {str(exc)}")
+                time.sleep(wait_time)
+            else:
+                print(f"모든 재시도 실패 (요청 오류): {type(exc).__name__}: {str(exc)}")
+        except Exception as exc:  # 기타 오류
+            last_exc = exc
+            print(f"예상치 못한 오류 발생: {type(exc).__name__}: {str(exc)}")
+            break  # 네트워크 오류가 아닌 경우 즉시 중단
+
     assert last_exc is not None
     raise last_exc
 
@@ -154,9 +218,13 @@ def fetch_winning_shops(round_no: int) -> List[Dict]:
                 # Use existing soup for first page
                 current_soup = soup
             else:
-                # Fetch additional pages
+                # Fetch additional pages with extra delay for pagination
                 page_url = f"{SHOPS_URL.format(round=round_no)}&nowPage={page}"
                 try:
+                    # Add extra delay for pagination requests to reduce server load
+                    if page > 1:
+                        print(f"페이지네이션 {page}페이지 요청 전 추가 대기")
+                        time.sleep(REQUEST_DELAY)  # Extra delay for pagination
                     current_soup = _with_retries(lambda: _req_html(page_url))
                 except Exception:
                     # If page doesn't exist, break

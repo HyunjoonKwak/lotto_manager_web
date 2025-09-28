@@ -886,17 +886,50 @@ def purchase_history():
     page = int(request.args.get('page', '1'))
     per_page = 20
 
-    purchases = Purchase.query.filter_by(user_id=current_user.id).order_by(Purchase.purchase_date.desc()).paginate(
+    # 사용자 필터 (관리자나 특정 사용자만 모든 기록 조회 가능)
+    show_all = request.args.get('show_all', 'false').lower() == 'true'
+    user_filter = request.args.get('user_id', '').strip()
+
+    # 기본적으로는 현재 사용자의 기록만 조회
+    query = Purchase.query
+    current_user_id = current_user.id
+
+    # 관리자 또는 kingchic 사용자는 모든 기록 조회 가능
+    if current_user.username in ['kingchic', 'admin'] or hasattr(current_user, 'is_admin') and current_user.is_admin:
+        if show_all:
+            # 모든 사용자의 기록 조회
+            if user_filter and user_filter.isdigit():
+                query = query.filter_by(user_id=int(user_filter))
+                current_user_id = int(user_filter)
+            # show_all=True이고 user_filter가 없으면 모든 사용자 기록
+        else:
+            # show_all=False이면 현재 사용자 기록만
+            query = query.filter_by(user_id=current_user.id)
+    else:
+        # 일반 사용자는 자신의 기록만
+        query = query.filter_by(user_id=current_user.id)
+
+    purchases = query.order_by(Purchase.purchase_date.desc()).paginate(
         page=page, per_page=per_page, error_out=False
     )
 
-    stats = get_purchase_statistics(current_user.id)
+    # 통계는 조회된 사용자 기준으로 계산
+    stats = get_purchase_statistics(current_user_id)
+
+    # 사용자 목록 (관리자용)
+    all_users = []
+    if current_user.username in ['kingchic', 'admin'] or hasattr(current_user, 'is_admin') and current_user.is_admin:
+        all_users = User.query.all()
 
     return render_template(
         "purchases.html",
         title="구매 이력",
         purchases=purchases,
-        stats=stats
+        stats=stats,
+        show_all=show_all,
+        user_filter=user_filter,
+        all_users=all_users,
+        is_admin=(current_user.username in ['kingchic', 'admin'] or hasattr(current_user, 'is_admin') and current_user.is_admin)
     )
 
 
@@ -1977,6 +2010,21 @@ def api_upload_purchase():
             db.session.add(collector_user)
             db.session.commit()
 
+        # 중복 검증: 동일한 사용자, 회차, 번호 조합 확인
+        existing_purchase = Purchase.query.filter_by(
+            user_id=collector_user.id,
+            purchase_round=data['draw_number'],
+            numbers=numbers_str
+        ).first()
+
+        if existing_purchase:
+            return jsonify({
+                "error": "중복된 구매 정보입니다",
+                "details": f"회차 {data['draw_number']}에 이미 동일한 번호가 등록되어 있습니다"
+            }), 409
+
+        # 회차당 게임 수 제한 없음 (한 용지당 최대 5게임이지만, 용지 수에는 제한 없음)
+
         # Purchase 객체 생성
         purchase = Purchase(
             user_id=collector_user.id,
@@ -2255,3 +2303,20 @@ def api_sync_purchases():
 
     except Exception as e:
         return jsonify({"error": f"데이터 조회 중 오류가 발생했습니다: {str(e)}"}), 500
+
+
+@main_bp.get('/api/user/info')
+@csrf.exempt
+def api_get_user_info():
+    """현재 로그인된 사용자 정보 반환"""
+    if not current_user.is_authenticated:
+        return jsonify({"error": "로그인이 필요합니다"}), 401
+
+    return jsonify({
+        "id": current_user.id,
+        "username": current_user.username,
+        "email": current_user.email,
+        "is_admin": current_user.is_admin,
+        "is_active": current_user.is_active,
+        "created_at": current_user.created_at.isoformat() if current_user.created_at else None
+    })

@@ -9,13 +9,53 @@
 <div class="header">
   <div>
     <h1>📊 구매 이력</h1>
-    <div class="muted">나의 로또 구매 기록과 당첨 현황</div>
+    <div class="muted">
+      {% if is_admin and show_all %}
+        모든 사용자의 로또 구매 기록과 당첨 현황
+      {% else %}
+        나의 로또 구매 기록과 당첨 현황
+      {% endif %}
+    </div>
   </div>
   <div class="stats">
     <div class="stat">총 구매: {{ stats.total_purchases }}건</div>
     <div class="stat">총 당첨금: {{ "{:,}".format(stats.total_prize) }}원</div>
   </div>
 </div>
+
+<!-- 관리자용 필터 -->
+{% if is_admin %}
+<div class="card" style="margin-bottom: 1rem;">
+  <div class="card-header">
+    <h3>🔧 관리자 설정</h3>
+  </div>
+  <div style="padding: 1rem;">
+    <form method="GET" style="display: flex; gap: 1rem; align-items: center; flex-wrap: wrap;">
+      <label style="display: flex; align-items: center; gap: 0.5rem;">
+        <input type="checkbox" name="show_all" value="true" {% if show_all %}checked{% endif %} onchange="this.form.submit()">
+        모든 사용자 구매 기록 보기
+      </label>
+
+      {% if show_all %}
+      <label style="display: flex; align-items: center; gap: 0.5rem;">
+        특정 사용자:
+        <select name="user_id" onchange="this.form.submit()" style="padding: 0.25rem;">
+          <option value="">전체 사용자</option>
+          {% for user in all_users %}
+          <option value="{{ user.id }}" {% if user_filter == user.id|string %}selected{% endif %}>
+            {{ user.username }} (ID: {{ user.id }})
+          </option>
+          {% endfor %}
+        </select>
+      </label>
+      {% endif %}
+
+      <!-- 현재 페이지 유지 -->
+      <input type="hidden" name="page" value="{{ request.args.get('page', 1) }}">
+    </form>
+  </div>
+</div>
+{% endif %}
 
 <!-- Main Content Grid -->
 <div class="main-content">
@@ -74,6 +114,9 @@
           <span class="round-text">{{ purchase.purchase_round }}회</span>
           <span class="date-text">{{ purchase.purchase_date.strftime('%m/%d %H:%M') }}</span>
           <span class="method-text">{{ purchase.purchase_method }}</span>
+          {% if is_admin and show_all %}
+          <span class="user-text" style="color: #666; font-size: 0.8em;">{{ purchase.user.username }}</span>
+          {% endif %}
         </div>
 
         <div class="numbers-section">

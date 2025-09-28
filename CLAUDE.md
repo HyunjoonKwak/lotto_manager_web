@@ -59,6 +59,15 @@ git commit                           # Hooks run automatically on commit
 python -m pytest                    # Run tests with pytest
 ```
 
+### QR Recognition Desktop App
+```bash
+# Standalone QR code recognition desktop application
+cd lotto_qr_app                      # Navigate to QR app directory
+pip install -r requirements.txt     # Install QR app dependencies (OpenCV, Tesseract, etc.)
+brew install tesseract              # Install Tesseract OCR (macOS)
+python main.py                      # Run QR recognition GUI application
+```
+
 ## Architecture
 
 ### Application Structure
@@ -83,6 +92,19 @@ python -m pytest                    # Run tests with pytest
 - `analyzer.py`: Statistical analysis for frequency, combinations, and recommendation reasons
 - `lottery_checker.py`: Purchase result checking and statistics
 - `recommendation_manager.py`: Persistent recommendation management
+- `qr_parser.py`: QR code data parsing and validation from lottery tickets
+
+### QR Recognition Desktop Application
+- **Standalone Tkinter GUI**: Desktop application in `lotto_qr_app/` directory
+- **Multi-modal Recognition**: Combines OCR and QR code scanning for lottery ticket processing
+- **API Integration**: Connects with main Flask application via REST API
+- **Image Processing**: Advanced preprocessing for optimal OCR accuracy
+- **Components**:
+  - `main.py`: Main GUI application with tabbed interface
+  - `qr_processor.py`: QR code detection and parsing logic
+  - `image_preprocessor.py`: Image enhancement and preprocessing
+  - `api_client.py`: HTTP client for Flask app integration
+  - `config.py`: Desktop app configuration and settings
 
 ### Key Features
 - **User Authentication**: Flask-Login integration with password hashing
@@ -93,6 +115,8 @@ python -m pytest                    # Run tests with pytest
 - **Port Conflict Resolution**: Automatic port conflict detection and resolution in `run.py`
 - **Pagination Support**: 2nd rank shop pagination handling in HTML scraping
 - **JSON API Endpoints**: RESTful APIs for draws, shops, recommendations, and crawling progress
+- **Desktop QR Integration**: Tkinter-based desktop app for lottery ticket scanning and OCR processing
+- **Multi-modal Data Input**: Support for both manual entry and automated ticket scanning
 
 ### Data Sources and Scraping Strategy
 - Official Korean lottery JSON API (`dhlottery.co.kr/common.do`) for draw results

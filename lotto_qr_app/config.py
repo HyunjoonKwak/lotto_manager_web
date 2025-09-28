@@ -5,7 +5,7 @@ Configuration settings for Lotto OCR App
 # API 설정
 WEB_APP_URL = "http://127.0.0.1:5001"  # 로컬 개발
 # WEB_APP_URL = "http://your-ec2-domain:8080"  # 프로덕션
-API_ENDPOINT = f"{WEB_APP_URL}/api/purchases/upload"
+API_ENDPOINT = f"{WEB_APP_URL}/api/purchases"
 
 # OCR 설정
 TESSERACT_CONFIG = '--psm 8 -c tessedit_char_whitelist=0123456789'
