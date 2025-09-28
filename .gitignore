@@ -14,9 +14,9 @@ __pycache__/
 */.env
 
 # DB/런타임 아티팩트
-# instance/
-# */instance/
-# *.db
+instance/
+*/instance/
+*.db
 *.sqlite
 *.sqlite3
 logs/
