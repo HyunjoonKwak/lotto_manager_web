@@ -25,6 +25,8 @@ chmod +x start.sh                    # First time only
 ./start.sh bg                        # Background mode (NAS environment)
 ./start.sh status                    # Check server status
 ./start.sh stop                      # Stop background server
+./start.sh ip                        # Show IP addresses
+./start.sh log                       # View log files with interactive options
 ```
 
 #### Manual Execution

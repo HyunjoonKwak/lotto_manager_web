@@ -535,7 +535,13 @@ async function updateLatest() {
     addActivity('최신 회차 업데이트 시작');
     showProgress();
 
-    const response = await fetch('/update-latest', { method: 'POST' });
+    const formData = new FormData();
+    formData.append('csrf_token', window.csrfToken);
+
+    const response = await fetch('/update-latest', {
+      method: 'POST',
+      body: formData
+    });
     const data = await response.json();
 
     if (data.success) {
@@ -557,7 +563,13 @@ async function updateMissing() {
     addActivity('누락 데이터 업데이트 시작');
     showProgress();
 
-    const response = await fetch('/update-missing', { method: 'POST' });
+    const formData = new FormData();
+    formData.append('csrf_token', window.csrfToken);
+
+    const response = await fetch('/update-missing', {
+      method: 'POST',
+      body: formData
+    });
     const data = await response.json();
 
     if (data.success) {
@@ -579,7 +591,13 @@ async function updateAll() {
     addActivity('전체 데이터 업데이트 시작');
     showProgress();
 
-    const response = await fetch('/update-all', { method: 'POST' });
+    const formData = new FormData();
+    formData.append('csrf_token', window.csrfToken);
+
+    const response = await fetch('/update-all', {
+      method: 'POST',
+      body: formData
+    });
     const data = await response.json();
 
     if (data.success) {
@@ -654,7 +672,13 @@ async function stopCrawling() {
   if (!confirm('진행 중인 작업을 중지하시겠습니까?')) return;
 
   try {
-    const response = await fetch('/api/stop-crawling', { method: 'POST' });
+    const formData = new FormData();
+    formData.append('csrf_token', window.csrfToken);
+
+    const response = await fetch('/api/stop-crawling', {
+      method: 'POST',
+      body: formData
+    });
     const data = await response.json();
 
     if (data.success) {

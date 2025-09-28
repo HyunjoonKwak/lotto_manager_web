@@ -30,6 +30,9 @@ from .services.lottery_checker import (
 from .services.recommendation_manager import (
     get_persistent_recommendations, refresh_recommendations
 )
+from .services.qr_parser import (
+    parse_lotto_qr_url, parse_qr_data_to_purchases
+)
 
 
 main_bp = Blueprint("main", __name__)
@@ -378,7 +381,12 @@ def _run_missing_update_background(app):
             _update_progress(0, 0, 0, "누락 회차 확인중", "누락회차", True)
 
             # Get missing rounds (this is a simplified version, actual implementation may vary)
-            all_rounds = set(range(1, get_latest_round() + 1))
+            latest_round = get_latest_round()
+            if not latest_round:
+                _update_progress(0, 0, 0, "최신 회차를 감지할 수 없음", "누락회차", False)
+                return
+
+            all_rounds = set(range(1, latest_round + 1))
             existing_rounds = set(draw.round for draw in Draw.query.all())
             missing_rounds = sorted(list(all_rounds - existing_rounds))
 
@@ -1079,14 +1087,25 @@ def api_data_stats():
         # 최신 가능 회차
         latest_round = get_latest_round()
         if not latest_round:
-            return jsonify({"error": "최신 회차를 가져올 수 없습니다"}), 500
+            # 네트워크 연결 실패 시 데이터베이스 기반 대안 제공
+            max_db_round = db.session.query(db.func.max(Draw.round)).scalar() or 0
+            if max_db_round == 0:
+                return jsonify({"error": "데이터베이스에 데이터가 없고 로또 API에 연결할 수 없습니다"}), 500
+
+            return jsonify({
+                "missing_count": 0,
+                "completion_rate": 100.0,
+                "total_rounds": total_rounds,
+                "latest_round": max_db_round,
+                "warning": "로또 API 연결 불가 - 데이터베이스 기반 통계"
+            })
 
         # 누락된 회차 수
         missing_rounds = find_missing_rounds()
-        missing_count = len(missing_rounds)
+        missing_count = len(missing_rounds) if missing_rounds else 0
 
         # 완성도 계산
-        completion_rate = round((total_rounds / latest_round) * 100, 1) if latest_round > 0 else 0
+        completion_rate = round((total_rounds / latest_round) * 100, 1) if latest_round and latest_round > 0 else 0
 
         return jsonify({
             "missing_count": missing_count,
@@ -1106,15 +1125,35 @@ def api_data_detail(tab_type):
         from .services.updater import get_latest_round, find_missing_rounds
 
         latest_round = get_latest_round()
+        api_available = latest_round is not None
+
         if not latest_round:
-            return jsonify({"error": "최신 회차를 가져올 수 없습니다"}), 500
+            # 네트워크 연결 실패 시 데이터베이스 기반 대안 제공
+            max_db_round = db.session.query(db.func.max(Draw.round)).scalar() or 0
+            if max_db_round == 0:
+                return jsonify({"error": "데이터베이스에 데이터가 없고 로또 API에 연결할 수 없습니다"}), 500
+            latest_round = max_db_round
 
         if tab_type == "missing":
-            missing_rounds = find_missing_rounds()
+            # API 연결 실패 시 누락 회차 계산을 데이터베이스만으로 수행
+            if not api_available:
+                # 데이터베이스만 기준으로 연속성 체크
+                existing_rounds = set(row[0] for row in db.session.query(Draw.round).all())
+                if existing_rounds:
+                    min_round = min(existing_rounds)
+                    max_round = max(existing_rounds)
+                    all_rounds = set(range(min_round, max_round + 1))
+                    missing_rounds = sorted(list(all_rounds - existing_rounds))
+                else:
+                    missing_rounds = []
+            else:
+                missing_rounds = find_missing_rounds()
+
             return jsonify({
                 "rounds": missing_rounds,
                 "total_missing": len(missing_rounds),
-                "range": {"start": 1, "end": latest_round}
+                "range": {"start": 1, "end": latest_round},
+                "warning": "로또 API 연결 불가 - 데이터베이스 기반 통계" if not api_available else None
             })
 
         elif tab_type == "existing":
@@ -1123,21 +1162,37 @@ def api_data_detail(tab_type):
             return jsonify({
                 "rounds": existing_rounds,
                 "total_existing": len(existing_rounds),
-                "range": {"start": 1, "end": latest_round}
+                "range": {"start": 1, "end": latest_round},
+                "warning": "로또 API 연결 불가 - 데이터베이스 기반 통계" if not api_available else None
             })
 
         elif tab_type == "summary":
             # 요약 정보
             total_rounds = Draw.query.count()
-            missing_rounds = find_missing_rounds()
-            missing_count = len(missing_rounds)
-            completion_rate = round((total_rounds / latest_round) * 100, 1) if latest_round > 0 else 0
+            if not api_available:
+                # API 연결 실패 시 데이터베이스만 기준으로 계산
+                existing_rounds = set(row[0] for row in db.session.query(Draw.round).all())
+                if existing_rounds:
+                    min_round = min(existing_rounds)
+                    max_round = max(existing_rounds)
+                    all_rounds = set(range(min_round, max_round + 1))
+                    missing_rounds = sorted(list(all_rounds - existing_rounds))
+                    missing_count = len(missing_rounds)
+                    completion_rate = round((total_rounds / (max_round - min_round + 1)) * 100, 1) if max_round > min_round else 100.0
+                else:
+                    missing_count = 0
+                    completion_rate = 100.0
+            else:
+                missing_rounds = find_missing_rounds()
+                missing_count = len(missing_rounds)
+                completion_rate = round((total_rounds / latest_round) * 100, 1) if latest_round > 0 else 0
 
             return jsonify({
                 "total_existing": total_rounds,
                 "total_missing": missing_count,
                 "completion_rate": completion_rate,
-                "range": {"start": 1, "end": latest_round}
+                "range": {"start": 1, "end": latest_round},
+                "warning": "로또 API 연결 불가 - 데이터베이스 기반 통계" if not api_available else None
             })
 
         else:
@@ -1145,6 +1200,7 @@ def api_data_detail(tab_type):
 
     except Exception as e:
         return jsonify({"error": str(e)}), 500
+
 
 
 @main_bp.post("/api/refresh-recommendations")
@@ -1825,7 +1881,7 @@ def api_draw_info(round_no: int):
 
 
 # =================================================================
-# QR/OCR 로컬 수집기용 API 엔드포인트
+# QR 로컬 수집기용 API 엔드포인트
 # =================================================================
 
 @main_bp.get('/api/health')
@@ -1878,8 +1934,8 @@ def validate_purchase_data(data):
 
     # 인식 방법 검증 (선택적)
     recognition_method = data.get('recognition_method')
-    if recognition_method is not None and recognition_method not in ['QR', 'OCR']:
-        errors.append("인식 방법은 'QR' 또는 'OCR'이어야 합니다")
+    if recognition_method is not None and recognition_method != 'QR':
+        errors.append("인식 방법은 'QR'이어야 합니다")
 
     return errors
 
@@ -2037,6 +2093,109 @@ def api_batch_upload_purchases():
     except Exception as e:
         db.session.rollback()
         return jsonify({"error": f"일괄 업로드 중 오류가 발생했습니다: {str(e)}"}), 500
+
+
+@main_bp.post('/api/purchases/qr')
+@login_required
+def api_upload_qr_purchase():
+    """Upload purchase data from QR code scan"""
+    try:
+        data = request.get_json()
+        if not data:
+            return jsonify({"error": "JSON 데이터가 필요합니다"}), 400
+
+        qr_url = data.get('qr_url')
+        if not qr_url:
+            return jsonify({"error": "QR URL이 필요합니다"}), 400
+
+        confidence_score = data.get('confidence_score', 95.0)
+
+        # Parse QR code URL
+        parsed_qr = parse_lotto_qr_url(qr_url)
+
+        if not parsed_qr['valid']:
+            return jsonify({
+                "error": f"QR 코드 파싱 실패: {parsed_qr['error']}"
+            }), 400
+
+        # Convert to purchase records
+        purchase_records = parse_qr_data_to_purchases(
+            parsed_qr,
+            current_user.id,
+            confidence_score
+        )
+
+        if not purchase_records:
+            return jsonify({
+                "error": "QR 코드에서 유효한 로또 번호를 찾을 수 없습니다"
+            }), 400
+
+        # Check for existing purchases
+        round_number = parsed_qr['round']
+        saved_purchases = []
+        duplicates = []
+
+        for record in purchase_records:
+            # Check for duplicate
+            existing = Purchase.query.filter_by(
+                user_id=current_user.id,
+                purchase_round=record['purchase_round'],
+                numbers=record['numbers']
+            ).first()
+
+            if existing:
+                duplicates.append({
+                    "numbers": record['numbers'],
+                    "round": record['purchase_round']
+                })
+                continue
+
+            # Create new purchase
+            purchase = Purchase(
+                user_id=record['user_id'],
+                purchase_round=record['purchase_round'],
+                numbers=record['numbers'],
+                purchase_method=record['purchase_method'],
+                recognition_method=record['recognition_method'],
+                confidence_score=record['confidence_score'],
+                source=record['source'],
+                result_checked=record['result_checked']
+            )
+
+            db.session.add(purchase)
+            saved_purchases.append({
+                "id": None,  # Will be set after commit
+                "numbers": record['numbers'],
+                "round": record['purchase_round'],
+                "confidence_score": record['confidence_score']
+            })
+
+        # Commit changes
+        if saved_purchases:
+            db.session.commit()
+
+            # Update IDs after commit
+            for i, saved in enumerate(saved_purchases):
+                saved["id"] = db.session.query(Purchase).filter_by(
+                    user_id=current_user.id,
+                    purchase_round=saved["round"],
+                    numbers=saved["numbers"]
+                ).first().id
+
+        return jsonify({
+            "message": f"QR 코드에서 {len(saved_purchases)}개 번호 저장 완료",
+            "round": round_number,
+            "saved_count": len(saved_purchases),
+            "duplicate_count": len(duplicates),
+            "purchases": saved_purchases,
+            "duplicates": duplicates,
+            "parsed_games": len(parsed_qr['games'])
+        }), 200
+
+    except Exception as e:
+        db.session.rollback()
+        current_app.logger.error(f"QR upload error: {e}")
+        return jsonify({"error": f"QR 코드 처리 중 오류: {str(e)}"}), 500
 
 
 @main_bp.get('/api/purchases/sync')

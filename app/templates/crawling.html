@@ -1378,8 +1378,22 @@ async function loadBasicStats() {
     const response = await fetch('/api/data-stats');
     const data = await response.json();
 
-    document.getElementById('missing-count').textContent = `${data.missing_count}회`;
-    document.getElementById('completion-rate').textContent = `${data.completion_rate}%`;
+    // API 에러 응답 처리
+    if (data.error) {
+      console.error('API error:', data.error);
+      document.getElementById('missing-count').textContent = '오류';
+      document.getElementById('completion-rate').textContent = '오류';
+      return;
+    }
+
+    // 정상 데이터 처리
+    document.getElementById('missing-count').textContent = `${data.missing_count || 0}회`;
+    document.getElementById('completion-rate').textContent = `${data.completion_rate || 0}%`;
+
+    // 경고 메시지가 있으면 콘솔에 표시
+    if (data.warning) {
+      console.warn('Data stats warning:', data.warning);
+    }
   } catch (error) {
     console.error('Failed to load basic stats:', error);
     document.getElementById('missing-count').textContent = '오류';

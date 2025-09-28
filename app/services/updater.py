@@ -193,11 +193,14 @@ def get_latest_round() -> Optional[int]:
             resp.raise_for_status()
             data = resp.json()
             return data.get("returnValue") == "success"
-        except Exception:
+        except Exception as e:
+            if r == 1:  # Only log for round 1 to avoid spam
+                print(f"Warning: Cannot connect to lottery API: {e}")
             return False
 
     # If round 1 doesn't exist, nothing to do
     if not exists(1):
+        print("Error: Cannot connect to lottery API to check round 1")
         return None
 
     # Exponential search to find upper bound where it fails
