@@ -38,3 +38,5 @@ build/
 
 #log 파일
 *.log
+
+*.json
