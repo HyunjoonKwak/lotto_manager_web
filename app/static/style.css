@@ -37,6 +37,61 @@ code { background: rgba(255,255,255,0.06); padding: 2px 6px; border-radius: 6px;
 .header { display: flex; align-items: baseline; justify-content: space-between; margin-bottom: 16px; }
 .muted { color: var(--muted); }
 
+/* Header with title and stats */
+.title-stats {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.title-stats h1 {
+  margin: 0;
+}
+
+.title-stats .stats {
+  display: flex;
+  gap: 12px;
+  align-items: center;
+}
+
+/* Lookup row for draw info */
+.lookup-row {
+  display: flex;
+  justify-content: center;
+  margin-top: 16px;
+}
+
+.lookup-simple {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+}
+
+.lookup-simple input {
+  padding: 8px 12px;
+  border-radius: 8px;
+  border: 1px solid var(--card-border);
+  background: white;
+  color: var(--fg);
+  width: 120px;
+}
+
+.btn-lookup {
+  background: var(--acc);
+  color: white;
+  border: none;
+  padding: 8px 16px;
+  border-radius: 8px;
+  cursor: pointer;
+  font-weight: 500;
+}
+
+.btn-lookup:hover {
+  background: #0056b3;
+  transform: translateY(-1px);
+  box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+}
+
 /* Main Content Layout */
 .main-content { display: flex; flex-direction: column; gap: 20px; }
 
@@ -632,6 +687,76 @@ button:hover {
   }
 }
 
+/* Winning Shops Section Styling */
+.shops-section {
+  margin-bottom: 24px;
+}
+
+.shops-section h4 {
+  margin: 0 0 12px 0;
+  color: var(--acc);
+  font-size: 1.1rem;
+}
+
+.section-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 12px;
+}
+
+.section-header h4 {
+  margin: 0;
+}
+
+.pagination-controls {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  gap: 16px;
+  margin-top: 16px;
+  padding: 16px 0;
+  border-top: 1px solid var(--card-border);
+}
+
+.page-display {
+  color: var(--muted);
+  font-weight: 500;
+  padding: 0 16px;
+  font-size: 0.9rem;
+}
+
+.quick-jump {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  gap: 8px;
+  margin-top: 12px;
+  font-size: 0.85rem;
+}
+
+.quick-jump span {
+  color: var(--muted);
+  margin-right: 4px;
+}
+
+.jump-btn {
+  background: #e3f2fd;
+  border: 1px solid #90caf9;
+  color: var(--acc);
+  padding: 4px 8px;
+  border-radius: 6px;
+  font-size: 0.8rem;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.jump-btn:hover {
+  background: var(--acc);
+  color: white;
+  border-color: var(--acc);
+}
+
 /* Shops Summary Styling */
 .shops-summary {
   margin-top: 8px;
@@ -663,6 +788,81 @@ button:hover {
   font-size: 0.85rem;
   color: var(--muted);
   margin-top: 4px;
+}
+
+/* Prize Statistics Styling */
+.prize-stats {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 16px;
+  margin-top: 16px;
+}
+
+.prize-stat {
+  background: linear-gradient(135deg, #f3e5f5 0%, #f8f9fa 100%);
+  border: 1px solid #ce93d8;
+  color: #6a1b9a;
+  font-weight: 600;
+  padding: 12px 16px;
+  border-radius: 8px;
+  box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+  flex: 1;
+  min-width: 200px;
+}
+
+.probability-stat {
+  background: linear-gradient(135deg, #e8f5e8 0%, #f8f9fa 100%);
+  border: 1px solid #81c784;
+  color: #2e7d32;
+}
+
+.stat-details {
+  margin-top: 8px;
+  font-size: 0.9rem;
+  line-height: 1.4;
+}
+
+.stat-expected, .stat-actual {
+  display: block;
+  margin: 4px 0;
+  font-weight: 500;
+}
+
+.stat-expected {
+  color: var(--muted);
+}
+
+.stat-actual {
+  color: var(--fg);
+  font-weight: 600;
+}
+
+.stat-analysis {
+  display: inline-block;
+  margin-top: 8px;
+  padding: 4px 12px;
+  border-radius: 16px;
+  font-size: 0.85rem;
+  font-weight: 600;
+  text-align: center;
+}
+
+.stat-analysis.lucky {
+  background: linear-gradient(135deg, #c8e6c9, #a5d6a7);
+  color: #1b5e20;
+  border: 1px solid #66bb6a;
+}
+
+.stat-analysis.unlucky {
+  background: linear-gradient(135deg, #ffcdd2, #f8bbd9);
+  color: #b71c1c;
+  border: 1px solid #e57373;
+}
+
+.stat-analysis.normal {
+  background: linear-gradient(135deg, #e1f5fe, #b3e5fc);
+  color: #0d47a1;
+  border: 1px solid #42a5f5;
 }
 
 /* Recommendations Styling */
@@ -846,5 +1046,26 @@ button:hover {
 
   .shortcut-btn {
     padding: 8px 12px;
+  }
+
+  /* Mobile Prize Statistics */
+  .prize-stats {
+    flex-direction: column;
+    gap: 12px;
+  }
+
+  .prize-stat {
+    min-width: auto;
+    padding: 10px 12px;
+  }
+
+  .stat-details {
+    font-size: 0.85rem;
+  }
+
+  .stat-analysis {
+    margin-top: 6px;
+    padding: 3px 8px;
+    font-size: 0.8rem;
   }
 }

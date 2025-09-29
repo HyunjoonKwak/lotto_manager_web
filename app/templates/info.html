@@ -39,6 +39,94 @@
         <span class="bonus-label">보너스</span>
       </div>
     </div>
+
+    <!-- 당첨금액 정보 섹션 -->
+    <div class="prize-info" id="prizeInfo">
+      <div class="prize-stats">
+        {% if latest.total_sales %}
+        <div class="prize-stat">
+          <span class="stat-label">총 판매액</span>
+          <span class="stat-value">{{ "{:,}".format(latest.total_sales) }}원</span>
+        </div>
+        <div class="prize-stat">
+          <span class="stat-label">총 판매수</span>
+          <span class="stat-value">{{ "{:,}".format(latest.total_sales // 1000) }}게임</span>
+        </div>
+        {% endif %}
+
+        {% if latest.first_prize_amount or latest.first_prize_winners %}
+        <div class="prize-stat highlight">
+          <span class="stat-label">1등</span>
+          <div class="stat-details">
+            {% if latest.first_prize_amount %}<span class="stat-amount">{{ "{:,}".format(latest.first_prize_amount) }}원</span>{% endif %}
+            {% if latest.first_prize_winners %}<span class="stat-winners">{{ latest.first_prize_winners }}명</span>{% endif %}
+          </div>
+        </div>
+        {% endif %}
+
+        {% if latest.total_sales and latest.first_prize_winners %}
+        <div class="prize-stat probability-stat">
+          <span class="stat-label">확률 분석</span>
+          <div class="stat-details">
+            {% set total_games = latest.total_sales // 1000 %}
+            {% set expected_winners = (total_games / 8145060) | round(1) %}
+            {% set actual_winners = latest.first_prize_winners %}
+            {% set probability_ratio = (actual_winners / expected_winners) if expected_winners > 0 else 0 %}
+
+            <span class="stat-expected">예상: {{ expected_winners }}명</span>
+            <span class="stat-actual">실제: {{ actual_winners }}명</span>
+            {% if probability_ratio > 1.5 %}
+              <span class="stat-analysis lucky">🍀 행운의 회차</span>
+            {% elif probability_ratio < 0.5 %}
+              <span class="stat-analysis unlucky">😅 아쉬운 회차</span>
+            {% else %}
+              <span class="stat-analysis normal">📊 평균적</span>
+            {% endif %}
+          </div>
+        </div>
+        {% endif %}
+
+        {% if latest.second_prize_amount or latest.second_prize_winners %}
+        <div class="prize-stat">
+          <span class="stat-label">2등</span>
+          <div class="stat-details">
+            {% if latest.second_prize_amount %}<span class="stat-amount">{{ "{:,}".format(latest.second_prize_amount) }}원</span>{% endif %}
+            {% if latest.second_prize_winners %}<span class="stat-winners">{{ latest.second_prize_winners }}명</span>{% endif %}
+          </div>
+        </div>
+        {% endif %}
+
+        {% if latest.third_prize_amount or latest.third_prize_winners %}
+        <div class="prize-stat">
+          <span class="stat-label">3등</span>
+          <div class="stat-details">
+            {% if latest.third_prize_amount %}<span class="stat-amount">{{ "{:,}".format(latest.third_prize_amount) }}원</span>{% endif %}
+            {% if latest.third_prize_winners %}<span class="stat-winners">{{ latest.third_prize_winners }}명</span>{% endif %}
+          </div>
+        </div>
+        {% endif %}
+
+        {% if latest.fourth_prize_amount or latest.fourth_prize_winners %}
+        <div class="prize-stat">
+          <span class="stat-label">4등</span>
+          <div class="stat-details">
+            {% if latest.fourth_prize_amount %}<span class="stat-amount">{{ "{:,}".format(latest.fourth_prize_amount) }}원</span>{% endif %}
+            {% if latest.fourth_prize_winners %}<span class="stat-winners">{{ latest.fourth_prize_winners }}명</span>{% endif %}
+          </div>
+        </div>
+        {% endif %}
+
+        {% if latest.fifth_prize_amount or latest.fifth_prize_winners %}
+        <div class="prize-stat">
+          <span class="stat-label">5등</span>
+          <div class="stat-details">
+            {% if latest.fifth_prize_amount %}<span class="stat-amount">{{ "{:,}".format(latest.fifth_prize_amount) }}원</span>{% endif %}
+            {% if latest.fifth_prize_winners %}<span class="stat-winners">{{ latest.fifth_prize_winners }}명</span>{% endif %}
+          </div>
+        </div>
+        {% endif %}
+      </div>
+    </div>
   </section>
 
   <!-- Latest Winning Shops -->
@@ -239,26 +327,144 @@
         ).join('');
         drawBonus.textContent = draw.bonus;
 
+        // 당첨금액 정보 업데이트
+        const prizeInfo = document.getElementById('prizeInfo');
+        if (prizeInfo) {
+          let prizeHtml = '<div class="prize-stats">';
+
+          // 총 판매액
+          if (draw.total_sales) {
+            prizeHtml += `
+              <div class="prize-stat">
+                <span class="stat-label">총 판매액</span>
+                <span class="stat-value">${draw.total_sales.toLocaleString()}원</span>
+              </div>`;
+
+            // 총 판매수 (판매액을 1000으로 나눈 값)
+            prizeHtml += `
+              <div class="prize-stat">
+                <span class="stat-label">총 판매수</span>
+                <span class="stat-value">${Math.floor(draw.total_sales / 1000).toLocaleString()}게임</span>
+              </div>`;
+          }
+
+          // 1등 정보
+          if (draw.first_prize_amount || draw.first_prize_winners) {
+            prizeHtml += `
+              <div class="prize-stat highlight">
+                <span class="stat-label">1등</span>
+                <div class="stat-details">
+                  ${draw.first_prize_amount ? `<span class="stat-amount">${draw.first_prize_amount.toLocaleString()}원</span>` : ''}
+                  ${draw.first_prize_winners ? `<span class="stat-winners">${draw.first_prize_winners}명</span>` : ''}
+                </div>
+              </div>`;
+          }
+
+          // 확률 분석
+          if (draw.total_sales && draw.first_prize_winners) {
+            const totalGames = Math.floor(draw.total_sales / 1000);
+            const expectedWinners = Math.round((totalGames / 8145060) * 10) / 10; // 소수점 1자리
+            const actualWinners = draw.first_prize_winners;
+            const probabilityRatio = expectedWinners > 0 ? actualWinners / expectedWinners : 0;
+
+            let analysisText = '';
+            let analysisClass = '';
+            if (probabilityRatio > 1.5) {
+              analysisText = '🍀 행운의 회차';
+              analysisClass = 'lucky';
+            } else if (probabilityRatio < 0.5) {
+              analysisText = '😅 아쉬운 회차';
+              analysisClass = 'unlucky';
+            } else {
+              analysisText = '📊 평균적';
+              analysisClass = 'normal';
+            }
+
+            prizeHtml += `
+              <div class="prize-stat probability-stat">
+                <span class="stat-label">확률 분석</span>
+                <div class="stat-details">
+                  <span class="stat-expected">예상: ${expectedWinners}명</span>
+                  <span class="stat-actual">실제: ${actualWinners}명</span>
+                  <span class="stat-analysis ${analysisClass}">${analysisText}</span>
+                </div>
+              </div>`;
+          }
+
+          // 2등 정보
+          if (draw.second_prize_amount || draw.second_prize_winners) {
+            prizeHtml += `
+              <div class="prize-stat">
+                <span class="stat-label">2등</span>
+                <div class="stat-details">
+                  ${draw.second_prize_amount ? `<span class="stat-amount">${draw.second_prize_amount.toLocaleString()}원</span>` : ''}
+                  ${draw.second_prize_winners ? `<span class="stat-winners">${draw.second_prize_winners}명</span>` : ''}
+                </div>
+              </div>`;
+          }
+
+          // 3등 정보
+          if (draw.third_prize_amount || draw.third_prize_winners) {
+            prizeHtml += `
+              <div class="prize-stat">
+                <span class="stat-label">3등</span>
+                <div class="stat-details">
+                  ${draw.third_prize_amount ? `<span class="stat-amount">${draw.third_prize_amount.toLocaleString()}원</span>` : ''}
+                  ${draw.third_prize_winners ? `<span class="stat-winners">${draw.third_prize_winners}명</span>` : ''}
+                </div>
+              </div>`;
+          }
+
+          // 4등 정보
+          if (draw.fourth_prize_amount || draw.fourth_prize_winners) {
+            prizeHtml += `
+              <div class="prize-stat">
+                <span class="stat-label">4등</span>
+                <div class="stat-details">
+                  ${draw.fourth_prize_amount ? `<span class="stat-amount">${draw.fourth_prize_amount.toLocaleString()}원</span>` : ''}
+                  ${draw.fourth_prize_winners ? `<span class="stat-winners">${draw.fourth_prize_winners}명</span>` : ''}
+                </div>
+              </div>`;
+          }
+
+          // 5등 정보
+          if (draw.fifth_prize_amount || draw.fifth_prize_winners) {
+            prizeHtml += `
+              <div class="prize-stat">
+                <span class="stat-label">5등</span>
+                <div class="stat-details">
+                  ${draw.fifth_prize_amount ? `<span class="stat-amount">${draw.fifth_prize_amount.toLocaleString()}원</span>` : ''}
+                  ${draw.fifth_prize_winners ? `<span class="stat-winners">${draw.fifth_prize_winners}명</span>` : ''}
+                </div>
+              </div>`;
+          }
+
+          prizeHtml += '</div>';
+          prizeInfo.innerHTML = prizeHtml;
+        }
+
         // 당첨점 정보 업데이트
         shopsTitle.innerHTML = `🏪 ${draw.round}회 당첨점 정보`;
 
-        if (shops && shops.length > 0) {
-          const rank1Shops = shops.filter(s => s.rank === '1');
-          const rank2Shops = shops.filter(s => s.rank === '2');
-
+        if (shops && (shops.rank1 || shops.rank2)) {
           let shopsHtml = '';
 
-          if (rank1Shops.length > 0) {
+          // 1등 당첨점
+          if (shops.rank1 && shops.rank1.length > 0) {
             shopsHtml += `
               <div class="shops-section">
-                <h4>🥇 1등 당첨점 (${rank1Shops.length}개)</h4>
+                <h4>🥇 1등 당첨점 (${shops.rank1.length}개)</h4>
                 <div class="table-container">
                   <table>
-                    <thead><tr><th>상호</th><th>주소</th></tr></thead>
+                    <thead>
+                      <tr><th>순번</th><th>상호</th><th>구분</th><th>주소</th></tr>
+                    </thead>
                     <tbody>
-                      ${rank1Shops.map(shop => `
+                      ${shops.rank1.map(shop => `
                         <tr>
+                          <td>${shop.sequence || ''}</td>
                           <td><strong>${shop.name}</strong></td>
+                          <td><span class="badge-method">${shop.method || '구분없음'}</span></td>
                           <td>${shop.address || ''}</td>
                         </tr>
                       `).join('')}
@@ -268,37 +474,74 @@
               </div>`;
           }
 
-          if (rank2Shops.length > 0) {
-            // 2등 당첨점 페이지네이션 (10개씩)
-            window.currentRank2Shops = rank2Shops;
-            window.currentRank2Page = 1;
-            window.rank2PerPage = 10;
+          // 2등 당첨점 (30개씩 페이징)
+          if (shops.rank2 && shops.rank2.length > 0) {
+            const rank2Total = shops.rank2_total || shops.rank2.length;
+            const currentPage = shops.rank2_page || 1;
+            const totalPages = shops.rank2_total_pages || 1;
+
+            // 전역 변수에 현재 상태 저장 (페이징용)
+            window.currentRound = draw.round;
+            window.currentRank2Page = currentPage;
+            window.rank2TotalPages = totalPages;
 
             shopsHtml += `
               <div class="shops-section" id="rank2-section">
                 <div class="section-header">
-                  <h4>🥈 2등 당첨점 (${rank2Shops.length}개)</h4>
-                  ${rank2Shops.length > 10 ? `<div class="page-info">페이지 1 / ${Math.ceil(rank2Shops.length / 10)}</div>` : ''}
+                  <h4>🥈 2등 당첨점 (총 ${rank2Total}개)</h4>
+                  ${totalPages > 1 ? `
+                    <div class="page-info">
+                      <span>페이지 ${currentPage}/${totalPages}</span>
+                    </div>
+                  ` : ''}
                 </div>
-                <div class="table-container" id="rank2Table">
+                <div class="table-container">
                   <table>
-                    <thead><tr><th>상호</th><th>주소</th></tr></thead>
+                    <thead>
+                      <tr><th>순번</th><th>상호</th><th>주소</th></tr>
+                    </thead>
                     <tbody id="rank2TableBody">
-                      ${rank2Shops.slice(0, 10).map(shop => `
+                      ${shops.rank2.map(shop => `
                         <tr>
-                          <td><strong>${shop.name}</strong></td>
+                          <td>${shop.sequence || ''}</td>
+                          <td>${shop.name}</td>
                           <td>${shop.address || ''}</td>
                         </tr>
                       `).join('')}
                     </tbody>
                   </table>
                 </div>
-                ${rank2Shops.length > 10 ? `
+                ${totalPages > 1 ? `
                   <div class="pagination-controls">
-                    <button type="button" class="page-btn prev-btn" id="rank2PrevBtn" onclick="changeRank2PageDynamic(-1)" disabled>◀ 이전</button>
-                    <span class="page-display" id="rank2PageDisplay">1 / ${Math.ceil(rank2Shops.length / 10)}</span>
-                    <button type="button" class="page-btn next-btn" id="rank2NextBtn" onclick="changeRank2PageDynamic(1)" ${rank2Shops.length <= 10 ? 'disabled' : ''}>다음 ▶</button>
+                    <button
+                      type="button"
+                      class="page-btn prev-btn"
+                      onclick="changeDynamicRank2Page(${currentPage - 1})"
+                      ${currentPage <= 1 ? 'disabled' : ''}>
+                      ◀ 이전
+                    </button>
+
+                    <span class="page-display" id="dynamicPageDisplay">${currentPage} / ${totalPages}</span>
+
+                    <button
+                      type="button"
+                      class="page-btn next-btn"
+                      onclick="changeDynamicRank2Page(${currentPage + 1})"
+                      ${currentPage >= totalPages ? 'disabled' : ''}>
+                      다음 ▶
+                    </button>
                   </div>
+
+                  ${totalPages > 3 ? `
+                    <div class="quick-jump">
+                      <span>빠른 이동:</span>
+                      <button type="button" class="jump-btn" onclick="changeDynamicRank2Page(1)">1</button>
+                      ${totalPages > 2 ? `
+                        <button type="button" class="jump-btn" onclick="changeDynamicRank2Page(${Math.ceil(totalPages / 2)})">${Math.ceil(totalPages / 2)}</button>
+                      ` : ''}
+                      <button type="button" class="jump-btn" onclick="changeDynamicRank2Page(${totalPages})">${totalPages}</button>
+                    </div>
+                  ` : ''}
                 ` : ''}
               </div>`;
           }
@@ -322,41 +565,89 @@
     });
   }
 
-  // 동적 2등 당첨점 페이지네이션
-  function changeRank2PageDynamic(direction) {
-    if (!window.currentRank2Shops) return;
+  // 동적 2등 당첨점 페이징
+  function changeDynamicRank2Page(newPage) {
+    if (!window.currentRound || !newPage || newPage < 1 || newPage > window.rank2TotalPages) {
+      return;
+    }
 
-    const totalPages = Math.ceil(window.currentRank2Shops.length / window.rank2PerPage);
-    const newPage = window.currentRank2Page + direction;
+    // API 호출하여 해당 페이지 데이터 가져오기
+    const drawTitle = document.getElementById('drawTitle');
+    const pageInfo = document.querySelector('#rank2-section .page-info span');
 
-    if (newPage < 1 || newPage > totalPages) return;
+    // 로딩 상태 표시
+    if (pageInfo) {
+      pageInfo.textContent = '로딩 중...';
+    }
 
-    window.currentRank2Page = newPage;
+    fetch(`/api/draw-info/${window.currentRound}?page=${newPage}`)
+    .then(response => response.json())
+    .then(data => {
+      if (data.success && data.shops && data.shops.rank2) {
+        const shops = data.shops;
+        const currentPage = shops.rank2_page || newPage;
+        const totalPages = shops.rank2_total_pages || 1;
 
-    // 테이블 업데이트
-    const startIdx = (newPage - 1) * window.rank2PerPage;
-    const endIdx = startIdx + window.rank2PerPage;
-    const pageShops = window.currentRank2Shops.slice(startIdx, endIdx);
+        // 전역 변수 업데이트
+        window.currentRank2Page = currentPage;
 
-    const tbody = document.getElementById('rank2TableBody');
-    tbody.innerHTML = pageShops.map(shop => `
-      <tr>
-        <td><strong>${shop.name}</strong></td>
-        <td>${shop.address || ''}</td>
-      </tr>
-    `).join('');
+        // 테이블 업데이트
+        const tbody = document.getElementById('rank2TableBody');
+        if (tbody) {
+          tbody.innerHTML = shops.rank2.map(shop => `
+            <tr>
+              <td>${shop.sequence || ''}</td>
+              <td>${shop.name}</td>
+              <td>${shop.address || ''}</td>
+            </tr>
+          `).join('');
+        }
 
-    // 페이지 정보 및 버튼 상태 업데이트
-    const pageDisplay = document.getElementById('rank2PageDisplay');
-    const pageInfo = document.querySelector('.page-info');
-    const prevBtn = document.getElementById('rank2PrevBtn');
-    const nextBtn = document.getElementById('rank2NextBtn');
+        // 페이지 정보 업데이트
+        if (pageInfo) {
+          pageInfo.textContent = `페이지 ${currentPage}/${totalPages}`;
+        }
 
-    if (pageDisplay) pageDisplay.textContent = `${newPage} / ${totalPages}`;
-    if (pageInfo) pageInfo.textContent = `페이지 ${newPage} / ${totalPages}`;
+        const pageDisplay = document.getElementById('dynamicPageDisplay');
+        if (pageDisplay) {
+          pageDisplay.textContent = `${currentPage} / ${totalPages}`;
+        }
 
-    if (prevBtn) prevBtn.disabled = newPage <= 1;
-    if (nextBtn) nextBtn.disabled = newPage >= totalPages;
+        // 버튼 상태 업데이트
+        const prevBtn = document.querySelector('#rank2-section .prev-btn');
+        const nextBtn = document.querySelector('#rank2-section .next-btn');
+
+        if (prevBtn) {
+          prevBtn.disabled = currentPage <= 1;
+          prevBtn.onclick = () => changeDynamicRank2Page(currentPage - 1);
+        }
+
+        if (nextBtn) {
+          nextBtn.disabled = currentPage >= totalPages;
+          nextBtn.onclick = () => changeDynamicRank2Page(currentPage + 1);
+        }
+
+        // 빠른 이동 버튼 업데이트
+        const jumpBtns = document.querySelectorAll('#rank2-section .jump-btn');
+        jumpBtns.forEach(btn => {
+          const targetPage = parseInt(btn.textContent);
+          btn.onclick = () => changeDynamicRank2Page(targetPage);
+        });
+
+      } else {
+        if (pageInfo) {
+          pageInfo.textContent = '로딩 실패';
+        }
+        alert('페이지 로딩 중 오류가 발생했습니다.');
+      }
+    })
+    .catch(error => {
+      console.error('Pagination error:', error);
+      if (pageInfo) {
+        pageInfo.textContent = '로딩 실패';
+      }
+      alert('페이지 로딩 중 오류가 발생했습니다.');
+    });
   }
 
   // Initialize page
@@ -596,6 +887,100 @@
     flex-direction: column;
     gap: 0.5rem;
   }
+
+  .prize-stats {
+    grid-template-columns: 1fr;
+    gap: 0.75rem;
+  }
+
+  .prize-stat {
+    padding: 0.75rem;
+  }
+
+  .stat-details {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 0.25rem;
+  }
+}
+
+/* 당첨금액 정보 스타일 */
+.prize-info {
+  margin-top: 1.5rem;
+  padding: 1.5rem;
+  background: linear-gradient(135deg, #f8f9fa, #e9ecef);
+  border-radius: 8px;
+  border: 1px solid #dee2e6;
+}
+
+.prize-stats {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  gap: 1rem;
+}
+
+.prize-stat {
+  background: white;
+  border: 1px solid #e9ecef;
+  border-radius: 6px;
+  padding: 1rem;
+  text-align: center;
+  transition: transform 0.2s ease, box-shadow 0.2s ease;
+}
+
+.prize-stat:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+}
+
+.prize-stat.highlight {
+  background: linear-gradient(135deg, #fff3cd, #ffeaa7);
+  border-color: #ffc107;
+  font-weight: 600;
+}
+
+.stat-label {
+  display: block;
+  font-size: 0.9rem;
+  color: #6c757d;
+  margin-bottom: 0.5rem;
+  font-weight: 500;
+}
+
+.stat-value {
+  display: block;
+  font-size: 1.1rem;
+  font-weight: 700;
+  color: #495057;
+}
+
+.stat-details {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.25rem;
+}
+
+.stat-amount {
+  font-size: 1.1rem;
+  font-weight: 700;
+  color: #28a745;
+}
+
+.stat-winners {
+  font-size: 0.9rem;
+  color: #6c757d;
+  background: #f8f9fa;
+  padding: 0.2rem 0.5rem;
+  border-radius: 0.25rem;
+}
+
+.prize-stat.highlight .stat-amount {
+  color: #d39e00;
+}
+
+.prize-stat.highlight .stat-winners {
+  background: rgba(255, 255, 255, 0.7);
 }
 </style>
 {% endblock %}

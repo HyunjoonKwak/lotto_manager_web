@@ -76,6 +76,22 @@ class Draw(db.Model):
     bonus = db.Column(db.Integer, nullable=False)
     created_at = db.Column(db.DateTime, nullable=False, default=datetime.utcnow)
 
+    # 당첨 정보 추가
+    total_sales = db.Column(db.BigInteger, nullable=True)  # 총 복권 판매액 (원)
+    first_prize_amount = db.Column(db.BigInteger, nullable=True)  # 1등 당첨금액 (원)
+    first_prize_winners = db.Column(db.Integer, nullable=True)  # 1등 당첨자수
+    second_prize_amount = db.Column(db.BigInteger, nullable=True)  # 2등 당첨금액 (원)
+    second_prize_winners = db.Column(db.Integer, nullable=True)  # 2등 당첨자수
+    third_prize_amount = db.Column(db.BigInteger, nullable=True)  # 3등 당첨금액 (원)
+    third_prize_winners = db.Column(db.Integer, nullable=True)  # 3등 당첨자수
+    fourth_prize_amount = db.Column(db.BigInteger, nullable=True)  # 4등 당첨금액 (원)
+    fourth_prize_winners = db.Column(db.Integer, nullable=True)  # 4등 당첨자수
+    fifth_prize_amount = db.Column(db.BigInteger, nullable=True)  # 5등 당첨금액 (원)
+    fifth_prize_winners = db.Column(db.Integer, nullable=True)  # 5등 당첨자수
+
+    # 기타 정보
+    total_tickets_sold = db.Column(db.BigInteger, nullable=True)  # 총 판매 게임수
+
     def numbers_list(self) -> List[int]:
         return [int(x) for x in self.numbers.split(",") if x]
 

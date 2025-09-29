@@ -2,141 +2,307 @@
 
 {% block content %}
 <div class="header">
-  <div>
-    <h1>🎯 {{ draw.round }}회 당첨정보</h1>
-    <div class="muted">{{ draw.draw_date if draw.draw_date else '추첨일 미상' }}</div>
+  <div class="title-stats">
+    <h1>🎯 {{ latest.round }}회 추첨결과</h1>
+    <div class="stats">
+      <div class="stat">총 회차: {{ total_rounds }}</div>
+      <a href="{{ url_for('main.info_page') }}" class="btn-secondary">← 정보조회</a>
+    </div>
   </div>
-  <div class="stats">
-    <a href="{{ url_for('main.info_page') }}" class="btn-secondary">← 정보조회</a>
+  <div class="lookup-row">
+    <div class="lookup-simple">
+      <input type="number" id="lookupRound" placeholder="회차 입력" min="1" max="{{ latest.round if latest else 1000 }}" value="{{ latest.round }}">
+      <button type="button" onclick="lookupRound()" class="btn-lookup">조회</button>
+    </div>
   </div>
 </div>
 
+<!-- Main Content Grid -->
 <div class="main-content">
 
-  <!-- Draw Result Card -->
-  <section class="card highlight-card">
+  <!-- Current Draw Results with Winning Shops -->
+  {% if latest %}
+  <section class="card highlight-card" id="currentDrawSection">
     <div class="card-header">
-      <h2>🎲 {{ draw.round }}회 당첨번호</h2>
-      <span class="draw-date">{{ draw.draw_date if draw.draw_date else '' }}</span>
+      <h2 id="drawTitle">🎯 {{ latest.round }}회 추첨결과</h2>
+      <span class="draw-date" id="drawDate">{{ latest.draw_date if latest.draw_date else '' }}</span>
     </div>
     <div class="draw-result">
-      <div class="numbers">
-        {% for num in draw.numbers_list() %}
+      <div class="numbers" id="drawNumbers">
+        {% for num in latest.numbers_list() %}
           <span class="number-ball">{{ num }}</span>
         {% endfor %}
       </div>
       <div class="bonus-section">
         <span class="plus">+</span>
-        <span class="bonus-ball">{{ draw.bonus }}</span>
+        <span class="bonus-ball" id="drawBonus">{{ latest.bonus }}</span>
         <span class="bonus-label">보너스</span>
+      </div>
+    </div>
+
+    <!-- 당첨금액 정보 섹션 -->
+    <div class="prize-info" id="prizeInfo">
+      <div class="prize-stats">
+        {% if latest.total_sales %}
+        <div class="prize-stat">
+          <span class="stat-label">총 판매액</span>
+          <span class="stat-value">{{ "{:,}".format(latest.total_sales) }}원</span>
+        </div>
+        <div class="prize-stat">
+          <span class="stat-label">총 판매수</span>
+          <span class="stat-value">{{ "{:,}".format(latest.total_sales // 1000) }}게임</span>
+        </div>
+        {% endif %}
+
+        {% if latest.first_prize_amount or latest.first_prize_winners %}
+        <div class="prize-stat highlight">
+          <span class="stat-label">1등</span>
+          <div class="stat-details">
+            {% if latest.first_prize_amount %}<span class="stat-amount">{{ "{:,}".format(latest.first_prize_amount) }}원</span>{% endif %}
+            {% if latest.first_prize_winners %}<span class="stat-winners">{{ latest.first_prize_winners }}명</span>{% endif %}
+          </div>
+        </div>
+        {% endif %}
+
+        {% if latest.total_sales and latest.first_prize_winners %}
+        <div class="prize-stat probability-stat">
+          <span class="stat-label">확률 분석</span>
+          <div class="stat-details">
+            {% set total_games = latest.total_sales // 1000 %}
+            {% set expected_winners = (total_games / 8145060) | round(1) %}
+            {% set actual_winners = latest.first_prize_winners %}
+            {% set probability_ratio = (actual_winners / expected_winners) if expected_winners > 0 else 0 %}
+
+            <span class="stat-expected">예상: {{ expected_winners }}명</span>
+            <span class="stat-actual">실제: {{ actual_winners }}명</span>
+            {% if probability_ratio > 1.5 %}
+              <span class="stat-analysis lucky">🍀 행운의 회차</span>
+            {% elif probability_ratio < 0.5 %}
+              <span class="stat-analysis unlucky">😅 아쉬운 회차</span>
+            {% else %}
+              <span class="stat-analysis normal">📊 평균적</span>
+            {% endif %}
+          </div>
+        </div>
+        {% endif %}
+
+        {% if latest.second_prize_amount or latest.second_prize_winners %}
+        <div class="prize-stat">
+          <span class="stat-label">2등</span>
+          <div class="stat-details">
+            {% if latest.second_prize_amount %}<span class="stat-amount">{{ "{:,}".format(latest.second_prize_amount) }}원</span>{% endif %}
+            {% if latest.second_prize_winners %}<span class="stat-winners">{{ latest.second_prize_winners }}명</span>{% endif %}
+          </div>
+        </div>
+        {% endif %}
+
+        {% if latest.third_prize_amount or latest.third_prize_winners %}
+        <div class="prize-stat">
+          <span class="stat-label">3등</span>
+          <div class="stat-details">
+            {% if latest.third_prize_amount %}<span class="stat-amount">{{ "{:,}".format(latest.third_prize_amount) }}원</span>{% endif %}
+            {% if latest.third_prize_winners %}<span class="stat-winners">{{ latest.third_prize_winners }}명</span>{% endif %}
+          </div>
+        </div>
+        {% endif %}
+
+        {% if latest.fourth_prize_amount or latest.fourth_prize_winners %}
+        <div class="prize-stat">
+          <span class="stat-label">4등</span>
+          <div class="stat-details">
+            {% if latest.fourth_prize_amount %}<span class="stat-amount">{{ "{:,}".format(latest.fourth_prize_amount) }}원</span>{% endif %}
+            {% if latest.fourth_prize_winners %}<span class="stat-winners">{{ latest.fourth_prize_winners }}명</span>{% endif %}
+          </div>
+        </div>
+        {% endif %}
+
+        {% if latest.fifth_prize_amount or latest.fifth_prize_winners %}
+        <div class="prize-stat">
+          <span class="stat-label">5등</span>
+          <div class="stat-details">
+            {% if latest.fifth_prize_amount %}<span class="stat-amount">{{ "{:,}".format(latest.fifth_prize_amount) }}원</span>{% endif %}
+            {% if latest.fifth_prize_winners %}<span class="stat-winners">{{ latest.fifth_prize_winners }}명</span>{% endif %}
+          </div>
+        </div>
+        {% endif %}
       </div>
     </div>
   </section>
 
+  <!-- Current Round Winning Shops -->
+  <section class="card" id="shopsSection">
+    <div class="card-header">
+      <h2 id="shopsTitle">🏪 {{ latest.round }}회 당첨점 정보</h2>
+    </div>
+    <div id="shopsContent">
+
+    {% if shops_rank1 %}
+    <div class="shops-section">
+      <h4>🥇 1등 당첨점 ({{ shops_rank1|length }}개)</h4>
+      <div class="table-container">
+        <table>
+          <thead>
+            <tr><th>순번</th><th>상호</th><th>구분</th><th>주소</th></tr>
+          </thead>
+          <tbody>
+            {% for shop in shops_rank1 %}
+            <tr>
+              <td>{{ shop.sequence or '' }}</td>
+              <td><strong>{{ shop.name }}</strong></td>
+              <td><span class="badge-method">{{ shop.method or '구분없음' }}</span></td>
+              <td>{{ shop.address }}</td>
+            </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    </div>
+    {% endif %}
+
+    {% if shops_rank2_total > 0 %}
+    <div id="rank2-section" class="shops-section">
+      <div class="section-header">
+        <h4>🥈 2등 당첨점 (총 {{ shops_rank2_total }}개)</h4>
+        {% if shops_rank2_total_pages > 1 %}
+        <div class="page-info">
+          <span>페이지 {{ shops_rank2_page }}/{{ shops_rank2_total_pages }}</span>
+        </div>
+        {% endif %}
+      </div>
+
+      <div class="table-container">
+        <table>
+          <thead>
+            <tr><th>순번</th><th>상호</th><th>주소</th></tr>
+          </thead>
+          <tbody>
+            {% for shop in shops_rank2 %}
+            <tr>
+              <td>{{ shop.sequence or '' }}</td>
+              <td>{{ shop.name }}</td>
+              <td>{{ shop.address }}</td>
+            </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+
+      {% if shops_rank2_total_pages > 1 %}
+      <div class="pagination-controls">
+        <button
+          type="button"
+          class="page-btn prev-btn"
+          onclick="changeRank2Page({{ shops_rank2_page - 1 }})"
+          {% if shops_rank2_page <= 1 %}disabled{% endif %}>
+          ◀ 이전
+        </button>
+
+        <span class="page-display">{{ shops_rank2_page }} / {{ shops_rank2_total_pages }}</span>
+
+        <button
+          type="button"
+          class="page-btn next-btn"
+          onclick="changeRank2Page({{ shops_rank2_page + 1 }})"
+          {% if shops_rank2_page >= shops_rank2_total_pages %}disabled{% endif %}>
+          다음 ▶
+        </button>
+      </div>
+
+      {% if shops_rank2_total_pages > 3 %}
+      <div class="quick-jump">
+        <span>빠른 이동:</span>
+        <button type="button" class="jump-btn" onclick="changeRank2Page(1)">1</button>
+        {% if shops_rank2_total_pages > 2 %}
+          <button type="button" class="jump-btn" onclick="changeRank2Page({{ (shops_rank2_total_pages + 1) // 2 }})">{{ (shops_rank2_total_pages + 1) // 2 }}</button>
+        {% endif %}
+        <button type="button" class="jump-btn" onclick="changeRank2Page({{ shops_rank2_total_pages }})">{{ shops_rank2_total_pages }}</button>
+      </div>
+      {% endif %}
+      {% endif %}
+    </div>
+    {% endif %}
+
+    {% if not shops_rank1 and not shops_rank2 %}
+    <div class="info-box">
+      <p>아직 당첨점 정보가 수집되지 않았습니다.</p>
+    </div>
+    {% endif %}
+    </div>
+  </section>
+  {% else %}
+  <section class="card error-card">
+    <h2>⚠️ 데이터 없음</h2>
+    <p>해당 회차의 추첨 결과 데이터가 없습니다. <a href="{{ url_for('main.info_page') }}">정보조회</a>로 돌아가거나 <a href="{{ url_for('main.crawling_page') }}">크롤링 페이지</a>에서 데이터를 업데이트해주세요.</p>
+  </section>
+  {% endif %}
+
   <!-- Navigation -->
   <section class="card">
+    <div class="card-header">
+      <h2>🔄 회차 이동</h2>
+    </div>
     <div style="display: flex; justify-content: space-between; align-items: center; padding: 1rem 0;">
       <div style="display: flex; align-items: center; gap: 1rem;">
-        {% if draw.round > 1 %}
-          <a href="{{ url_for('main.draw_info') }}?round={{ draw.round - 1 }}" class="btn-secondary">
-            ← {{ draw.round - 1 }}회
+        {% if latest and latest.round > 1 %}
+          <a href="{{ url_for('main.draw_info') }}?round={{ latest.round - 1 }}" class="btn-secondary">
+            ← {{ latest.round - 1 }}회
           </a>
         {% endif %}
+        {% if latest %}
         <div style="font-size: 1.2rem; font-weight: bold; color: #667eea; padding: 0 1rem;">
-          {{ draw.round }}회
+          {{ latest.round }}회
         </div>
-        <a href="{{ url_for('main.draw_info') }}?round={{ draw.round + 1 }}" class="btn-secondary">
-          {{ draw.round + 1 }}회 →
+        <a href="{{ url_for('main.draw_info') }}?round={{ latest.round + 1 }}" class="btn-secondary">
+          {{ latest.round + 1 }}회 →
         </a>
+        {% endif %}
       </div>
 
       <form method="get" action="{{ url_for('main.draw_info') }}" style="display: flex; gap: 0.5rem; align-items: center;">
-        <input type="number" name="round" min="1" max="9999" value="{{ draw.round }}" placeholder="회차" style="width: 80px; padding: 0.5rem; border: 1px solid #ddd; border-radius: 0.25rem;" />
+        <input type="number" name="round" min="1" max="9999" value="{{ latest.round if latest else '' }}" placeholder="회차" style="width: 80px; padding: 0.5rem; border: 1px solid #ddd; border-radius: 0.25rem;" />
         <button type="submit" class="btn-accent">이동</button>
       </form>
     </div>
   </section>
 
-  <!-- Number Analysis -->
-  <section class="card">
-    <div class="card-header">
-      <h2>📊 번호 분석</h2>
-    </div>
+  <!-- Footer -->
+  <div class="footer">
+    <p>헬스체크: <code><a href="/health">/health</a></code></p>
+  </div>
 
-    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 2rem;">
-      <div>
-        <h3 style="margin-bottom: 1rem; color: #333;">홀/짝 분포</h3>
-        {% set numbers = draw.numbers_list() %}
-        {% set odd_numbers = [] %}
-        {% set even_numbers = [] %}
-        {% for num in numbers %}
-          {% if num % 2 == 1 %}{% set _ = odd_numbers.append(num) %}
-          {% else %}{% set _ = even_numbers.append(num) %}
-          {% endif %}
-        {% endfor %}
-        <div style="display: flex; flex-direction: column; gap: 1rem;">
-          <div style="display: flex; align-items: center; gap: 1rem;">
-            <span style="min-width: 40px; font-weight: 500;">홀수:</span>
-            <span style="min-width: 30px; font-size: 0.9rem; color: #666;">{{ odd_numbers | length }}개</span>
-            <span style="display: flex; gap: 0.25rem;">
-              {% for num in odd_numbers %}
-                <span style="display: inline-block; width: 24px; height: 24px; border-radius: 50%; color: white; font-size: 0.7rem; font-weight: bold; text-align: center; line-height: 24px; background: #e74c3c;">{{ num }}</span>
-              {% endfor %}
-            </span>
-          </div>
-          <div style="display: flex; align-items: center; gap: 1rem;">
-            <span style="min-width: 40px; font-weight: 500;">짝수:</span>
-            <span style="min-width: 30px; font-size: 0.9rem; color: #666;">{{ even_numbers | length }}개</span>
-            <span style="display: flex; gap: 0.25rem;">
-              {% for num in even_numbers %}
-                <span style="display: inline-block; width: 24px; height: 24px; border-radius: 50%; color: white; font-size: 0.7rem; font-weight: bold; text-align: center; line-height: 24px; background: #3498db;">{{ num }}</span>
-              {% endfor %}
-            </span>
-          </div>
-        </div>
-      </div>
+</div> <!-- End main-content -->
 
-      <div>
-        <h3 style="margin-bottom: 1rem; color: #333;">세부 정보</h3>
-        <div style="display: grid; gap: 0.5rem;">
-          <div style="display: flex; justify-content: space-between; padding: 0.5rem; background: #f8f9fa; border-radius: 0.25rem;">
-            <span style="font-weight: 500; color: #666;">합계:</span>
-            <span style="font-weight: bold; color: #333;">{{ numbers | sum }}</span>
-          </div>
-          <div style="display: flex; justify-content: space-between; padding: 0.5rem; background: #f8f9fa; border-radius: 0.25rem;">
-            <span style="font-weight: 500; color: #666;">평균:</span>
-            <span style="font-weight: bold; color: #333;">{{ "%.1f" | format(numbers | sum / 6) }}</span>
-          </div>
-          <div style="display: flex; justify-content: space-between; padding: 0.5rem; background: #f8f9fa; border-radius: 0.25rem;">
-            <span style="font-weight: 500; color: #666;">범위:</span>
-            <span style="font-weight: bold; color: #333;">{{ numbers | min }} ~ {{ numbers | max }}</span>
-          </div>
-          <div style="display: flex; justify-content: space-between; padding: 0.5rem; background: #f8f9fa; border-radius: 0.25rem;">
-            <span style="font-weight: 500; color: #666;">보너스:</span>
-            <span style="font-weight: bold; color: #333;">{{ draw.bonus }}</span>
-          </div>
-        </div>
-      </div>
-    </div>
-  </section>
+<script>
+  function changeRank2Page(newPage) {
+    if (newPage < 1) return;
 
-  <!-- Quick Actions -->
-  <section class="card">
-    <div class="card-header">
-      <h2>⚡ 빠른 작업</h2>
-    </div>
-    <div class="action-groups">
-      <div class="action-group">
-        <h3>🏪 당첨점포 보기</h3>
-        <div class="button-row">
-          <form class="action-form" method="get" action="/">
-            <input type="hidden" name="shops_round" value="{{ draw.round }}" />
-            <button type="submit" class="btn-accent">{{ draw.round }}회 당첨점포 보기</button>
-          </form>
-        </div>
-      </div>
-    </div>
-  </section>
+    // Get current URL parameters
+    const urlParams = new URLSearchParams(window.location.search);
+    urlParams.set('rank2_page', newPage);
 
-</div>
+    // Navigate with new page parameter
+    window.location.href = `${window.location.pathname}?${urlParams.toString()}#rank2-section`;
+  }
+
+  // 특정회차 조회
+  function lookupRound() {
+    const roundInput = document.getElementById('lookupRound');
+    const round = parseInt(roundInput.value);
+
+    if (!round || round < 1) {
+      alert('유효한 회차 번호를 입력해주세요.');
+      return;
+    }
+
+    // 직접 draw-info 페이지로 이동
+    window.location.href = `{{ url_for('main.draw_info') }}?round=${round}`;
+  }
+
+  // 엔터키 지원
+  document.getElementById('lookupRound').addEventListener('keypress', function(e) {
+    if (e.key === 'Enter') {
+      lookupRound();
+    }
+  });
+</script>
 {% endblock %}

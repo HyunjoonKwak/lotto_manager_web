@@ -33,9 +33,39 @@ def perform_update(round_no: int, data_type: str = 'both') -> dict:
                 round=round_no,
                 draw_date=data["draw_date"],
                 numbers=numbers,
-                bonus=data["bonus"]
+                bonus=data["bonus"],
+                # 당첨 정보 추가
+                total_sales=data.get("total_sales"),
+                first_prize_amount=data.get("first_prize_amount"),
+                first_prize_winners=data.get("first_prize_winners"),
+                second_prize_amount=data.get("second_prize_amount"),
+                second_prize_winners=data.get("second_prize_winners"),
+                third_prize_amount=data.get("third_prize_amount"),
+                third_prize_winners=data.get("third_prize_winners"),
+                fourth_prize_amount=data.get("fourth_prize_amount"),
+                fourth_prize_winners=data.get("fourth_prize_winners"),
+                fifth_prize_amount=data.get("fifth_prize_amount"),
+                fifth_prize_winners=data.get("fifth_prize_winners"),
+                total_tickets_sold=data.get("total_tickets_sold")
             )
             db.session.add(draw)
+            db.session.commit()
+            draw_updated = True
+        elif existing_draw.total_sales is None or existing_draw.first_prize_amount is None:
+            # 기존 데이터가 있지만 당첨금액 정보가 없는 경우 업데이트
+            data = fetch_draw(round_no)
+            existing_draw.total_sales = data.get("total_sales")
+            existing_draw.first_prize_amount = data.get("first_prize_amount")
+            existing_draw.first_prize_winners = data.get("first_prize_winners")
+            existing_draw.second_prize_amount = data.get("second_prize_amount")
+            existing_draw.second_prize_winners = data.get("second_prize_winners")
+            existing_draw.third_prize_amount = data.get("third_prize_amount")
+            existing_draw.third_prize_winners = data.get("third_prize_winners")
+            existing_draw.fourth_prize_amount = data.get("fourth_prize_amount")
+            existing_draw.fourth_prize_winners = data.get("fourth_prize_winners")
+            existing_draw.fifth_prize_amount = data.get("fifth_prize_amount")
+            existing_draw.fifth_prize_winners = data.get("fifth_prize_winners")
+            existing_draw.total_tickets_sold = data.get("total_tickets_sold")
             db.session.commit()
             draw_updated = True
 

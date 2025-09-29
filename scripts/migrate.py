@@ -66,6 +66,41 @@ def main() -> None:
                 print(f"Error checking purchases table (table may not exist yet): {e}")
                 # This is okay - the table will be created by db.create_all()
 
+            # Check existing columns for draws table
+            try:
+                existing_draws_columns = [col['name'] for col in inspector.get_columns('draws')]
+
+                # Add new columns to draws table for prize information
+                draws_columns_to_add = [
+                    ('total_sales', 'BIGINT'),
+                    ('first_prize_amount', 'BIGINT'),
+                    ('first_prize_winners', 'INTEGER'),
+                    ('second_prize_amount', 'BIGINT'),
+                    ('second_prize_winners', 'INTEGER'),
+                    ('third_prize_amount', 'BIGINT'),
+                    ('third_prize_winners', 'INTEGER'),
+                    ('fourth_prize_amount', 'BIGINT'),
+                    ('fourth_prize_winners', 'INTEGER'),
+                    ('fifth_prize_amount', 'BIGINT'),
+                    ('fifth_prize_winners', 'INTEGER'),
+                    ('total_tickets_sold', 'BIGINT')
+                ]
+
+                for column_name, column_def in draws_columns_to_add:
+                    if column_name not in existing_draws_columns:
+                        try:
+                            connection.execute(text(f"ALTER TABLE draws ADD COLUMN {column_name} {column_def}"))
+                            connection.commit()
+                            print(f"Added {column_name} column to draws table")
+                        except Exception as e:
+                            print(f"Error adding {column_name} column to draws: {e}")
+                    else:
+                        print(f"draws.{column_name} column already exists")
+
+            except Exception as e:
+                print(f"Error checking draws table (table may not exist yet): {e}")
+                # This is okay - the table will be created by db.create_all()
+
         # Create all tables (will only create missing ones)
         db.create_all()
         print("Database migration completed.")

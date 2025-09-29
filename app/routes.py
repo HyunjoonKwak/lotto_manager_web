@@ -695,10 +695,48 @@ def draw_info():
     if not draw:
         return redirect(url_for("main.index"))
 
+    # Get winning shops for this specific round
+    shops_rank1 = (
+        WinningShop.query.filter_by(round=round_no, rank=1)
+        .order_by(WinningShop.sequence.asc().nullsfirst())
+        .all()
+    )
+
+    # Get paginated 2nd rank shops
+    per_page = 30
+    page = int(request.args.get('rank2_page', '1'))
+    if page < 1:
+        page = 1
+
+    shops_rank2_total = WinningShop.query.filter_by(round=round_no, rank=2).count()
+    shops_rank2_total_pages = (shops_rank2_total + per_page - 1) // per_page
+
+    if page > shops_rank2_total_pages and shops_rank2_total_pages > 0:
+        page = shops_rank2_total_pages
+
+    offset = (page - 1) * per_page
+    shops_rank2 = (
+        WinningShop.query.filter_by(round=round_no, rank=2)
+        .order_by(WinningShop.sequence.asc().nullsfirst())
+        .offset(offset)
+        .limit(per_page)
+        .all()
+    )
+
+    # Get total rounds for context
+    total_rounds = Draw.query.count()
+
     return render_template(
         "draw_info.html",
         title=f"{round_no}회 당첨번호",
-        draw=draw
+        draw=draw,
+        latest=draw,  # Use current draw as 'latest' for template compatibility
+        total_rounds=total_rounds,
+        shops_rank1=shops_rank1,
+        shops_rank2=shops_rank2,
+        shops_rank2_page=page,
+        shops_rank2_total=shops_rank2_total,
+        shops_rank2_total_pages=shops_rank2_total_pages,
     )
 
 
@@ -1911,6 +1949,12 @@ def reset_password(token):
 def api_draw_info(round_no: int):
     """특정 회차 당첨번호 및 판매점 정보"""
     try:
+        # 페이지 번호 받기 (기본값: 1)
+        page = int(request.args.get('page', '1'))
+        if page < 1:
+            page = 1
+        per_page = 30
+
         # 당첨번호 조회
         draw = Draw.query.filter_by(round=round_no).first()
         if not draw:
@@ -1919,8 +1963,18 @@ def api_draw_info(round_no: int):
                 "error": f"{round_no}회 데이터를 찾을 수 없습니다"
             })
 
-        # 당첨 판매점 조회
-        shops = WinningShop.query.filter_by(round=round_no).order_by(WinningShop.rank).all()
+        # 당첨 판매점 조회 (1등, 2등 분리)
+        shops_rank1 = WinningShop.query.filter_by(round=round_no, rank=1).order_by(WinningShop.sequence.asc().nullsfirst()).all()
+
+        # 2등 당첨점 페이징
+        shops_rank2_total = WinningShop.query.filter_by(round=round_no, rank=2).count()
+        shops_rank2_total_pages = (shops_rank2_total + per_page - 1) // per_page
+
+        if page > shops_rank2_total_pages and shops_rank2_total_pages > 0:
+            page = shops_rank2_total_pages
+
+        offset = (page - 1) * per_page
+        shops_rank2 = WinningShop.query.filter_by(round=round_no, rank=2).order_by(WinningShop.sequence.asc().nullsfirst()).offset(offset).limit(per_page).all()
 
         return jsonify({
             "success": True,
@@ -1928,13 +1982,40 @@ def api_draw_info(round_no: int):
                 "round": draw.round,
                 "draw_date": draw.draw_date.strftime('%Y-%m-%d') if draw.draw_date else None,
                 "numbers_list": draw.numbers_list(),
-                "bonus": draw.bonus
+                "bonus": draw.bonus,
+                # 당첨금액 정보 추가
+                "total_sales": draw.total_sales,
+                "first_prize_amount": draw.first_prize_amount,
+                "first_prize_winners": draw.first_prize_winners,
+                "second_prize_amount": draw.second_prize_amount,
+                "second_prize_winners": draw.second_prize_winners,
+                "third_prize_amount": draw.third_prize_amount,
+                "third_prize_winners": draw.third_prize_winners,
+                "fourth_prize_amount": draw.fourth_prize_amount,
+                "fourth_prize_winners": draw.fourth_prize_winners,
+                "fifth_prize_amount": draw.fifth_prize_amount,
+                "fifth_prize_winners": draw.fifth_prize_winners,
+                "total_tickets_sold": draw.total_tickets_sold
             },
-            "shops": [{
-                "name": shop.name,
-                "address": shop.address,
-                "rank": f"{shop.rank}"
-            } for shop in shops]
+            "shops": {
+                "rank1": [{
+                    "sequence": shop.sequence,
+                    "name": shop.name,
+                    "method": shop.method,
+                    "address": shop.address,
+                    "rank": shop.rank
+                } for shop in shops_rank1],
+                "rank2": [{
+                    "sequence": shop.sequence,
+                    "name": shop.name,
+                    "address": shop.address,
+                    "rank": shop.rank
+                } for shop in shops_rank2],
+                "rank2_total": shops_rank2_total,
+                "rank2_page": page,
+                "rank2_total_pages": shops_rank2_total_pages,
+                "rank2_per_page": per_page
+            }
         })
     except Exception as e:
         return jsonify({

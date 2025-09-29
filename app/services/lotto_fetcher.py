@@ -166,12 +166,50 @@ def fetch_draw(round_no: int) -> Dict:
     numbers = [data[f"drwtNo{i}"] for i in range(1, 7)]
     bonus = data["bnusNo"]
     draw_date = datetime.strptime(data["drwNoDate"], "%Y-%m-%d").date()
-    return {
+
+    # 당첨금액 및 당첨자수 정보 추출 (API에서 제공하는 경우)
+    result = {
         "round": round_no,
         "draw_date": draw_date,
         "numbers": numbers,
         "bonus": bonus,
     }
+
+    # 추가 정보가 있는 경우 포함
+    if "totSellamnt" in data:  # 총 판매액
+        result["total_sales"] = data["totSellamnt"]
+
+    # 1등 정보
+    if "firstWinamnt" in data:  # 1등 당첨금액
+        result["first_prize_amount"] = data["firstWinamnt"]
+    if "firstPrzwnerCo" in data:  # 1등 당첨자수
+        result["first_prize_winners"] = data["firstPrzwnerCo"]
+
+    # 2등 정보 (보너스 번호 맞춘 경우)
+    if "scndWinamnt" in data:  # 2등 당첨금액
+        result["second_prize_amount"] = data["scndWinamnt"]
+    if "scndPrzwnerCo" in data:  # 2등 당첨자수
+        result["second_prize_winners"] = data["scndPrzwnerCo"]
+
+    # 3등 정보 (5개 번호 맞춘 경우)
+    if "thrdWinamnt" in data:  # 3등 당첨금액
+        result["third_prize_amount"] = data["thrdWinamnt"]
+    if "thrdPrzwnerCo" in data:  # 3등 당첨자수
+        result["third_prize_winners"] = data["thrdPrzwnerCo"]
+
+    # 4등 정보 (4개 번호 맞춘 경우)
+    if "frthWinamnt" in data:  # 4등 당첨금액 (보통 50,000원 고정)
+        result["fourth_prize_amount"] = data["frthWinamnt"]
+    if "frthPrzwnerCo" in data:  # 4등 당첨자수
+        result["fourth_prize_winners"] = data["frthPrzwnerCo"]
+
+    # 5등 정보 (3개 번호 맞춘 경우)
+    if "fifthWinamnt" in data:  # 5등 당첨금액 (보통 5,000원 고정)
+        result["fifth_prize_amount"] = data["fifthWinamnt"]
+    if "fifthPrzwnerCo" in data:  # 5등 당첨자수
+        result["fifth_prize_winners"] = data["fifthPrzwnerCo"]
+
+    return result
 
 
 def fetch_winning_shops(round_no: int) -> List[Dict]:
