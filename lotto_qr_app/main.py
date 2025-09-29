@@ -37,7 +37,7 @@ class LottoQRApp:
 
         # 컴포넌트 초기화
         self.qr_processor = QRProcessor()
-        self.api_client = APIClient()
+        self.api_client = APIClient(server_type="local")  # 기본값은 로컬 서버
         self.preprocessor = ImagePreprocessor()
         self.db = QRDatabase()  # 로컬 데이터베이스
 
@@ -84,9 +84,29 @@ class LottoQRApp:
         control_frame = ttk.Frame(main_frame)
         control_frame.grid(row=1, column=1, sticky=(tk.W, tk.E, tk.N, tk.S), padx=(5, 0))
 
+        # 서버 선택 영역
+        server_frame = ttk.LabelFrame(control_frame, text="서버 선택", padding="10")
+        server_frame.grid(row=0, column=0, sticky=(tk.W, tk.E), pady=(0, 10))
+
+        # 서버 선택 드롭다운
+        ttk.Label(server_frame, text="대상 서버:").grid(row=0, column=0, sticky=tk.W, padx=(0, 5))
+        self.server_var = tk.StringVar()
+        self.server_combo = ttk.Combobox(server_frame, textvariable=self.server_var,
+                                        values=["로컬 서버 (127.0.0.1:5001)", "EC2 원격 서버 (43.201.26.3:8080)"],
+                                        state="readonly", width=30)
+        self.server_combo.set("로컬 서버 (127.0.0.1:5001)")  # 기본값
+        self.server_combo.grid(row=0, column=1, padx=(0, 10))
+        self.server_combo.bind('<<ComboboxSelected>>', self.on_server_change)
+
+        # 서버 상태 표시
+        self.server_status_var = tk.StringVar()
+        self.server_status_var.set("로컬 서버 연결됨")
+        self.server_status_label = ttk.Label(server_frame, textvariable=self.server_status_var, foreground="green")
+        self.server_status_label.grid(row=1, column=0, columnspan=2, pady=(5, 0))
+
         # 로그인 영역
         login_frame = ttk.LabelFrame(control_frame, text="사용자 인증", padding="10")
-        login_frame.grid(row=0, column=0, sticky=(tk.W, tk.E), pady=(0, 10))
+        login_frame.grid(row=1, column=0, sticky=(tk.W, tk.E), pady=(0, 10))
 
         # 로그인 상태 표시
         self.login_status_var = tk.StringVar()
@@ -116,7 +136,7 @@ class LottoQRApp:
 
         # 처리 및 서버 연결 버튼들
         button_frame = ttk.LabelFrame(control_frame, text="처리 및 서버", padding="10")
-        button_frame.grid(row=1, column=0, sticky=(tk.W, tk.E), pady=(0, 10))
+        button_frame.grid(row=2, column=0, sticky=(tk.W, tk.E), pady=(0, 10))
 
         # 모든 버튼을 한 줄로 배치
         ttk.Button(button_frame, text="QR 재인식", command=self.process_qr).grid(row=0, column=0, padx=(0, 5), sticky=tk.W)
@@ -125,7 +145,7 @@ class LottoQRApp:
 
         # 결과 표시 영역
         result_frame = ttk.LabelFrame(control_frame, text="처리 결과", padding="10")
-        result_frame.grid(row=2, column=0, sticky=(tk.W, tk.E, tk.N, tk.S))
+        result_frame.grid(row=3, column=0, sticky=(tk.W, tk.E, tk.N, tk.S))
 
         # 탭 위젯으로 결과 구분
         self.notebook = ttk.Notebook(result_frame)
@@ -1247,6 +1267,38 @@ class LottoQRApp:
         self.log(error_message)
         messagebox.showerror("오류", error_message)
         self.status_var.set("오류 발생")
+
+    def on_server_change(self, event=None):
+        """서버 변경 이벤트 핸들러"""
+        selected = self.server_var.get()
+
+        if "로컬 서버" in selected:
+            server_type = "local"
+        elif "EC2 원격 서버" in selected:
+            server_type = "remote"
+        else:
+            return
+
+        # API 클라이언트 서버 전환
+        result = self.api_client.switch_server(server_type)
+
+        if result["success"]:
+            self.server_status_var.set(f"{result['server_info']['name']} 연결됨")
+            self.server_status_label.config(foreground="green")
+            self.log(f"서버가 {result['server_info']['name']}로 전환되었습니다.")
+
+            # 서버 전환시 로그인 상태 초기화
+            self.login_status_var.set("로그인 필요")
+            self.login_status_label.config(foreground="red")
+            self.login_btn.grid()
+            self.logout_btn.grid_remove()
+
+            # 연결 테스트 자동 실행
+            self.test_connection()
+        else:
+            self.server_status_var.set(f"서버 전환 실패: {result['error']}")
+            self.server_status_label.config(foreground="red")
+            self.log(f"서버 전환 실패: {result['error']}")
 
     def handle_login(self):
         """로그인 처리"""

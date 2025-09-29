@@ -7,12 +7,17 @@ import json
 import hashlib
 from typing import Dict, List, Optional
 from datetime import datetime
-from config import API_ENDPOINT, WEB_APP_URL
+from config import API_ENDPOINT, WEB_APP_URL, SERVERS
 
 
 class APIClient:
-    def __init__(self, api_key: Optional[str] = None):
+    def __init__(self, api_key: Optional[str] = None, server_type: str = "local"):
         self.api_key = api_key
+        self.server_type = server_type
+        self.current_server = SERVERS.get(server_type, SERVERS["local"])
+        self.base_url = self.current_server["url"]
+        self.api_endpoint = f"{self.base_url}/api/purchases"
+
         self.session = requests.Session()
         self.session.headers.update({
             'Content-Type': 'application/json',
@@ -28,12 +33,121 @@ class APIClient:
                 'Authorization': f'Bearer {api_key}'
             })
 
+    def debug_login_response(self, username: str, password: str) -> Dict:
+        """
+        로그인 응답 디버깅용 함수 - 문제 해결을 위한 상세 정보 수집
+        """
+        try:
+            login_url = f"{self.base_url}/login"
+
+            # 1. 로그인 페이지 접근
+            resp = self.session.get(login_url, timeout=10)
+            debug_info = {
+                "login_page_status": resp.status_code,
+                "login_page_content_length": len(resp.text),
+                "csrf_token_found": "csrf_token" in resp.text
+            }
+
+            # 2. CSRF 토큰 추출
+            csrf_token = None
+            if 'csrf_token' in resp.text:
+                import re
+                csrf_match = re.search(r'name="csrf_token"[^>]*value="([^"]+)"', resp.text)
+                if csrf_match:
+                    csrf_token = csrf_match.group(1)
+                    debug_info["csrf_token"] = csrf_token[:10] + "..."
+
+            # 3. 로그인 요청
+            login_data = {
+                'username': username,
+                'password': password
+            }
+            if csrf_token:
+                login_data['csrf_token'] = csrf_token
+
+            headers = {
+                'Content-Type': 'application/x-www-form-urlencoded',
+                'Referer': login_url
+            }
+
+            resp = self.session.post(login_url, data=login_data, headers=headers, timeout=10, allow_redirects=False)
+
+            debug_info.update({
+                "login_response_status": resp.status_code,
+                "login_response_headers": dict(resp.headers),
+                "login_response_content": resp.text[:500] + "..." if len(resp.text) > 500 else resp.text,
+                "session_cookies": [{"name": cookie.name, "value": cookie.value[:10] + "..."} for cookie in self.session.cookies]
+            })
+
+            # 4. 사용자 정보 조회
+            user_info = self.get_user_info()
+            debug_info["user_info_result"] = user_info
+
+            return {
+                "success": True,
+                "debug_info": debug_info
+            }
+
+        except Exception as e:
+            return {
+                "success": False,
+                "error": str(e),
+                "debug_info": debug_info if 'debug_info' in locals() else {}
+            }
+
+    def switch_server(self, server_type: str) -> Dict:
+        """
+        서버를 전환합니다.
+        """
+        if server_type not in SERVERS:
+            return {
+                "success": False,
+                "error": f"알 수 없는 서버 타입: {server_type}"
+            }
+
+        old_server = self.current_server["name"]
+        self.server_type = server_type
+        self.current_server = SERVERS[server_type]
+        self.base_url = self.current_server["url"]
+        self.api_endpoint = f"{self.base_url}/api/purchases"
+
+        # 서버 전환 시 인증 상태 초기화
+        self.is_authenticated = False
+        self.user_info = None
+
+        return {
+            "success": True,
+            "message": f"서버가 {old_server}에서 {self.current_server['name']}로 전환되었습니다.",
+            "server_info": self.current_server
+        }
+
+    def get_server_info(self) -> Dict:
+        """
+        현재 연결된 서버 정보를 반환합니다.
+        """
+        return {
+            "server_type": self.server_type,
+            "server_name": self.current_server["name"],
+            "server_url": self.base_url,
+            "description": self.current_server["description"],
+            "is_authenticated": self.is_authenticated
+        }
+
+    def get_available_servers(self) -> Dict:
+        """
+        사용 가능한 서버 목록을 반환합니다.
+        """
+        return {
+            "servers": SERVERS,
+            "current": self.server_type
+        }
+
     def login(self, username: str, password: str) -> Dict:
         """
         웹 앱에 로그인
         """
         try:
-            login_url = f"{WEB_APP_URL}/login"
+            login_url = f"{self.base_url}/login"
 
             # 로그인 페이지에서 CSRF 토큰 가져오기
             resp = self.session.get(login_url, timeout=10)
@@ -68,21 +182,79 @@ class APIClient:
 
             resp = self.session.post(login_url, data=login_data, headers=headers, timeout=10, allow_redirects=False)
 
-            # 로그인 성공 확인 - 다중 검증 방식
+            # 로그인 성공/실패 확인 - 강화된 검증 방식
 
-            # 1. 응답 내용 확인 (로그인 실패 메시지 체크)
-            response_text = resp.text.lower()
-            if any(error_text in response_text for error_text in [
-                '잘못된', '실패', 'invalid', 'failed', '오류', 'error',
-                '비밀번호', 'password', '사용자', 'username'
-            ]):
+            # 1. HTTP 상태 코드 우선 확인
+            if resp.status_code == 302:
+                # 리다이렉트는 보통 로그인 성공을 의미
+                # Location 헤더 확인으로 추가 검증
+                location = resp.headers.get('Location', '')
+                if '/login' in location:
+                    # 로그인 페이지로 다시 리다이렉트되면 실패
+                    return {
+                        "success": False,
+                        "error": "로그인 실패",
+                        "details": "사용자명 또는 비밀번호가 올바르지 않습니다."
+                    }
+                # 다른 페이지로 리다이렉트되면 성공 가능성이 높음
+
+            elif resp.status_code == 200:
+                # 200 응답에서 에러 메시지 확인
+                response_text = resp.text.lower()
+
+                # 더 정확한 에러 패턴 매칭
+                error_patterns = [
+                    'invalid username or password',
+                    'invalid credentials',
+                    '잘못된 사용자명',
+                    '잘못된 비밀번호',
+                    '로그인에 실패',
+                    'login failed',
+                    'authentication failed',
+                    '인증에 실패'
+                ]
+
+                if any(pattern in response_text for pattern in error_patterns):
+                    return {
+                        "success": False,
+                        "error": "로그인 실패",
+                        "details": "사용자명 또는 비밀번호가 올바르지 않습니다."
+                    }
+
+                # Flash 메시지에서 에러 찾기
+                if 'alert-danger' in response_text or 'error' in response_text:
+                    # HTML에서 실제 에러 메시지 추출
+                    import re
+                    error_match = re.search(r'alert-danger[^>]*>([^<]+)', resp.text)
+                    if error_match:
+                        error_text = error_match.group(1).strip()
+                        if error_text:
+                            return {
+                                "success": False,
+                                "error": "로그인 실패",
+                                "details": error_text
+                            }
+
+                    return {
+                        "success": False,
+                        "error": "로그인 실패",
+                        "details": "사용자명 또는 비밀번호가 올바르지 않습니다."
+                    }
+
+            elif resp.status_code == 401:
                 return {
                     "success": False,
-                    "error": "로그인 실패",
+                    "error": "인증 실패",
                     "details": "사용자명 또는 비밀번호가 올바르지 않습니다."
                 }
+            elif resp.status_code >= 400:
+                return {
+                    "success": False,
+                    "error": f"로그인 요청 실패 (HTTP {resp.status_code})",
+                    "details": "서버에서 오류가 발생했습니다."
+                }
 
-            # 2. 사용자 정보 조회로 실제 로그인 여부 확인
+            # 2. 사용자 정보 조회로 최종 검증
             user_info = self.get_user_info()
 
             if user_info["success"]:
@@ -95,26 +267,18 @@ class APIClient:
                     "user_info": self.user_info
                 }
             else:
-                # 로그인 실패 - 사용자 정보 조회 실패는 인증 실패를 의미
-                error_msg = user_info.get("error", "로그인 실패")
-                if "인증" in error_msg or "로그인" in error_msg:
-                    return {
-                        "success": False,
-                        "error": "로그인 실패",
-                        "details": "사용자명 또는 비밀번호가 올바르지 않습니다."
-                    }
-                else:
-                    return {
-                        "success": False,
-                        "error": "로그인 후 사용자 정보 조회 실패",
-                        "details": error_msg
-                    }
+                # 사용자 정보 조회 실패 = 인증 실패
+                return {
+                    "success": False,
+                    "error": "로그인 실패",
+                    "details": "사용자명 또는 비밀번호가 올바르지 않습니다."
+                }
 
         except requests.exceptions.ConnectionError:
             return {
                 "success": False,
                 "error": "연결 실패",
-                "details": f"웹 앱 서버({WEB_APP_URL})에 연결할 수 없습니다."
+                "details": f"웹 앱 서버({self.base_url})에 연결할 수 없습니다."
             }
         except requests.exceptions.Timeout:
             return {
@@ -130,30 +294,78 @@ class APIClient:
 
     def get_user_info(self) -> Dict:
         """
-        현재 로그인된 사용자 정보 조회
+        현재 로그인된 사용자 정보 조회 - 로그인 상태 검증용
         """
         try:
-            user_url = f"{WEB_APP_URL}/api/user/info"
+            user_url = f"{self.base_url}/api/user/info"
             resp = self.session.get(user_url, timeout=10)
 
             if resp.status_code == 200:
-                user_data = resp.json()
-                return {
-                    "success": True,
-                    "data": user_data
-                }
+                try:
+                    user_data = resp.json()
+                    if isinstance(user_data, dict) and 'username' in user_data:
+                        return {
+                            "success": True,
+                            "data": user_data
+                        }
+                    else:
+                        # JSON 응답이지만 올바른 사용자 데이터가 아님
+                        return {
+                            "success": False,
+                            "error": "잘못된 사용자 정보 응답",
+                            "details": "사용자 정보 형식이 올바르지 않습니다."
+                        }
+                except ValueError as e:
+                    # JSON 파싱 실패 - HTML 응답일 가능성
+                    if 'login' in resp.text.lower():
+                        return {
+                            "success": False,
+                            "error": "인증 필요",
+                            "details": "로그인 페이지로 리다이렉트됨 - 인증이 필요합니다."
+                        }
+                    return {
+                        "success": False,
+                        "error": "응답 파싱 실패",
+                        "details": f"JSON 파싱 오류: {str(e)}"
+                    }
+
             elif resp.status_code == 401:
                 return {
                     "success": False,
                     "error": "인증 필요",
                     "details": "로그인이 필요합니다."
                 }
+            elif resp.status_code == 403:
+                return {
+                    "success": False,
+                    "error": "접근 권한 없음",
+                    "details": "사용자 정보에 접근할 권한이 없습니다."
+                }
+            elif resp.status_code == 404:
+                return {
+                    "success": False,
+                    "error": "API 엔드포인트 없음",
+                    "details": "서버에서 사용자 정보 API를 찾을 수 없습니다."
+                }
             else:
                 return {
                     "success": False,
-                    "error": f"사용자 정보 조회 실패 (HTTP {resp.status_code})"
+                    "error": f"사용자 정보 조회 실패 (HTTP {resp.status_code})",
+                    "details": f"서버 응답: {resp.text[:200] if resp.text else 'No content'}"
                 }
 
+        except requests.exceptions.ConnectionError as e:
+            return {
+                "success": False,
+                "error": "연결 오류",
+                "details": f"서버에 연결할 수 없습니다: {str(e)}"
+            }
+        except requests.exceptions.Timeout as e:
+            return {
+                "success": False,
+                "error": "요청 시간 초과",
+                "details": "사용자 정보 조회 요청이 시간 초과되었습니다."
+            }
         except Exception as e:
             return {
                 "success": False,
@@ -166,7 +378,7 @@ class APIClient:
         로그아웃
         """
         try:
-            logout_url = f"{WEB_APP_URL}/logout"
+            logout_url = f"{self.base_url}/logout"
             resp = self.session.post(logout_url, timeout=10)
 
             self.is_authenticated = False
@@ -209,7 +421,7 @@ class APIClient:
                 }
 
             # 개별 게임 업로드는 기존 API 사용
-            response = self.session.post(API_ENDPOINT, json=purchase_data, timeout=30)
+            response = self.session.post(self.api_endpoint, json=purchase_data, timeout=30)
 
             if response.status_code in [200, 201]:
                 return {
@@ -251,7 +463,7 @@ class APIClient:
             return {
                 "success": False,
                 "error": "연결 실패",
-                "details": f"웹 앱 서버({WEB_APP_URL})에 연결할 수 없습니다. 상세: {str(e)}"
+                "details": f"웹 앱 서버({self.base_url})에 연결할 수 없습니다. 상세: {str(e)}"
             }
         except requests.exceptions.Timeout as e:
             return {
@@ -272,7 +484,7 @@ class APIClient:
         웹 앱 서버 연결 테스트
         """
         try:
-            health_url = f"{WEB_APP_URL}/health"
+            health_url = f"{self.base_url}/health"
             response = self.session.get(health_url, timeout=10)
 
             if response.status_code == 200:
@@ -450,7 +662,7 @@ class APIClient:
     def get_latest_round(self) -> Optional[int]:
         """웹 앱에서 최신 회차 정보 가져오기"""
         try:
-            url = f"{WEB_APP_URL}/api/data-stats"
+            url = f"{self.base_url}/api/data-stats"
             response = self.session.get(url, timeout=10)
 
             if response.status_code == 200:
@@ -478,7 +690,7 @@ class APIClient:
     def upload_qr_data(self, qr_data: Dict) -> Dict:
         """QR 데이터 업로드"""
         try:
-            url = f"{WEB_APP_URL}/api/purchases/qr"
+            url = f"{self.base_url}/api/purchases/qr"
             response = requests.post(url, json=qr_data, timeout=30)
 
             if response.status_code == 200:

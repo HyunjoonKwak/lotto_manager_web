@@ -455,6 +455,22 @@ start_qr_app() {
         else
             echo -e "${GREEN}✓ Tesseract OCR가 설치되어 있습니다.${NC}"
         fi
+
+        # zbar 라이브러리 확인 및 환경변수 설정
+        if command -v brew &> /dev/null && brew list | grep -q zbar; then
+            echo -e "${GREEN}✓ zbar 라이브러리가 설치되어 있습니다.${NC}"
+            # macOS에서 zbar 라이브러리 경로 설정
+            export DYLD_LIBRARY_PATH="/opt/homebrew/opt/zbar/lib:$DYLD_LIBRARY_PATH"
+            echo -e "${CYAN}zbar 라이브러리 경로가 설정되었습니다.${NC}"
+        else
+            echo -e "${YELLOW}⚠ zbar 라이브러리가 설치되지 않았습니다.${NC}"
+            echo -e "${CYAN}다음 명령어로 설치하세요: brew install zbar${NC}"
+            echo -e "${YELLOW}계속 진행하시겠습니까? (y/N):${NC} "
+            read -r continue_without_zbar
+            if [[ "$continue_without_zbar" != "y" && "$continue_without_zbar" != "Y" ]]; then
+                return 1
+            fi
+        fi
     fi
 
     echo -e "${GREEN}🚀 QR 인식 앱을 시작합니다...${NC}"
@@ -478,7 +494,9 @@ start_qr_app() {
             echo -e "${YELLOW}다음을 확인하세요:${NC}"
             echo -e "${CYAN}1. Python 의존성: pip install -r requirements.txt${NC}"
             echo -e "${CYAN}2. Tesseract OCR: brew install tesseract (macOS)${NC}"
-            echo -e "${CYAN}3. 가상환경 활성화 상태${NC}"
+            echo -e "${CYAN}3. zbar 라이브러리: brew install zbar (macOS)${NC}"
+            echo -e "${CYAN}4. 가상환경 활성화 상태${NC}"
+            echo -e "${CYAN}5. macOS에서는 zbar 라이브러리 경로가 자동 설정됩니다${NC}"
         }
     else
         echo -e "${RED}✗ tkinter 모듈을 찾을 수 없습니다. GUI 환경이 필요합니다.${NC}"

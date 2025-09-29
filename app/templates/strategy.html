@@ -74,13 +74,67 @@
     </div>
 
     <div class="manual-input-section">
-      <div class="input-row">
+      <!-- 회차 입력 -->
+      <div class="round-section">
+        <label for="manualRound" class="input-label">대상 회차</label>
         <input type="number" id="manualRound" placeholder="회차" min="1" max="9999" class="round-input">
-        <input type="text" id="manualNumbers" placeholder="예: 1 7 12 23 32 40 (공백 또는 콤마로 구분)" maxlength="50" class="numbers-input">
-        <button type="button" class="btn btn-primary" onclick="addManualNumbers()">번호 추가</button>
+        <span class="input-help-inline">비워두면 다음 회차로 자동 설정</span>
       </div>
-      <div class="input-help">
-        <small>회차를 입력하거나 비워두면 다음 회차로 자동 설정됩니다. 1-45 사이의 6개 번호를 입력하세요.</small>
+
+      <!-- 번호 입력 방식 선택 -->
+      <div class="input-method-tabs">
+        <button type="button" class="method-tab active" data-method="manual">🎯 직접 선택</button>
+        <button type="button" class="method-tab" data-method="text">✏️ 텍스트 입력</button>
+        <button type="button" class="method-tab" data-method="random">🎲 랜덤 생성</button>
+      </div>
+
+      <!-- 직접 선택 방식 -->
+      <div class="input-method manual-method active">
+        <div class="number-grid">
+          {% for i in range(1, 46) %}
+          <button type="button" class="number-btn" data-number="{{ i }}">{{ i }}</button>
+          {% endfor %}
+        </div>
+        <div class="selected-numbers">
+          <div class="selected-header">
+            <span class="label">선택된 번호</span>
+            <span class="counter">(<span id="selectedCount">0</span>/6)</span>
+            <button type="button" class="clear-btn" onclick="clearSelectedNumbers()">초기화</button>
+          </div>
+          <div class="selected-display" id="selectedDisplay">
+            번호를 선택하세요 (6개)
+          </div>
+        </div>
+      </div>
+
+      <!-- 텍스트 입력 방식 -->
+      <div class="input-method text-method">
+        <div class="text-input-row">
+          <input type="text" id="manualNumbers" placeholder="예: 1, 7, 12, 23, 32, 40 (콤마 또는 공백으로 구분)" maxlength="50" class="numbers-input">
+          <button type="button" class="parse-btn" onclick="parseTextNumbers()">번호 적용</button>
+        </div>
+        <div class="input-help">
+          <small>1-45 사이의 6개 번호를 콤마(,) 또는 공백으로 구분하여 입력하세요.</small>
+        </div>
+      </div>
+
+      <!-- 랜덤 생성 방식 -->
+      <div class="input-method random-method">
+        <div class="random-controls">
+          <button type="button" class="btn btn-secondary" onclick="generateRandomNumbers()">🎲 랜덤 번호 생성</button>
+          <button type="button" class="btn btn-secondary" onclick="generateRandomNumbers('hot')">🔥 빈출번호 기반</button>
+          <button type="button" class="btn btn-secondary" onclick="generateRandomNumbers('cold')">❄️ 미출번호 기반</button>
+        </div>
+        <div class="input-help">
+          <small>다양한 방식으로 랜덤 번호를 생성할 수 있습니다.</small>
+        </div>
+      </div>
+
+      <!-- 추가 버튼 -->
+      <div class="add-button-section">
+        <button type="button" class="btn btn-primary btn-large" onclick="addManualNumbers()" id="addButton" disabled>
+          ➕ 번호 추가하기
+        </button>
       </div>
     </div>
 
@@ -401,39 +455,279 @@
   color: #666;
 }
 
-/* Manual Input Styles */
+/* Enhanced Manual Input Styles */
 .manual-input-section {
   margin-bottom: 1.5rem;
 }
 
-.input-row {
+/* Round Section */
+.round-section {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  margin-bottom: 1.5rem;
+  padding: 1rem;
+  background: #f8f9fa;
+  border-radius: 0.5rem;
+}
+
+.input-label {
+  font-weight: 600;
+  color: #333;
+  min-width: 80px;
+}
+
+.round-input {
+  width: 120px;
+  padding: 0.5rem;
+  border: 2px solid #e9ecef;
+  border-radius: 0.25rem;
+  font-size: 1rem;
+  text-align: center;
+}
+
+.round-input:focus {
+  outline: none;
+  border-color: #667eea;
+}
+
+.input-help-inline {
+  color: #666;
+  font-size: 0.875rem;
+}
+
+/* Method Tabs */
+.input-method-tabs {
+  display: flex;
+  gap: 0.5rem;
+  margin-bottom: 1.5rem;
+  border-bottom: 1px solid #e9ecef;
+}
+
+.method-tab {
+  padding: 0.75rem 1.5rem;
+  border: none;
+  background: transparent;
+  color: #666;
+  cursor: pointer;
+  border-bottom: 3px solid transparent;
+  font-weight: 500;
+  transition: all 0.2s ease;
+}
+
+.method-tab:hover {
+  color: #667eea;
+  background: #f8f9fa;
+}
+
+.method-tab.active {
+  color: #667eea;
+  border-bottom-color: #667eea;
+  background: #f8f9fa;
+}
+
+/* Input Methods */
+.input-method {
+  display: none;
+  padding: 1.5rem;
+  border: 1px solid #e9ecef;
+  border-radius: 0.5rem;
+  margin-bottom: 1.5rem;
+}
+
+.input-method.active {
+  display: block;
+}
+
+/* Number Grid for Manual Selection */
+.number-grid {
+  display: grid;
+  grid-template-columns: repeat(9, 1fr);
+  gap: 0.5rem;
+  margin-bottom: 1.5rem;
+}
+
+.number-btn {
+  width: 40px;
+  height: 40px;
+  border: 2px solid #e9ecef;
+  border-radius: 50%;
+  background: white;
+  color: #333;
+  font-weight: bold;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.number-btn:hover {
+  border-color: #667eea;
+  background: #f0f4ff;
+}
+
+.number-btn.selected {
+  background: linear-gradient(135deg, #667eea, #764ba2);
+  color: white;
+  border-color: #667eea;
+  transform: scale(1.1);
+  box-shadow: 0 4px 12px rgba(102, 126, 234, 0.3);
+}
+
+.number-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+/* Selected Numbers Display */
+.selected-numbers {
+  background: #f8f9fa;
+  border-radius: 0.5rem;
+  padding: 1rem;
+}
+
+.selected-header {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  margin-bottom: 0.75rem;
+}
+
+.selected-header .label {
+  font-weight: 600;
+  color: #333;
+}
+
+.selected-header .counter {
+  color: #667eea;
+  font-weight: bold;
+}
+
+.clear-btn {
+  background: #e53e3e;
+  color: white;
+  border: none;
+  padding: 0.25rem 0.5rem;
+  border-radius: 0.25rem;
+  font-size: 0.75rem;
+  cursor: pointer;
+  margin-left: auto;
+}
+
+.clear-btn:hover {
+  background: #c53030;
+}
+
+.selected-display {
+  min-height: 60px;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  flex-wrap: wrap;
+  padding: 0.75rem;
+  background: white;
+  border-radius: 0.25rem;
+  border: 2px dashed #e9ecef;
+  color: #666;
+}
+
+.selected-display.has-numbers {
+  border-style: solid;
+  border-color: #667eea;
+  color: #333;
+}
+
+.selected-number {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  background: linear-gradient(135deg, #667eea, #764ba2);
+  color: white;
+  border-radius: 50%;
+  font-size: 0.875rem;
+  font-weight: bold;
+  box-shadow: 0 2px 6px rgba(102, 126, 234, 0.3);
+}
+
+/* Text Input Method */
+.text-input-row {
   display: flex;
   gap: 1rem;
   align-items: center;
-  margin-bottom: 0.5rem;
+  margin-bottom: 0.75rem;
 }
 
-.input-row input {
-  padding: 0.5rem;
+.numbers-input {
+  flex: 1;
+  padding: 0.75rem;
   border: 2px solid #e9ecef;
   border-radius: 0.25rem;
   font-size: 1rem;
 }
 
-.input-row input:focus {
+.numbers-input:focus {
   outline: none;
   border-color: #667eea;
 }
 
-.round-input {
-  width: 80px;
-  flex-shrink: 0;
-  text-align: center;
+.parse-btn {
+  background: #667eea;
+  color: white;
+  border: none;
+  padding: 0.75rem 1.5rem;
+  border-radius: 0.25rem;
+  cursor: pointer;
+  font-weight: 500;
+  white-space: nowrap;
 }
 
-.numbers-input {
-  flex: 1;
+.parse-btn:hover {
+  background: #5a67d8;
+}
+
+/* Random Method */
+.random-controls {
+  display: flex;
+  gap: 1rem;
+  flex-wrap: wrap;
+  margin-bottom: 0.75rem;
+}
+
+.btn-secondary {
+  background: #6c757d;
+  color: white;
+  border: none;
+  padding: 0.75rem 1rem;
+  border-radius: 0.25rem;
+  cursor: pointer;
+  font-weight: 500;
+  transition: background-color 0.2s ease;
+}
+
+.btn-secondary:hover {
+  background: #5a6268;
+}
+
+/* Add Button */
+.add-button-section {
+  text-align: center;
+  margin-top: 1.5rem;
+}
+
+.btn-large {
+  padding: 1rem 2rem;
+  font-size: 1.1rem;
+  font-weight: 600;
+  border-radius: 0.5rem;
   min-width: 200px;
+}
+
+.btn:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
 }
 
 .input-help {
@@ -564,15 +858,89 @@
     max-width: 100%;
   }
 
-  .input-row {
+  /* Mobile responsive for enhanced manual input */
+  .round-section {
     flex-direction: column;
-    gap: 0.5rem;
-    align-items: stretch;
+    align-items: flex-start;
+    gap: 0.75rem;
   }
 
-  .input-row input {
-    margin-bottom: 0.5rem;
-    width: 100% !important;
+  .input-method-tabs {
+    flex-direction: column;
+    gap: 0;
+  }
+
+  .method-tab {
+    border-bottom: 1px solid #e9ecef;
+    border-radius: 0;
+    padding: 1rem;
+    text-align: left;
+  }
+
+  .method-tab.active {
+    border-bottom-color: #667eea;
+  }
+
+  .number-grid {
+    grid-template-columns: repeat(5, 1fr);
+    gap: 0.75rem;
+  }
+
+  .number-btn {
+    width: 45px;
+    height: 45px;
+    font-size: 1rem;
+  }
+
+  .text-input-row {
+    flex-direction: column;
+    gap: 0.75rem;
+  }
+
+  .random-controls {
+    flex-direction: column;
+    gap: 0.75rem;
+  }
+
+  .btn-secondary, .parse-btn {
+    width: 100%;
+    text-align: center;
+  }
+
+  .btn-large {
+    min-width: auto;
+    width: 100%;
+  }
+
+  .selected-display {
+    justify-content: center;
+  }
+
+  .input-method {
+    padding: 1rem;
+  }
+}
+
+/* Animation keyframes */
+@keyframes slideIn {
+  from {
+    transform: translateX(100%);
+    opacity: 0;
+  }
+  to {
+    transform: translateX(0);
+    opacity: 1;
+  }
+}
+
+@keyframes slideOut {
+  from {
+    transform: translateX(0);
+    opacity: 1;
+  }
+  to {
+    transform: translateX(100%);
+    opacity: 0;
   }
 }
 </style>
@@ -611,6 +979,10 @@ function refreshRecommendations() {
   });
 }
 
+// Enhanced manual input functionality
+let selectedNumbers = [];
+let currentMethod = 'manual';
+
 // Save scroll position and restore after page load
 document.addEventListener('DOMContentLoaded', function() {
   const savedPos = sessionStorage.getItem('scrollPosition');
@@ -618,6 +990,9 @@ document.addEventListener('DOMContentLoaded', function() {
     window.scrollTo(0, parseInt(savedPos));
     sessionStorage.removeItem('scrollPosition');
   }
+
+  // Initialize enhanced manual input
+  initializeManualInput();
 
   // 페이지네이션 링크에 스크롤 위치 저장 이벤트 추가
   document.querySelectorAll('.pagination-link').forEach(link => {
@@ -647,16 +1022,238 @@ document.addEventListener('DOMContentLoaded', function() {
   });
 });
 
-// 수동 번호 추가 함수
+// Initialize enhanced manual input functionality
+function initializeManualInput() {
+  // Method tab switching
+  document.querySelectorAll('.method-tab').forEach(tab => {
+    tab.addEventListener('click', function() {
+      const method = this.getAttribute('data-method');
+      switchInputMethod(method);
+    });
+  });
+
+  // Number button clicks
+  document.querySelectorAll('.number-btn').forEach(btn => {
+    btn.addEventListener('click', function() {
+      const number = parseInt(this.getAttribute('data-number'));
+      toggleNumber(number);
+    });
+  });
+
+  updateAddButton();
+}
+
+// Switch input method
+function switchInputMethod(method) {
+  currentMethod = method;
+
+  // Update tabs
+  document.querySelectorAll('.method-tab').forEach(tab => {
+    tab.classList.remove('active');
+  });
+  document.querySelector(`[data-method="${method}"]`).classList.add('active');
+
+  // Update input sections
+  document.querySelectorAll('.input-method').forEach(section => {
+    section.classList.remove('active');
+  });
+  document.querySelector(`.${method}-method`).classList.add('active');
+
+  // Clear previous selections when switching methods
+  if (method === 'manual') {
+    clearSelectedNumbers();
+  }
+}
+
+// Toggle number selection
+function toggleNumber(number) {
+  const index = selectedNumbers.indexOf(number);
+
+  if (index > -1) {
+    // Remove number
+    selectedNumbers.splice(index, 1);
+    document.querySelector(`[data-number="${number}"]`).classList.remove('selected');
+  } else {
+    // Add number if less than 6 selected
+    if (selectedNumbers.length < 6) {
+      selectedNumbers.push(number);
+      document.querySelector(`[data-number="${number}"]`).classList.add('selected');
+    } else {
+      alert('최대 6개 번호까지 선택할 수 있습니다.');
+      return;
+    }
+  }
+
+  // Sort numbers
+  selectedNumbers.sort((a, b) => a - b);
+
+  updateSelectedDisplay();
+  updateAddButton();
+}
+
+// Update selected numbers display
+function updateSelectedDisplay() {
+  const display = document.getElementById('selectedDisplay');
+  const counter = document.getElementById('selectedCount');
+
+  counter.textContent = selectedNumbers.length;
+
+  if (selectedNumbers.length === 0) {
+    display.innerHTML = '번호를 선택하세요 (6개)';
+    display.classList.remove('has-numbers');
+  } else {
+    const numbersHtml = selectedNumbers.map(num =>
+      `<span class="selected-number">${num}</span>`
+    ).join('');
+    display.innerHTML = numbersHtml;
+    display.classList.add('has-numbers');
+  }
+}
+
+// Clear selected numbers
+function clearSelectedNumbers() {
+  selectedNumbers = [];
+  document.querySelectorAll('.number-btn.selected').forEach(btn => {
+    btn.classList.remove('selected');
+  });
+  updateSelectedDisplay();
+  updateAddButton();
+}
+
+// Parse text input numbers
+function parseTextNumbers() {
+  const input = document.getElementById('manualNumbers');
+  const text = input.value.trim();
+
+  if (!text) {
+    alert('번호를 입력해주세요.');
+    return;
+  }
+
+  // Parse numbers from text
+  const numbers = text.split(/[,\s]+/)
+    .map(n => parseInt(n.trim()))
+    .filter(n => !isNaN(n) && n >= 1 && n <= 45);
+
+  if (numbers.length !== 6) {
+    alert('1-45 사이의 6개 번호를 정확히 입력해주세요.');
+    return;
+  }
+
+  if (new Set(numbers).size !== 6) {
+    alert('중복된 번호가 있습니다. 서로 다른 6개 번호를 입력해주세요.');
+    return;
+  }
+
+  // Apply numbers to manual selection
+  clearSelectedNumbers();
+  numbers.forEach(num => {
+    selectedNumbers.push(num);
+    document.querySelector(`[data-number="${num}"]`).classList.add('selected');
+  });
+
+  selectedNumbers.sort((a, b) => a - b);
+  updateSelectedDisplay();
+  updateAddButton();
+
+  // Switch to manual method to show selection
+  switchInputMethod('manual');
+
+  // Clear text input
+  input.value = '';
+}
+
+// Generate random numbers
+function generateRandomNumbers(type = 'pure') {
+  const frequentNumbers = {{ most_frequent | map('first') | list | tojson }};
+  const leastFrequentNumbers = {{ least_frequent | map('first') | list | tojson }};
+
+  let availableNumbers;
+
+  switch(type) {
+    case 'hot':
+      // Use top 15 frequent numbers
+      availableNumbers = frequentNumbers.slice(0, 15);
+      break;
+    case 'cold':
+      // Use top 15 least frequent numbers
+      availableNumbers = leastFrequentNumbers.slice(0, 15);
+      break;
+    default:
+      // Pure random from 1-45
+      availableNumbers = Array.from({length: 45}, (_, i) => i + 1);
+  }
+
+  // Shuffle and select 6
+  const shuffled = [...availableNumbers].sort(() => Math.random() - 0.5);
+  const selected = shuffled.slice(0, 6).sort((a, b) => a - b);
+
+  // Apply to manual selection
+  clearSelectedNumbers();
+  selected.forEach(num => {
+    selectedNumbers.push(num);
+    document.querySelector(`[data-number="${num}"]`).classList.add('selected');
+  });
+
+  updateSelectedDisplay();
+  updateAddButton();
+
+  // Switch to manual method to show selection
+  switchInputMethod('manual');
+}
+
+// Update add button state
+function updateAddButton() {
+  const addButton = document.getElementById('addButton');
+
+  if (currentMethod === 'manual') {
+    addButton.disabled = selectedNumbers.length !== 6;
+  } else {
+    addButton.disabled = false;
+  }
+}
+
+// Enhanced 수동 번호 추가 함수
 function addManualNumbers() {
   const roundInput = document.getElementById('manualRound');
-  const numbersInput = document.getElementById('manualNumbers');
-
   const round = roundInput.value.trim();
-  const numbers = numbersInput.value.trim();
 
-  if (!numbers) {
-    alert('번호를 입력해주세요.');
+  let numbers;
+
+  // Get numbers based on current method
+  if (currentMethod === 'manual') {
+    if (selectedNumbers.length !== 6) {
+      alert('6개 번호를 모두 선택해주세요.');
+      return;
+    }
+    numbers = selectedNumbers.join(',');
+  } else if (currentMethod === 'text') {
+    const numbersInput = document.getElementById('manualNumbers');
+    const text = numbersInput.value.trim();
+
+    if (!text) {
+      alert('번호를 입력해주세요.');
+      return;
+    }
+
+    // Validate text input
+    const parsedNumbers = text.split(/[,\s]+/)
+      .map(n => parseInt(n.trim()))
+      .filter(n => !isNaN(n) && n >= 1 && n <= 45);
+
+    if (parsedNumbers.length !== 6) {
+      alert('1-45 사이의 6개 번호를 정확히 입력해주세요.');
+      return;
+    }
+
+    if (new Set(parsedNumbers).size !== 6) {
+      alert('중복된 번호가 있습니다. 서로 다른 6개 번호를 입력해주세요.');
+      return;
+    }
+
+    numbers = parsedNumbers.sort((a, b) => a - b).join(',');
+  } else {
+    alert('번호를 선택하거나 입력해주세요.');
     return;
   }
 
@@ -667,6 +1264,12 @@ function addManualNumbers() {
   }
   formData.append('csrf_token', window.csrfToken);
 
+  const addButton = document.getElementById('addButton');
+  const originalText = addButton.textContent;
+
+  addButton.disabled = true;
+  addButton.textContent = '⏳ 추가중...';
+
   fetch('/api/add-manual-numbers', {
     method: 'POST',
     body: formData
@@ -674,17 +1277,21 @@ function addManualNumbers() {
   .then(response => response.json())
   .then(data => {
     if (data.success) {
-      // alert 대신 시각적 피드백
-      const addButton = document.querySelector('.manual-input-section .btn-primary');
-      const originalText = addButton.textContent;
-
+      // 성공 피드백
       addButton.classList.remove('btn-primary');
       addButton.classList.add('btn-success');
-      addButton.textContent = '✅ 추가됨';
-      addButton.disabled = true;
+      addButton.textContent = '✅ 추가완료';
 
+      // 입력 필드 초기화
       roundInput.value = '';
-      numbersInput.value = '';
+      if (currentMethod === 'text') {
+        document.getElementById('manualNumbers').value = '';
+      } else if (currentMethod === 'manual') {
+        clearSelectedNumbers();
+      }
+
+      // 성공 알림 표시
+      showSuccessNotification(`번호가 성공적으로 추가되었습니다!`);
 
       // 2초 후 페이지 새로고침
       setTimeout(() => {
@@ -692,11 +1299,44 @@ function addManualNumbers() {
       }, 2000);
     } else {
       alert(`오류: ${data.error}`);
+      addButton.disabled = false;
+      addButton.textContent = originalText;
+      addButton.classList.remove('btn-success');
+      addButton.classList.add('btn-primary');
     }
   })
   .catch(error => {
     alert(`오류가 발생했습니다: ${error}`);
+    addButton.disabled = false;
+    addButton.textContent = originalText;
+    addButton.classList.remove('btn-success');
+    addButton.classList.add('btn-primary');
   });
+}
+
+// Show success notification
+function showSuccessNotification(message) {
+  const notification = document.createElement('div');
+  notification.style.cssText = `
+    position: fixed;
+    top: 20px;
+    right: 20px;
+    background: linear-gradient(135deg, #28a745, #20c997);
+    color: white;
+    padding: 1rem 1.5rem;
+    border-radius: 0.5rem;
+    z-index: 1000;
+    box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+    animation: slideIn 0.3s ease;
+  `;
+  notification.textContent = message;
+  document.body.appendChild(notification);
+
+  // Remove after 3 seconds
+  setTimeout(() => {
+    notification.style.animation = 'slideOut 0.3s ease';
+    setTimeout(() => notification.remove(), 300);
+  }, 3000);
 }
 
 // 수동 번호 삭제 함수

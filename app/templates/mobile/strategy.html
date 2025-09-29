@@ -107,6 +107,76 @@
   </div>
 </div>
 
+<!-- 수동 번호 입력 (개선된 버전) -->
+<div class="mobile-card">
+  <div class="card-header">
+    <h2>✏️ 수동 번호 입력</h2>
+  </div>
+
+  <!-- 입력 방식 선택 -->
+  <div class="input-tabs">
+    <button class="tab-button active" data-method="grid" onclick="switchMobileMethod('grid')">
+      🎯 직접 선택
+    </button>
+    <button class="tab-button" data-method="text" onclick="switchMobileMethod('text')">
+      ✏️ 텍스트 입력
+    </button>
+    <button class="tab-button" data-method="random" onclick="switchMobileMethod('random')">
+      🎲 랜덤
+    </button>
+  </div>
+
+  <!-- 회차 입력 -->
+  <div class="round-input-section">
+    <label>대상 회차 (선택사항)</label>
+    <input type="number" id="mobileRound" placeholder="자동 설정" class="mobile-input">
+  </div>
+
+  <!-- 그리드 선택 방식 -->
+  <div class="input-method-mobile grid-method active">
+    <div class="mobile-number-grid">
+      {% for i in range(1, 46) %}
+      <button class="mobile-number-btn" data-number="{{ i }}" onclick="toggleMobileNumber({{ i }})">{{ i }}</button>
+      {% endfor %}
+    </div>
+
+    <div class="mobile-selected">
+      <div class="selected-info">
+        <span>선택된 번호 (<span id="mobileSelectedCount">0</span>/6)</span>
+        <button class="clear-mobile-btn" onclick="clearMobileSelection()">초기화</button>
+      </div>
+      <div class="mobile-selected-display" id="mobileSelectedDisplay">
+        번호를 선택하세요
+      </div>
+    </div>
+  </div>
+
+  <!-- 텍스트 입력 방식 -->
+  <div class="input-method-mobile text-method">
+    <div class="text-input-section">
+      <label>번호 입력 (1-45 사이의 6개 숫자)</label>
+      <input type="text" id="mobileNumbers" placeholder="예: 1, 7, 12, 23, 32, 40" class="mobile-input">
+      <button class="mobile-btn secondary" onclick="parseMobileNumbers()">번호 적용</button>
+    </div>
+  </div>
+
+  <!-- 랜덤 생성 방식 -->
+  <div class="input-method-mobile random-method">
+    <div class="random-buttons">
+      <button class="mobile-btn secondary" onclick="generateMobileRandom()">🎲 완전 랜덤</button>
+      <button class="mobile-btn secondary" onclick="generateMobileRandom('hot')">🔥 빈출번호 기반</button>
+      <button class="mobile-btn secondary" onclick="generateMobileRandom('cold')">❄️ 미출번호 기반</button>
+    </div>
+  </div>
+
+  <!-- 추가 버튼 -->
+  <div class="add-section">
+    <button class="mobile-btn primary large" id="mobileAddBtn" onclick="addMobileNumbers()" disabled>
+      ➕ 번호 추가하기
+    </button>
+  </div>
+</div>
+
 <!-- 빠른 액션 -->
 <div class="mobile-card">
   <div class="card-header">
@@ -325,6 +395,223 @@
 .action-text {
   font-size: 0.9rem;
 }
+
+/* 모바일 수동 입력 개선 스타일 */
+.input-tabs {
+  display: flex;
+  background: #f1f5f9;
+  border-radius: 0.8rem;
+  padding: 0.3rem;
+  margin-bottom: 1rem;
+}
+
+.tab-button {
+  flex: 1;
+  padding: 0.6rem 0.4rem;
+  border: none;
+  background: transparent;
+  border-radius: 0.5rem;
+  font-size: 0.8rem;
+  font-weight: 500;
+  color: #64748b;
+  cursor: pointer;
+  transition: all 0.2s;
+  text-align: center;
+}
+
+.tab-button.active {
+  background: white;
+  color: #1e40af;
+  font-weight: 600;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+}
+
+.input-method-mobile {
+  display: none;
+  padding: 1rem;
+}
+
+.input-method-mobile.active {
+  display: block;
+}
+
+.round-input-section {
+  margin-bottom: 1.5rem;
+}
+
+.round-input-section label {
+  display: block;
+  font-size: 0.85rem;
+  color: #4a5568;
+  margin-bottom: 0.5rem;
+  font-weight: 500;
+}
+
+.mobile-input {
+  width: 100%;
+  padding: 0.8rem;
+  border: 2px solid #e2e8f0;
+  border-radius: 0.6rem;
+  font-size: 1rem;
+  background: white;
+  transition: border-color 0.2s;
+}
+
+.mobile-input:focus {
+  outline: none;
+  border-color: #4299e1;
+}
+
+.mobile-number-grid {
+  display: grid;
+  grid-template-columns: repeat(5, 1fr);
+  gap: 0.6rem;
+  margin-bottom: 1.5rem;
+}
+
+.mobile-number-btn {
+  aspect-ratio: 1;
+  border: 2px solid #e2e8f0;
+  background: white;
+  border-radius: 0.6rem;
+  font-size: 0.9rem;
+  font-weight: 600;
+  color: #4a5568;
+  cursor: pointer;
+  transition: all 0.2s;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 44px;
+}
+
+.mobile-number-btn:active {
+  transform: scale(0.95);
+}
+
+.mobile-number-btn.selected {
+  background: linear-gradient(135deg, #4299e1, #3182ce);
+  border-color: #3182ce;
+  color: white;
+  transform: scale(1.05);
+}
+
+.mobile-selected {
+  background: #f8fafc;
+  border-radius: 0.8rem;
+  padding: 1rem;
+  margin-bottom: 1rem;
+}
+
+.selected-info {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 0.8rem;
+  font-size: 0.85rem;
+  font-weight: 500;
+  color: #4a5568;
+}
+
+.clear-mobile-btn {
+  background: #ef4444;
+  color: white;
+  border: none;
+  padding: 0.4rem 0.8rem;
+  border-radius: 0.5rem;
+  font-size: 0.75rem;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.mobile-selected-display {
+  min-height: 3rem;
+  background: white;
+  border: 2px dashed #cbd5e0;
+  border-radius: 0.6rem;
+  padding: 0.8rem;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  align-items: center;
+  justify-content: center;
+  font-size: 0.85rem;
+  color: #718096;
+}
+
+.mobile-selected-display .number {
+  background: linear-gradient(135deg, #4299e1, #3182ce);
+  color: white;
+  padding: 0.3rem 0.6rem;
+  border-radius: 0.4rem;
+  font-weight: 600;
+  font-size: 0.8rem;
+}
+
+.text-input-section {
+  display: flex;
+  flex-direction: column;
+  gap: 0.8rem;
+}
+
+.text-input-section label {
+  font-size: 0.85rem;
+  color: #4a5568;
+  font-weight: 500;
+}
+
+.mobile-btn {
+  padding: 0.8rem 1.2rem;
+  border: none;
+  border-radius: 0.6rem;
+  font-size: 0.9rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s;
+  text-align: center;
+}
+
+.mobile-btn.primary {
+  background: linear-gradient(135deg, #4299e1, #3182ce);
+  color: white;
+}
+
+.mobile-btn.primary:active {
+  transform: scale(0.98);
+  background: linear-gradient(135deg, #3182ce, #2c5aa0);
+}
+
+.mobile-btn.secondary {
+  background: #f1f5f9;
+  color: #4a5568;
+  border: 1px solid #e2e8f0;
+}
+
+.mobile-btn.secondary:active {
+  background: #e2e8f0;
+}
+
+.mobile-btn.large {
+  font-size: 1rem;
+  padding: 1rem 1.5rem;
+}
+
+.mobile-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+  transform: none !important;
+}
+
+.random-buttons {
+  display: flex;
+  flex-direction: column;
+  gap: 0.8rem;
+}
+
+.add-section {
+  margin-top: 1.5rem;
+  text-align: center;
+}
 </style>
 
 <script>
@@ -365,6 +652,191 @@ async function getNewRecommendation() {
 // 빠른 구매
 function quickPurchase() {
   window.location.href = '{{ url_for("main.purchase_history") }}';
+}
+
+// 모바일 수동 입력 기능
+let mobileSelectedNumbers = [];
+
+// 입력 방식 변경
+function switchMobileMethod(method) {
+  // 탭 버튼 활성화
+  document.querySelectorAll('.tab-button').forEach(btn => {
+    btn.classList.remove('active');
+    if (btn.dataset.method === method) {
+      btn.classList.add('active');
+    }
+  });
+
+  // 입력 방식 화면 변경
+  document.querySelectorAll('.input-method-mobile').forEach(section => {
+    section.classList.remove('active');
+  });
+  document.querySelector(`.${method}-method`).classList.add('active');
+
+  // 선택 초기화
+  clearMobileSelection();
+}
+
+// 번호 선택/해제
+function toggleMobileNumber(num) {
+  const index = mobileSelectedNumbers.indexOf(num);
+
+  if (index > -1) {
+    // 이미 선택된 번호면 제거
+    mobileSelectedNumbers.splice(index, 1);
+    document.querySelector(`[data-number="${num}"]`).classList.remove('selected');
+  } else {
+    // 6개 초과 선택 방지
+    if (mobileSelectedNumbers.length >= 6) {
+      alert('최대 6개 번호까지 선택할 수 있습니다.');
+      return;
+    }
+    // 새 번호 추가
+    mobileSelectedNumbers.push(num);
+    document.querySelector(`[data-number="${num}"]`).classList.add('selected');
+  }
+
+  updateMobileDisplay();
+}
+
+// 선택된 번호 화면 업데이트
+function updateMobileDisplay() {
+  const countElement = document.getElementById('mobileSelectedCount');
+  const displayElement = document.getElementById('mobileSelectedDisplay');
+  const addBtn = document.getElementById('mobileAddBtn');
+
+  countElement.textContent = mobileSelectedNumbers.length;
+
+  if (mobileSelectedNumbers.length === 0) {
+    displayElement.innerHTML = '번호를 선택하세요';
+  } else {
+    const sortedNumbers = [...mobileSelectedNumbers].sort((a, b) => a - b);
+    displayElement.innerHTML = sortedNumbers.map(num =>
+      `<span class="number">${num}</span>`
+    ).join('');
+  }
+
+  // 추가 버튼 활성화/비활성화
+  addBtn.disabled = mobileSelectedNumbers.length !== 6;
+}
+
+// 선택 초기화
+function clearMobileSelection() {
+  mobileSelectedNumbers = [];
+  document.querySelectorAll('.mobile-number-btn').forEach(btn => {
+    btn.classList.remove('selected');
+  });
+  document.getElementById('mobileNumbers').value = '';
+  updateMobileDisplay();
+}
+
+// 텍스트 입력 번호 처리
+function parseMobileNumbers() {
+  const input = document.getElementById('mobileNumbers').value.trim();
+  if (!input) {
+    alert('번호를 입력해주세요.');
+    return;
+  }
+
+  // 숫자 추출 (쉼표, 공백, 하이픈 등으로 구분)
+  const numbers = input.match(/\d+/g);
+
+  if (!numbers || numbers.length !== 6) {
+    alert('정확히 6개의 번호를 입력해주세요.');
+    return;
+  }
+
+  // 번호 유효성 검사
+  const validNumbers = [];
+  for (let numStr of numbers) {
+    const num = parseInt(numStr);
+    if (num < 1 || num > 45) {
+      alert(`${num}은 유효하지 않은 번호입니다. (1-45 사이의 번호만 가능)`);
+      return;
+    }
+    if (validNumbers.includes(num)) {
+      alert(`${num}은 중복된 번호입니다.`);
+      return;
+    }
+    validNumbers.push(num);
+  }
+
+  // 그리드 방식으로 전환하여 선택 표시
+  switchMobileMethod('grid');
+  clearMobileSelection();
+
+  validNumbers.forEach(num => {
+    mobileSelectedNumbers.push(num);
+    document.querySelector(`[data-number="${num}"]`).classList.add('selected');
+  });
+
+  updateMobileDisplay();
+  alert('번호가 적용되었습니다!');
+}
+
+// 랜덤 번호 생성
+function generateMobileRandom(type = 'normal') {
+  clearMobileSelection();
+
+  let numbers = [];
+
+  if (type === 'hot') {
+    // 빈출번호 기반 (실제로는 가중치 적용해야 하지만 여기서는 단순화)
+    const hotNumbers = [1, 7, 17, 23, 27, 31, 34, 40, 43, 44]; // 예시 빈출번호
+    while (numbers.length < 6) {
+      const num = hotNumbers[Math.floor(Math.random() * hotNumbers.length)];
+      if (!numbers.includes(num)) {
+        numbers.push(num);
+      }
+    }
+  } else if (type === 'cold') {
+    // 미출번호 기반
+    const coldNumbers = [2, 8, 13, 16, 22, 28, 33, 37, 39, 42]; // 예시 미출번호
+    while (numbers.length < 6) {
+      const num = coldNumbers[Math.floor(Math.random() * coldNumbers.length)];
+      if (!numbers.includes(num)) {
+        numbers.push(num);
+      }
+    }
+  } else {
+    // 완전 랜덤
+    while (numbers.length < 6) {
+      const num = Math.floor(Math.random() * 45) + 1;
+      if (!numbers.includes(num)) {
+        numbers.push(num);
+      }
+    }
+  }
+
+  // 그리드 방식으로 전환하여 선택 표시
+  switchMobileMethod('grid');
+
+  numbers.forEach(num => {
+    mobileSelectedNumbers.push(num);
+    document.querySelector(`[data-number="${num}"]`).classList.add('selected');
+  });
+
+  updateMobileDisplay();
+}
+
+// 번호 추가하기
+function addMobileNumbers() {
+  if (mobileSelectedNumbers.length !== 6) {
+    alert('6개의 번호를 모두 선택해주세요.');
+    return;
+  }
+
+  const round = document.getElementById('mobileRound').value;
+  const numbers = [...mobileSelectedNumbers].sort((a, b) => a - b);
+
+  // 구매 페이지로 이동 (번호 포함)
+  const params = new URLSearchParams();
+  params.append('auto_numbers', numbers.join(','));
+  if (round) {
+    params.append('round', round);
+  }
+
+  window.location.href = `/purchases?${params.toString()}`;
 }
 </script>
 {% endblock %}

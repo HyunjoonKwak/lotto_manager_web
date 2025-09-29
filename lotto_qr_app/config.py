@@ -2,9 +2,23 @@
 Configuration settings for Lotto OCR App
 """
 
-# API 설정
-WEB_APP_URL = "http://127.0.0.1:5001"  # 로컬 개발
-# WEB_APP_URL = "http://your-ec2-domain:8080"  # 프로덕션
+# 서버 설정
+SERVERS = {
+    "local": {
+        "name": "로컬 서버",
+        "url": "http://127.0.0.1:5001",
+        "description": "로컬 개발 서버 (5001 포트)"
+    },
+    "remote": {
+        "name": "EC2 원격 서버",
+        "url": "http://43.201.26.3:8080",
+        "description": "AWS EC2 프로덕션 서버 (8080 포트)"
+    }
+}
+
+# 기본 서버 설정
+DEFAULT_SERVER = "local"
+WEB_APP_URL = SERVERS[DEFAULT_SERVER]["url"]
 API_ENDPOINT = f"{WEB_APP_URL}/api/purchases"
 
 # OCR 설정
