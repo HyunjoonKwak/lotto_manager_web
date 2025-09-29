@@ -115,10 +115,10 @@
 
   <!-- 입력 방식 선택 -->
   <div class="input-tabs">
-    <button class="tab-button active" data-method="grid" onclick="switchMobileMethod('grid')">
+    <button class="tab-button" data-method="grid" onclick="switchMobileMethod('grid')">
       🎯 직접 선택
     </button>
-    <button class="tab-button" data-method="text" onclick="switchMobileMethod('text')">
+    <button class="tab-button active" data-method="text" onclick="switchMobileMethod('text')">
       ✏️ 텍스트 입력
     </button>
     <button class="tab-button" data-method="random" onclick="switchMobileMethod('random')">
@@ -133,7 +133,7 @@
   </div>
 
   <!-- 그리드 선택 방식 -->
-  <div class="input-method-mobile grid-method active">
+  <div class="input-method-mobile grid-method">
     <div class="mobile-number-grid">
       {% for i in range(1, 46) %}
       <button class="mobile-number-btn" data-number="{{ i }}" onclick="toggleMobileNumber({{ i }})">{{ i }}</button>
@@ -152,11 +152,22 @@
   </div>
 
   <!-- 텍스트 입력 방식 -->
-  <div class="input-method-mobile text-method">
+  <div class="input-method-mobile text-method active">
     <div class="text-input-section">
       <label>번호 입력 (1-45 사이의 6개 숫자)</label>
       <input type="text" id="mobileNumbers" placeholder="예: 1, 7, 12, 23, 32, 40" class="mobile-input">
       <button class="mobile-btn secondary" onclick="parseMobileNumbers()">번호 적용</button>
+    </div>
+
+    <!-- 텍스트 입력에서도 선택된 번호 표시 -->
+    <div class="mobile-selected">
+      <div class="selected-info">
+        <span>선택된 번호 (<span id="mobileSelectedCountText">0</span>/6)</span>
+        <button class="clear-mobile-btn" onclick="clearMobileSelection()">초기화</button>
+      </div>
+      <div class="mobile-selected-display" id="mobileSelectedDisplayText">
+        번호를 입력하고 적용 버튼을 눌러주세요
+      </div>
     </div>
   </div>
 
@@ -658,7 +669,7 @@ function quickPurchase() {
 let mobileSelectedNumbers = [];
 
 // 입력 방식 변경
-function switchMobileMethod(method) {
+function switchMobileMethod(method, keepSelection = false) {
   // 탭 버튼 활성화
   document.querySelectorAll('.tab-button').forEach(btn => {
     btn.classList.remove('active');
@@ -673,8 +684,10 @@ function switchMobileMethod(method) {
   });
   document.querySelector(`.${method}-method`).classList.add('active');
 
-  // 선택 초기화
-  clearMobileSelection();
+  // 선택 유지 옵션이 없으면 초기화
+  if (!keepSelection) {
+    clearMobileSelection();
+  }
 }
 
 // 번호 선택/해제
@@ -703,21 +716,36 @@ function toggleMobileNumber(num) {
 function updateMobileDisplay() {
   const countElement = document.getElementById('mobileSelectedCount');
   const displayElement = document.getElementById('mobileSelectedDisplay');
+  const countElementText = document.getElementById('mobileSelectedCountText');
+  const displayElementText = document.getElementById('mobileSelectedDisplayText');
   const addBtn = document.getElementById('mobileAddBtn');
 
-  countElement.textContent = mobileSelectedNumbers.length;
+  // 선택된 번호 개수 업데이트
+  const count = mobileSelectedNumbers.length;
+  console.log('updateMobileDisplay 호출됨, 선택된 번호:', mobileSelectedNumbers);
 
-  if (mobileSelectedNumbers.length === 0) {
-    displayElement.innerHTML = '번호를 선택하세요';
+  if (countElement) countElement.textContent = count;
+  if (countElementText) countElementText.textContent = count;
+
+  // 선택된 번호 표시
+  let displayHTML;
+  if (count === 0) {
+    displayHTML = '번호를 선택하세요';
+    if (displayElementText) displayElementText.innerHTML = '번호를 입력하고 적용 버튼을 눌러주세요';
   } else {
     const sortedNumbers = [...mobileSelectedNumbers].sort((a, b) => a - b);
-    displayElement.innerHTML = sortedNumbers.map(num =>
+    displayHTML = sortedNumbers.map(num =>
       `<span class="number">${num}</span>`
     ).join('');
+    if (displayElementText) displayElementText.innerHTML = displayHTML;
   }
+  if (displayElement) displayElement.innerHTML = displayHTML;
 
   // 추가 버튼 활성화/비활성화
-  addBtn.disabled = mobileSelectedNumbers.length !== 6;
+  if (addBtn) {
+    addBtn.disabled = count !== 6;
+    console.log('추가 버튼 상태:', addBtn.disabled ? '비활성화' : '활성화');
+  }
 }
 
 // 선택 초기화
@@ -726,13 +754,20 @@ function clearMobileSelection() {
   document.querySelectorAll('.mobile-number-btn').forEach(btn => {
     btn.classList.remove('selected');
   });
-  document.getElementById('mobileNumbers').value = '';
+  const textInput = document.getElementById('mobileNumbers');
+  if (textInput) {
+    textInput.value = '';
+  }
   updateMobileDisplay();
 }
 
 // 텍스트 입력 번호 처리
 function parseMobileNumbers() {
+  console.log('parseMobileNumbers 함수 호출됨');
+
   const input = document.getElementById('mobileNumbers').value.trim();
+  console.log('입력된 텍스트:', input);
+
   if (!input) {
     alert('번호를 입력해주세요.');
     return;
@@ -740,6 +775,7 @@ function parseMobileNumbers() {
 
   // 숫자 추출 (쉼표, 공백, 하이픈 등으로 구분)
   const numbers = input.match(/\d+/g);
+  console.log('추출된 숫자들:', numbers);
 
   if (!numbers || numbers.length !== 6) {
     alert('정확히 6개의 번호를 입력해주세요.');
@@ -761,17 +797,20 @@ function parseMobileNumbers() {
     validNumbers.push(num);
   }
 
-  // 그리드 방식으로 전환하여 선택 표시
-  switchMobileMethod('grid');
-  clearMobileSelection();
+  console.log('유효한 번호들:', validNumbers);
 
-  validNumbers.forEach(num => {
-    mobileSelectedNumbers.push(num);
-    document.querySelector(`[data-number="${num}"]`).classList.add('selected');
-  });
+  // 배열에 번호 설정
+  mobileSelectedNumbers = [...validNumbers];
 
+  console.log('mobileSelectedNumbers 설정 완료:', mobileSelectedNumbers);
+  console.log('현재 활성 탭:', document.querySelector('.tab-button.active')?.dataset.method);
+
+  // 화면 업데이트
   updateMobileDisplay();
-  alert('번호가 적용되었습니다!');
+
+  // 성공 메시지
+  const sortedNumbers = validNumbers.sort((a,b) => a-b);
+  alert(`번호가 적용되었습니다!\n선택된 번호: ${sortedNumbers.join(', ')}\n\n이제 하단의 "번호 추가하기" 버튼을 눌러주세요.`);
 }
 
 // 랜덤 번호 생성
@@ -808,14 +847,14 @@ function generateMobileRandom(type = 'normal') {
     }
   }
 
-  // 그리드 방식으로 전환하여 선택 표시
-  switchMobileMethod('grid');
-
+  // 선택된 번호들을 배열에 추가
   numbers.forEach(num => {
     mobileSelectedNumbers.push(num);
     document.querySelector(`[data-number="${num}"]`).classList.add('selected');
   });
 
+  // 그리드 방식으로 전환하여 선택 표시 (선택 상태 유지)
+  switchMobileMethod('grid', true);
   updateMobileDisplay();
 }
 
@@ -838,5 +877,34 @@ function addMobileNumbers() {
 
   window.location.href = `/purchases?${params.toString()}`;
 }
+
+// 즉시 실행으로 기본 체크
+console.log('모바일 전략분석 페이지 JavaScript 로드됨');
+console.log('현재 URL:', window.location.href);
+console.log('User Agent:', navigator.userAgent);
+
+// 페이지 로드 시 초기화
+document.addEventListener('DOMContentLoaded', function() {
+  console.log('DOMContentLoaded 이벤트 발생');
+  console.log('페이지 로드 완료, 초기화 시작');
+
+  // DOM 요소 존재 확인
+  const addBtn = document.getElementById('mobileAddBtn');
+  const textInput = document.getElementById('mobileNumbers');
+  const countText = document.getElementById('mobileSelectedCountText');
+
+  console.log('DOM 요소 확인:');
+  console.log('- mobileAddBtn:', addBtn ? '존재' : '없음');
+  console.log('- mobileNumbers:', textInput ? '존재' : '없음');
+  console.log('- mobileSelectedCountText:', countText ? '존재' : '없음');
+
+  // 텍스트 입력 탭을 기본으로 설정
+  switchMobileMethod('text');
+
+  // 초기 상태 업데이트
+  updateMobileDisplay();
+
+  console.log('초기화 완료');
+});
 </script>
 {% endblock %}

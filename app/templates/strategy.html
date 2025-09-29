@@ -116,6 +116,17 @@
         <div class="input-help">
           <small>1-45 사이의 6개 번호를 콤마(,) 또는 공백으로 구분하여 입력하세요.</small>
         </div>
+
+        <!-- 텍스트 입력에서도 선택된 번호 표시 -->
+        <div class="text-selected-display" id="textSelectedDisplay" style="display: none;">
+          <div class="selected-info">
+            <strong>선택된 번호 (<span id="textSelectedCount">0</span>/6):</strong>
+            <button type="button" class="btn btn-sm btn-outline" onclick="clearSelectedNumbers()">초기화</button>
+          </div>
+          <div class="selected-numbers" id="textSelectedNumbers">
+            <!-- 선택된 번호들이 여기에 표시됩니다 -->
+          </div>
+        </div>
       </div>
 
       <!-- 랜덤 생성 방식 -->
@@ -458,6 +469,37 @@
 /* Enhanced Manual Input Styles */
 .manual-input-section {
   margin-bottom: 1.5rem;
+}
+
+/* Text input selected display */
+.text-selected-display {
+  margin-top: 1rem;
+  padding: 1rem;
+  background: #f8fafc;
+  border: 1px solid #e2e8f0;
+  border-radius: 0.5rem;
+}
+
+.text-selected-display .selected-info {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 0.5rem;
+}
+
+.text-selected-display .selected-numbers {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+}
+
+.text-selected-display .number-badge {
+  background: linear-gradient(135deg, #4299e1, #3182ce);
+  color: white;
+  padding: 0.3rem 0.6rem;
+  border-radius: 0.3rem;
+  font-weight: 600;
+  font-size: 0.9rem;
 }
 
 /* Round Section */
@@ -1096,6 +1138,7 @@ function updateSelectedDisplay() {
   const display = document.getElementById('selectedDisplay');
   const counter = document.getElementById('selectedCount');
 
+  // 기존 수동 선택 탭 업데이트
   counter.textContent = selectedNumbers.length;
 
   if (selectedNumbers.length === 0) {
@@ -1107,6 +1150,25 @@ function updateSelectedDisplay() {
     ).join('');
     display.innerHTML = numbersHtml;
     display.classList.add('has-numbers');
+  }
+
+  // 텍스트 입력 탭 업데이트
+  const textDisplay = document.getElementById('textSelectedDisplay');
+  const textCounter = document.getElementById('textSelectedCount');
+  const textNumbers = document.getElementById('textSelectedNumbers');
+
+  if (textDisplay && textCounter && textNumbers) {
+    textCounter.textContent = selectedNumbers.length;
+
+    if (selectedNumbers.length === 0) {
+      textDisplay.style.display = 'none';
+    } else {
+      textDisplay.style.display = 'block';
+      const textNumbersHtml = selectedNumbers.map(num =>
+        `<span class="number-badge">${num}</span>`
+      ).join('');
+      textNumbers.innerHTML = textNumbersHtml;
+    }
   }
 }
 
@@ -1145,22 +1207,25 @@ function parseTextNumbers() {
     return;
   }
 
-  // Apply numbers to manual selection
+  // Apply numbers to selection
   clearSelectedNumbers();
   numbers.forEach(num => {
     selectedNumbers.push(num);
-    document.querySelector(`[data-number="${num}"]`).classList.add('selected');
+    // 수동 선택 탭의 버튼들도 업데이트
+    const numberBtn = document.querySelector(`[data-number="${num}"]`);
+    if (numberBtn) {
+      numberBtn.classList.add('selected');
+    }
   });
 
   selectedNumbers.sort((a, b) => a - b);
   updateSelectedDisplay();
   updateAddButton();
 
-  // Switch to manual method to show selection
-  switchInputMethod('manual');
+  // 텍스트 입력 탭에서 유지하고 성공 메시지 표시
+  alert(`번호가 적용되었습니다!\n선택된 번호: ${selectedNumbers.join(', ')}\n\n"번호 추가하기" 버튼이 활성화되었습니다.`);
 
-  // Clear text input
-  input.value = '';
+  // 텍스트 입력 필드는 유지 (clear하지 않음)
 }
 
 // Generate random numbers
