@@ -727,7 +727,7 @@ def info_page():
         )
 
         # Get paginated 2nd rank shops
-        per_page = 10
+        per_page = 30
         page = int(request.args.get('rank2_page', '1'))
         if page < 1:
             page = 1
