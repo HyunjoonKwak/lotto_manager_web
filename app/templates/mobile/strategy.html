@@ -11,6 +11,58 @@
   </div>
 </div>
 
+<!-- 번호 분석 섹션 -->
+{% if most_frequent %}
+<div class="mobile-card">
+  <div class="card-header">
+    <h2>📈 번호 분석</h2>
+    <span class="analysis-period">최근 {{ analysis_limit }}회</span>
+  </div>
+
+  <!-- 빈출/저출 번호 그리드 -->
+  <div class="mobile-analysis-grid">
+    <div class="mobile-analysis-item">
+      <h4>🔥 빈출번호</h4>
+      <div class="mobile-frequency-list">
+        {% for num, freq in most_frequent %}
+        <div class="mobile-freq-item hot">
+          <span class="mobile-freq-number">{{ num }}</span>
+          <span class="mobile-freq-count">{{ freq }}회</span>
+        </div>
+        {% endfor %}
+      </div>
+    </div>
+
+    <div class="mobile-analysis-item">
+      <h4>❄️ 저출번호</h4>
+      <div class="mobile-frequency-list">
+        {% for num, freq in least_frequent %}
+        <div class="mobile-freq-item cold">
+          <span class="mobile-freq-number">{{ num }}</span>
+          <span class="mobile-freq-count">{{ freq }}회</span>
+        </div>
+        {% endfor %}
+      </div>
+    </div>
+  </div>
+
+  <!-- 패턴 분석 (축약형) -->
+  <div class="mobile-patterns">
+    <h4>🎲 주요 패턴</h4>
+    <div class="mobile-pattern-list">
+      {% for pattern, count in patterns.odd_even_patterns.items() %}
+      {% if loop.index <= 3 %}
+      <div class="mobile-pattern-item">
+        <span class="pattern-name">{{ pattern }}</span>
+        <span class="pattern-count">{{ count }}회</span>
+      </div>
+      {% endif %}
+      {% endfor %}
+    </div>
+  </div>
+</div>
+{% endif %}
+
 <!-- 추천 번호 카드 -->
 {% if recommendations %}
 <div class="mobile-card">
@@ -405,6 +457,121 @@
 
 .action-text {
   font-size: 0.9rem;
+}
+
+/* 모바일 번호분석 스타일 */
+.analysis-period {
+  font-size: 0.8rem;
+  color: #718096;
+  background: rgba(255, 255, 255, 0.2);
+  padding: 0.2rem 0.6rem;
+  border-radius: 0.5rem;
+}
+
+.mobile-analysis-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 1rem;
+  padding: 1rem;
+}
+
+.mobile-analysis-item {
+  background: #f8fafc;
+  border-radius: 0.8rem;
+  padding: 1rem;
+}
+
+.mobile-analysis-item h4 {
+  margin: 0 0 0.8rem 0;
+  font-size: 0.9rem;
+  font-weight: 600;
+  color: #4a5568;
+}
+
+.mobile-frequency-list {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.mobile-freq-item {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 0.5rem;
+  border-radius: 0.5rem;
+  font-size: 0.8rem;
+}
+
+.mobile-freq-item.hot {
+  background: #fee2e2;
+  border: 1px solid #fca5a5;
+}
+
+.mobile-freq-item.cold {
+  background: #dbeafe;
+  border: 1px solid #93c5fd;
+}
+
+.mobile-freq-number {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 24px;
+  height: 24px;
+  background: #f0f0f0;
+  color: #000;
+  border: 2px solid #ddd;
+  border-radius: 50%;
+  font-size: 0.75rem;
+  font-weight: bold;
+}
+
+.mobile-freq-count {
+  color: #666;
+  font-size: 0.75rem;
+  font-weight: 500;
+}
+
+.mobile-patterns {
+  margin-top: 1rem;
+  padding: 1rem;
+  background: #f8fafc;
+  border-radius: 0.8rem;
+}
+
+.mobile-patterns h4 {
+  margin: 0 0 0.8rem 0;
+  font-size: 0.9rem;
+  font-weight: 600;
+  color: #4a5568;
+}
+
+.mobile-pattern-list {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.mobile-pattern-item {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 0.5rem;
+  background: white;
+  border: 1px solid #e2e8f0;
+  border-radius: 0.5rem;
+  font-size: 0.8rem;
+}
+
+.pattern-name {
+  font-weight: 500;
+  color: #4a5568;
+}
+
+.pattern-count {
+  color: #718096;
+  font-size: 0.75rem;
 }
 
 /* 모바일 수동 입력 개선 스타일 */

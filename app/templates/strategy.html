@@ -20,6 +20,118 @@
 <!-- Main Content Grid -->
 <div class="main-content">
 
+  <!-- Recent Draws -->
+  <section class="card">
+    <div class="card-header">
+      <h2>📊 최근 10회 추첨 기록</h2>
+    </div>
+    <div class="table-container">
+      <table>
+        <thead>
+          <tr><th>회차</th><th>날짜</th><th>당첨번호</th><th>보너스</th></tr>
+        </thead>
+        <tbody>
+          {% for d in draws %}
+          <tr>
+            <td><strong>{{ d.round }}회</strong></td>
+            <td>{{ d.draw_date if d.draw_date else '-' }}</td>
+            <td class="numbers-cell">
+              {% for num in d.numbers_list() %}
+                <span class="small-number-ball">{{ num }}</span>
+              {% endfor %}
+            </td>
+            <td class="bonus-cell">{{ d.bonus }}</td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </section>
+
+  <!-- 번호 분석 섹션 -->
+  {% if most_frequent %}
+  <section class="card">
+    <div class="card-header">
+      <h2>📈 번호 분석 (최근 {{ analysis_limit if analysis_limit else 100 }}회)</h2>
+    </div>
+
+    <!-- 분석 데이터 그리드 (5열) -->
+    <div class="analysis-grid-five">
+      <div class="analysis-item-compact">
+        <h4>🔥 최다 빈출번호 TOP 10</h4>
+        <div class="number-frequency-list-compact">
+          {% for num, freq in most_frequent[:10] %}
+          <div class="frequency-item-compact hot">
+            <span class="freq-rank-small">{{ loop.index }}</span>
+            <span class="freq-number">{{ num }}</span>
+            <span class="freq-count">{{ freq }}회</span>
+          </div>
+          {% endfor %}
+        </div>
+      </div>
+
+      <div class="analysis-item-compact">
+        <h4>❄️ 최소 빈출번호 TOP 10</h4>
+        <div class="number-frequency-list-compact">
+          {% for num, freq in least_frequent[:10] %}
+          <div class="frequency-item-compact cold">
+            <span class="freq-rank-small">{{ loop.index }}</span>
+            <span class="freq-number">{{ num }}</span>
+            <span class="freq-count">{{ freq }}회</span>
+          </div>
+          {% endfor %}
+        </div>
+      </div>
+
+      <!-- 조합 분석 -->
+      {% if combinations %}
+      <div class="analysis-item-compact">
+        <h4>🤝 자주 나오는 번호 조합 TOP 10</h4>
+        <div class="combinations-list-vertical">
+          {% for pair, freq in combinations[:10] %}
+          <div class="combination-item-vertical">
+            <span class="combo-rank-small">{{ loop.index }}</span>
+            <div class="combination-numbers-small">
+              <span class="combo-number-small">{{ pair[0] }}</span>
+              <span class="combo-separator-small">+</span>
+              <span class="combo-number-small">{{ pair[1] }}</span>
+            </div>
+            <span class="combo-freq-small">{{ freq }}회</span>
+          </div>
+          {% endfor %}
+        </div>
+      </div>
+      {% endif %}
+
+      <!-- 홀짝 패턴 -->
+      <div class="analysis-item-compact">
+        <h4>🎲 홀짝 패턴</h4>
+        <div class="pattern-list-compact">
+          {% for pattern, count in patterns.odd_even_patterns.items() %}
+          <div class="pattern-item-compact">
+            <span class="pattern-name">{{ pattern }}</span>
+            <span class="pattern-count">{{ count }}회</span>
+          </div>
+          {% endfor %}
+        </div>
+      </div>
+
+      <!-- 합계 분포 -->
+      <div class="analysis-item-compact">
+        <h4>💡 합계 분포</h4>
+        <div class="pattern-list-compact">
+          {% for range_name, count in patterns.sum_ranges.items() %}
+          <div class="pattern-item-compact">
+            <span class="pattern-name">{{ range_name }}</span>
+            <span class="pattern-count">{{ count }}회</span>
+          </div>
+          {% endfor %}
+        </div>
+      </div>
+    </div>
+  </section>
+  {% endif %}
+
   <!-- AI Recommendation Section -->
   <section class="card">
     <div class="card-header">
@@ -227,109 +339,426 @@
     {% endif %}
   </section>
 
-  <!-- Analysis Section -->
-  <section class="card">
-    <div class="card-header">
-      <h2>📊 빈도 분석</h2>
-    </div>
 
-    <div class="analysis-tables">
-      <!-- Most Frequent Numbers -->
-      <div class="analysis-table-section">
-        <h4>🔥 최다 빈출번호 TOP 10</h4>
-        <div class="table-container">
-          <table class="compact-table">
-            <thead>
-              <tr><th>순위</th><th>번호</th><th>출현횟수</th></tr>
-            </thead>
-            <tbody>
-              {% for num, count in most_frequent %}
-              <tr>
-                <td>{{ loop.index }}</td>
-                <td><strong>{{ num }}</strong></td>
-                <td>{{ count }}회</td>
-              </tr>
-              {% endfor %}
-            </tbody>
-          </table>
-        </div>
-      </div>
-
-      <!-- Least Frequent Numbers -->
-      <div class="analysis-table-section">
-        <h4>❄️ 최소 출현번호 TOP 10</h4>
-        <div class="table-container">
-          <table class="compact-table">
-            <thead>
-              <tr><th>순위</th><th>번호</th><th>출현횟수</th></tr>
-            </thead>
-            <tbody>
-              {% for num, count in least_frequent %}
-              <tr>
-                <td>{{ loop.index }}</td>
-                <td><strong>{{ num }}</strong></td>
-                <td>{{ count }}회</td>
-              </tr>
-              {% endfor %}
-            </tbody>
-          </table>
-        </div>
-      </div>
-    </div>
-
-    <!-- Top combinations -->
-    <div class="combinations-table-section">
-      <h4>🔗 인기 번호조합 TOP 10</h4>
-      <div class="table-container">
-        <table class="combo-table">
-          <thead>
-            <tr><th>순위</th><th>번호조합</th><th>출현횟수</th></tr>
-          </thead>
-          <tbody>
-            {% for combination, count in top_combinations %}
-            <tr>
-              <td>{{ loop.index }}</td>
-              <td><strong>{{ combination[0] }} - {{ combination[1] }}</strong></td>
-              <td>{{ count }}회</td>
-            </tr>
-            {% endfor %}
-          </tbody>
-        </table>
-      </div>
-    </div>
-  </section>
-
-  <!-- Recent Draws -->
-  <section class="card">
-    <div class="card-header">
-      <h2>📊 최근 10회 추첨 기록</h2>
-    </div>
-    <div class="table-container">
-      <table>
-        <thead>
-          <tr><th>회차</th><th>날짜</th><th>당첨번호</th><th>보너스</th></tr>
-        </thead>
-        <tbody>
-          {% for d in draws %}
-          <tr>
-            <td><strong>{{ d.round }}회</strong></td>
-            <td>{{ d.draw_date if d.draw_date else '-' }}</td>
-            <td class="numbers-cell">
-              {% for num in d.numbers_list() %}
-                <span class="small-number-ball">{{ num }}</span>
-              {% endfor %}
-            </td>
-            <td class="bonus-cell">{{ d.bonus }}</td>
-          </tr>
-          {% endfor %}
-        </tbody>
-      </table>
-    </div>
-  </section>
 
 </div> <!-- End main-content -->
 
 <style>
+/* 번호 분석 스타일 */
+.analysis-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+  gap: 1.5rem;
+  margin: 1.5rem 0;
+}
+
+/* 새로운 컴팩트 레이아웃 */
+.analysis-grid-new {
+  display: grid;
+  grid-template-columns: 1fr 1fr 1fr;
+  gap: 1.5rem;
+  margin: 1.5rem 0;
+}
+
+/* 5열 그리드 레이아웃 */
+.analysis-grid-five {
+  display: grid;
+  grid-template-columns: repeat(5, 1fr);
+  gap: 1rem;
+  margin: 1.5rem 0;
+}
+
+.analysis-item-compact {
+  background: #f8f9fa;
+  border: 1px solid var(--card-border);
+  border-radius: 8px;
+  padding: 1rem;
+  min-height: 400px;
+}
+
+.analysis-item-compact h4 {
+  margin: 0 0 1rem 0;
+  color: #333;
+  font-size: 0.95rem;
+  font-weight: 600;
+}
+
+.number-frequency-list-compact {
+  display: flex;
+  flex-direction: column;
+  gap: 0.4rem;
+}
+
+.frequency-item-compact {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 0.4rem;
+  border-radius: 6px;
+  font-weight: 500;
+  gap: 0.4rem;
+}
+
+.frequency-item-compact.hot {
+  background: #ffebee;
+  border: 1px solid #ef9a9a;
+}
+
+.frequency-item-compact.cold {
+  background: #e3f2fd;
+  border: 1px solid #90caf9;
+}
+
+.freq-rank-small {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 18px;
+  height: 18px;
+  background: #667eea;
+  color: white;
+  border-radius: 50%;
+  font-size: 0.7rem;
+  font-weight: bold;
+  flex-shrink: 0;
+}
+
+/* 세로형 조합 리스트 */
+.combinations-list-vertical {
+  display: flex;
+  flex-direction: column;
+  gap: 0.4rem;
+}
+
+.combination-item-vertical {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.4rem;
+  background: white;
+  border: 1px solid #e0e0e0;
+  border-radius: 6px;
+  font-size: 0.85rem;
+}
+
+.combo-rank-small {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 18px;
+  height: 18px;
+  background: linear-gradient(135deg, #667eea, #764ba2);
+  color: white;
+  border-radius: 50%;
+  font-size: 0.7rem;
+  font-weight: bold;
+  flex-shrink: 0;
+}
+
+.combination-numbers-small {
+  display: flex;
+  align-items: center;
+  gap: 0.3rem;
+  flex: 1;
+}
+
+.combo-number-small {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 20px;
+  height: 20px;
+  background: #f0f0f0;
+  color: #000;
+  border: 1px solid #ddd;
+  border-radius: 50%;
+  font-size: 0.75rem;
+  font-weight: bold;
+}
+
+.combo-separator-small {
+  color: #666;
+  font-weight: bold;
+  font-size: 0.8rem;
+}
+
+.combo-freq-small {
+  color: #666;
+  font-size: 0.75rem;
+  font-weight: 500;
+  flex-shrink: 0;
+}
+
+/* 패턴 컴팩트 스타일 */
+.pattern-list-compact {
+  display: flex;
+  flex-direction: column;
+  gap: 0.4rem;
+}
+
+.pattern-item-compact {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 0.4rem;
+  background: white;
+  border: 1px solid #e0e0e0;
+  border-radius: 6px;
+  font-size: 0.85rem;
+}
+
+.pattern-item-compact .pattern-name {
+  font-weight: 500;
+  color: #333;
+  font-size: 0.8rem;
+}
+
+.pattern-item-compact .pattern-count {
+  color: #666;
+  font-size: 0.75rem;
+  font-weight: 500;
+}
+
+/* 패턴 그리드 */
+.patterns-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 1.5rem;
+  margin-top: 1.5rem;
+}
+
+.analysis-item {
+  background: #f8f9fa;
+  border: 1px solid var(--card-border);
+  border-radius: 8px;
+  padding: 1rem;
+}
+
+.analysis-item h4 {
+  margin: 0 0 1rem 0;
+  color: #333;
+  font-size: 1rem;
+  font-weight: 600;
+}
+
+.number-frequency-list {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.frequency-item {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 0.5rem;
+  border-radius: 6px;
+  font-weight: 500;
+  gap: 0.5rem;
+}
+
+.frequency-item.hot {
+  background: #ffebee;
+  border: 1px solid #ef9a9a;
+}
+
+.frequency-item.cold {
+  background: #e3f2fd;
+  border: 1px solid #90caf9;
+}
+
+.freq-number {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  background: #f0f0f0;
+  color: #000;
+  border: 2px solid #ddd;
+  border-radius: 50%;
+  font-size: 0.9rem;
+  font-weight: bold;
+}
+
+.freq-count {
+  color: #666;
+  font-size: 0.9rem;
+}
+
+.freq-rank {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 20px;
+  height: 20px;
+  background: #667eea;
+  color: white;
+  border-radius: 50%;
+  font-size: 0.75rem;
+  font-weight: bold;
+  flex-shrink: 0;
+}
+
+.pattern-list {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.pattern-item {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 0.5rem;
+  background: white;
+  border: 1px solid #e0e0e0;
+  border-radius: 6px;
+}
+
+.pattern-name {
+  font-weight: 500;
+  color: #333;
+}
+
+.pattern-count {
+  color: #666;
+  font-size: 0.9rem;
+}
+
+.combinations-section {
+  margin-top: 2rem;
+  padding-top: 1.5rem;
+  border-top: 1px solid var(--card-border);
+}
+
+.combinations-section h4 {
+  margin: 0 0 1rem 0;
+  color: #333;
+  font-size: 1rem;
+  font-weight: 600;
+}
+
+.combinations-list {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(130px, 1fr));
+  gap: 0.75rem;
+  max-height: 400px;
+  overflow-y: auto;
+}
+
+.combination-item {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.75rem;
+  background: white;
+  border: 1px solid #e0e0e0;
+  border-radius: 8px;
+  text-align: center;
+  position: relative;
+}
+
+.combo-rank {
+  position: absolute;
+  top: -8px;
+  left: -8px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 24px;
+  height: 24px;
+  background: linear-gradient(135deg, #667eea, #764ba2);
+  color: white;
+  border-radius: 50%;
+  font-size: 0.75rem;
+  font-weight: bold;
+  border: 2px solid white;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+}
+
+.combination-numbers {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.combo-number {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 24px;
+  height: 24px;
+  background: var(--accent);
+  color: white;
+  border-radius: 50%;
+  font-size: 0.8rem;
+  font-weight: bold;
+}
+
+.combo-separator {
+  color: #666;
+  font-weight: bold;
+}
+
+.combo-freq {
+  color: #666;
+  font-size: 0.8rem;
+  font-weight: 500;
+}
+
+/* 모바일 반응형 */
+@media (max-width: 1200px) {
+  .analysis-grid-five {
+    grid-template-columns: repeat(3, 1fr);
+    gap: 0.8rem;
+  }
+}
+
+@media (max-width: 768px) {
+  .analysis-grid {
+    grid-template-columns: 1fr;
+    gap: 1rem;
+  }
+
+  .analysis-grid-new {
+    grid-template-columns: 1fr;
+    gap: 1rem;
+  }
+
+  .analysis-grid-five {
+    grid-template-columns: 1fr;
+    gap: 1rem;
+  }
+
+  .analysis-item-compact {
+    min-height: auto;
+    padding: 0.8rem;
+  }
+
+  .patterns-grid {
+    grid-template-columns: 1fr;
+    gap: 1rem;
+  }
+
+  .combinations-list {
+    grid-template-columns: repeat(auto-fit, minmax(110px, 1fr));
+    gap: 0.5rem;
+    max-height: 300px;
+  }
+
+  .combination-item {
+    padding: 0.5rem;
+  }
+
+  .combo-rank {
+    width: 20px;
+    height: 20px;
+    font-size: 0.7rem;
+  }
+}
+
 /* Clean text-based styles */
 .card-header {
   display: flex;
@@ -370,56 +799,6 @@
   line-height: 1.4;
 }
 
-/* Analysis Tables */
-.analysis-tables {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 2rem;
-  margin-top: 1rem;
-}
-
-.analysis-table-section h4 {
-  margin-bottom: 0.75rem;
-  color: #333;
-  font-size: 1rem;
-}
-
-.compact-table {
-  font-size: 0.9rem;
-}
-
-.compact-table th {
-  background: #f8f9fa;
-  font-weight: 600;
-}
-
-.compact-table td {
-  padding: 0.5rem;
-}
-
-.combinations-table-section {
-  margin-top: 1.5rem;
-}
-
-.combinations-table-section h4 {
-  margin-bottom: 0.75rem;
-  color: #333;
-  font-size: 1rem;
-}
-
-.combo-table {
-  font-size: 0.9rem;
-  max-width: 400px;
-}
-
-.combo-table th {
-  background: #f8f9fa;
-  font-weight: 600;
-}
-
-.combo-table td {
-  padding: 0.5rem;
-}
 
 /* Pagination Styles */
 .pagination-section {
@@ -873,11 +1252,6 @@
 }
 
 @media (max-width: 768px) {
-  .analysis-tables {
-    grid-template-columns: 1fr;
-    gap: 1rem;
-  }
-
   .card-header {
     flex-direction: column;
     gap: 0.5rem;
@@ -894,10 +1268,6 @@
 
   .numbers-cell {
     padding: 0.5rem;
-  }
-
-  .combo-table {
-    max-width: 100%;
   }
 
   /* Mobile responsive for enhanced manual input */

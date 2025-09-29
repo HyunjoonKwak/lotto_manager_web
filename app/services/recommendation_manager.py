@@ -6,7 +6,7 @@ from flask import session
 
 from ..models import RecommendationSet
 from ..extensions import db
-from .recommender import auto_recommend
+from .recommender import auto_recommend, enhanced_auto_recommend
 from .analyzer import get_recommendation_reasons
 
 
@@ -109,15 +109,17 @@ def get_persistent_recommendations(draws: List, user_id: int = None) -> Tuple[Li
             # 유효한 데이터가 없으면 기본 추천 생성
             history = [[1, 2, 3, 4, 5, 6]]  # 기본값
 
-        auto_recs = auto_recommend(history, count=5)
+        auto_recs, recommendation_reasons = enhanced_auto_recommend(history, user_id=user_id, count=5)
     except Exception as e:
         # 전체 추천 생성 실패 시 기본 추천 반환
         auto_recs = [[7, 14, 21, 28, 35, 42], [3, 9, 15, 27, 33, 39], [5, 11, 17, 23, 29, 41], [8, 16, 24, 32, 36, 44], [2, 12, 18, 26, 34, 43]]
-
-    # Generate reasons for recommendations
-    recommendation_reasons = []
-    for rec in auto_recs:
-        recommendation_reasons.append(get_recommendation_reasons(rec, limit=None))
+        recommendation_reasons = [
+            ["균등 분포 패턴", "7의 배수 활용"],
+            ["저구간 강세", "홀수 위주"],
+            ["전구간 균형", "소수 활용"],
+            ["짝수 기반", "연속성 고려"],
+            ["중간값 기반", "균형 배치"]
+        ]
 
     # 새로 생성한 추천번호 저장
     store_recommendations(auto_recs, recommendation_reasons, user_id)
@@ -128,12 +130,7 @@ def get_persistent_recommendations(draws: List, user_id: int = None) -> Tuple[Li
 def refresh_recommendations(draws: List, user_id: int = None) -> Tuple[List[List[int]], List[List[str]]]:
     """강제로 새로운 추천번호 생성"""
     history = [d.numbers_list() for d in draws]
-    auto_recs = auto_recommend(history, count=5)
-
-    # Generate reasons for recommendations
-    recommendation_reasons = []
-    for rec in auto_recs:
-        recommendation_reasons.append(get_recommendation_reasons(rec, limit=None))
+    auto_recs, recommendation_reasons = enhanced_auto_recommend(history, user_id=user_id, count=5)
 
     store_recommendations(auto_recs, recommendation_reasons, user_id)
     return auto_recs, recommendation_reasons
