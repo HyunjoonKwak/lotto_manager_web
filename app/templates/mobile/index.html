@@ -103,21 +103,21 @@
   </div>
 
   <div class="quick-menu">
-    <a href="{{ url_for('main.strategy') }}" class="menu-item">
-      <span class="menu-icon">📊</span>
-      <span class="menu-text">전략분석</span>
+    <a href="{{ url_for('main.mobile_strategy') }}" class="menu-item" style="background: linear-gradient(135deg, #667eea, #764ba2); color: white; border: none;">
+      <span class="menu-icon">🤖</span>
+      <span class="menu-text">AI 추천</span>
     </a>
-    <a href="{{ url_for('main.purchase_history') }}" class="menu-item">
+    <a href="{{ url_for('main.mobile_buy') }}" class="menu-item" style="background: linear-gradient(135deg, #4299e1, #3182ce); color: white; border: none;">
       <span class="menu-icon">🛒</span>
-      <span class="menu-text">구매내역</span>
+      <span class="menu-text">구매관리</span>
     </a>
-    <a href="{{ url_for('main.info_page') }}" class="menu-item">
+    <a href="{{ url_for('main.mobile_purchases') }}" class="menu-item" style="background: linear-gradient(135deg, #48bb78, #38a169); color: white; border: none;">
       <span class="menu-icon">📋</span>
-      <span class="menu-text">정보조회</span>
+      <span class="menu-text">구매이력</span>
     </a>
-    <a href="{{ url_for('main.crawling_page') }}" class="menu-item">
-      <span class="menu-icon">🔄</span>
-      <span class="menu-text">데이터수집</span>
+    <a href="{{ url_for('main.mobile_info') }}" class="menu-item" style="background: linear-gradient(135deg, #ed8936, #dd6b20); color: white; border: none;">
+      <span class="menu-icon">🔍</span>
+      <span class="menu-text">정보조회</span>
     </a>
   </div>
 </div>

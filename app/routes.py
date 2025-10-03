@@ -151,12 +151,57 @@ def index():
     latest = Draw.query.order_by(Draw.round.desc()).first()
     total_rounds = Draw.query.count()
 
+    # Calculate next draw info
+    next_round = latest.round + 1 if latest else 1
+    from datetime import datetime, timedelta
+    today = datetime.now()
+    days_until_saturday = (5 - today.weekday()) % 7
+    if days_until_saturday == 0 and today.hour >= 21:  # After Saturday 9PM
+        days_until_saturday = 7
+    next_draw_date = today + timedelta(days=days_until_saturday)
+    next_draw_date = next_draw_date.replace(hour=20, minute=45, second=0, microsecond=0)
+
+    # Get user statistics (if authenticated)
+    user_stats = {
+        'draft_count': 0,
+        'pending_count': 0,
+        'recent_wins': [],
+        'recent_purchases': []
+    }
+
+    if current_user.is_authenticated:
+        # Draft purchases (장바구니)
+        user_stats['draft_count'] = Purchase.query.filter_by(
+            user_id=current_user.id,
+            status='DRAFT'
+        ).count()
+
+        # Pending results (아직 추첨되지 않은 구매)
+        user_stats['pending_count'] = Purchase.query.filter(
+            Purchase.user_id == current_user.id,
+            Purchase.purchase_round >= next_round,
+            Purchase.status.in_(['DRAFT', 'PURCHASED'])
+        ).count()
+
+        # Recent wins (최근 당첨 내역 - 5등 이상)
+        user_stats['recent_wins'] = Purchase.query.filter(
+            Purchase.user_id == current_user.id,
+            Purchase.winning_rank.isnot(None),
+            Purchase.winning_rank <= 5
+        ).order_by(Purchase.purchase_date.desc()).limit(3).all()
+
+        # Recent purchases (최근 구매/등록 3건)
+        user_stats['recent_purchases'] = Purchase.query.filter_by(
+            user_id=current_user.id
+        ).order_by(Purchase.purchase_date.desc()).limit(3).all()
+
     # Get latest round's winning shops (rank 1 only for main page)
     shops_rank1 = []
     if latest:
         shops_rank1 = (
             WinningShop.query.filter_by(round=latest.round, rank=1)
             .order_by(WinningShop.sequence.asc().nullsfirst())
+            .limit(5)  # Limit to 5 for dashboard
             .all()
         )
 
@@ -166,6 +211,9 @@ def index():
         latest=latest,
         total_rounds=total_rounds,
         shops_rank1=shops_rank1,
+        next_round=next_round,
+        next_draw_date=next_draw_date,
+        user_stats=user_stats,
     )
 
 
@@ -359,6 +407,61 @@ def mobile_crawling():
         title="모바일 데이터수집",
         latest=latest,
         total_rounds=total_rounds
+    )
+
+
+@main_bp.get("/mobile/buy")
+@login_required
+def mobile_buy():
+    """모바일 구매관리 페이지"""
+    # Get latest draw for round calculation
+    latest_draw = Draw.query.order_by(Draw.round.desc()).first()
+    next_round = latest_draw.round + 1 if latest_draw else 1
+
+    # Get selected round from query params
+    selected_round_str = request.args.get('round', str(next_round))
+    try:
+        selected_round = int(selected_round_str)
+    except ValueError:
+        selected_round = next_round
+
+    # Calculate draw date info for selected round
+    from datetime import datetime, timedelta
+    today = datetime.now()
+    days_until_saturday = (5 - today.weekday()) % 7
+    if days_until_saturday == 0 and today.hour >= 21:
+        days_until_saturday = 7
+
+    draw_date = today + timedelta(days=days_until_saturday + (selected_round - next_round) * 7)
+    draw_date = draw_date.replace(hour=20, minute=45, second=0, microsecond=0)
+
+    # Calculate D-day
+    days_diff = (draw_date.date() - today.date()).days
+    if days_diff == 0:
+        dday = "오늘"
+    elif days_diff == 1:
+        dday = "내일"
+    else:
+        dday = f"D-{days_diff}"
+
+    draw_info = {
+        'date': draw_date.strftime('%Y-%m-%d'),
+        'day': ['월', '화', '수', '목', '금', '토', '일'][draw_date.weekday()],
+        'dday': dday
+    }
+
+    # Get user's draft purchases
+    draft_purchases = Purchase.query.filter_by(
+        user_id=current_user.id,
+        status='DRAFT'
+    ).order_by(Purchase.purchase_date.desc()).all()
+
+    return render_template(
+        "mobile/buy.html",
+        title="모바일 구매관리",
+        selected_round=selected_round,
+        draw_info=draw_info,
+        draft_purchases=draft_purchases
     )
 
 

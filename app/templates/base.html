@@ -133,6 +133,53 @@
       box-shadow: 0 2px 8px rgba(0,0,0,0.1);
     }
 
+    /* Floating Action Button */
+    .floating-action-btn {
+      position: fixed;
+      bottom: 2rem;
+      right: 2rem;
+      width: 60px;
+      height: 60px;
+      border-radius: 50%;
+      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+      color: white;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      text-decoration: none;
+      font-size: 1.5rem;
+      box-shadow: 0 4px 12px rgba(102, 126, 234, 0.4);
+      transition: all 0.3s ease;
+      z-index: 1000;
+      cursor: pointer;
+      border: none;
+    }
+
+    .floating-action-btn:hover {
+      transform: translateY(-3px);
+      box-shadow: 0 6px 20px rgba(102, 126, 234, 0.5);
+      color: white;
+    }
+
+    .floating-action-btn:active {
+      transform: translateY(-1px);
+    }
+
+    /* Hide on specific pages */
+    .hide-fab .floating-action-btn {
+      display: none;
+    }
+
+    @media (max-width: 768px) {
+      .floating-action-btn {
+        bottom: 1.5rem;
+        right: 1.5rem;
+        width: 56px;
+        height: 56px;
+        font-size: 1.3rem;
+      }
+    }
+
     @media (max-width: 768px) {
       .nav-content {
         flex-direction: row;
@@ -203,11 +250,24 @@
     {% block content %}{% endblock %}
   </div>
 
+  <!-- Floating Action Button -->
+  {% if current_user.is_authenticated %}
+  <a href="{{ url_for('main.buy') }}" class="floating-action-btn" title="구매관리">
+    🛒
+  </a>
+  {% endif %}
+
   <script>
     // Active nav link highlighting
     document.addEventListener('DOMContentLoaded', function() {
       const currentPath = window.location.pathname;
       const navLinks = document.querySelectorAll('.nav-link');
+
+      // Hide FAB on specific pages
+      const hideFabPages = ['/', '/buy', '/mobile'];
+      if (hideFabPages.some(page => currentPath === page || currentPath.startsWith('/mobile'))) {
+        document.body.classList.add('hide-fab');
+      }
 
       navLinks.forEach(link => {
         if (link.getAttribute('href') === currentPath ||

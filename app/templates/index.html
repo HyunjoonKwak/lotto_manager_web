@@ -12,37 +12,101 @@
     <h1>🏠 대시보드</h1>
     <div class="muted">로또 분석 및 추천 시스템</div>
   </div>
-  <div class="date-section">
-    <div class="current-date" id="currentDate"></div>
-    <div class="countdown-date" id="nextDrawCountdown"></div>
-  </div>
 </div>
 
 <!-- Main Content Grid -->
-<div class="main-content">
+<div class="dashboard-grid">
+
+  <!-- Next Draw Info Card -->
+  <section class="card next-draw-card">
+    <div class="next-draw-header">
+      <h2>🎯 다음 추첨</h2>
+    </div>
+    <div class="next-draw-content">
+      <div class="draw-round">
+        <div class="label">회차</div>
+        <div class="value">{{ next_round }}회</div>
+      </div>
+      <div class="draw-date">
+        <div class="label">추첨일시</div>
+        <div class="value">{{ next_draw_date.strftime('%m월 %d일 (%a) %H:%M') }}</div>
+      </div>
+      <div class="draw-countdown">
+        <div class="label">남은 시간</div>
+        <div class="value countdown-value" id="countdownTimer">계산중...</div>
+      </div>
+    </div>
+  </section>
+
+  <!-- Quick Actions -->
+  <section class="card quick-actions-card">
+    <h2>⚡ 빠른 액션</h2>
+    <div class="quick-actions-grid">
+      <a href="{{ url_for('main.strategy') }}" class="action-item action-ai">
+        <span class="action-icon">🤖</span>
+        <span class="action-label">AI 추천받기</span>
+      </a>
+      <a href="{{ url_for('main.buy') }}?method=manual" class="action-item action-manual">
+        <span class="action-icon">🎯</span>
+        <span class="action-label">수동 입력</span>
+      </a>
+      <a href="{{ url_for('main.buy') }}?method=random" class="action-item action-random">
+        <span class="action-icon">🎲</span>
+        <span class="action-label">랜덤 생성</span>
+      </a>
+      <a href="{{ url_for('main.purchase_history') }}" class="action-item action-history">
+        <span class="action-icon">📋</span>
+        <span class="action-label">구매이력</span>
+      </a>
+    </div>
+  </section>
+
+  <!-- User Status Summary (if authenticated) -->
+  {% if current_user.is_authenticated %}
+  <section class="card user-status-card">
+    <h2>📊 나의 현황</h2>
+    <div class="status-grid">
+      <div class="status-item">
+        <div class="status-icon">🛒</div>
+        <div class="status-content">
+          <div class="status-value">{{ user_stats.draft_count }}</div>
+          <div class="status-label">장바구니</div>
+        </div>
+        {% if user_stats.draft_count > 0 %}
+        <a href="{{ url_for('main.buy') }}" class="status-action">확인</a>
+        {% endif %}
+      </div>
+      <div class="status-item">
+        <div class="status-icon">⏳</div>
+        <div class="status-content">
+          <div class="status-value">{{ user_stats.pending_count }}</div>
+          <div class="status-label">결과 대기중</div>
+        </div>
+        {% if user_stats.pending_count > 0 %}
+        <a href="{{ url_for('main.purchase_history') }}" class="status-action">보기</a>
+        {% endif %}
+      </div>
+      <div class="status-item">
+        <div class="status-icon">🏆</div>
+        <div class="status-content">
+          <div class="status-value">{{ user_stats.recent_wins|length }}</div>
+          <div class="status-label">최근 당첨</div>
+        </div>
+        {% if user_stats.recent_wins|length > 0 %}
+        <a href="{{ url_for('main.purchase_history') }}" class="status-action">확인</a>
+        {% endif %}
+      </div>
+    </div>
+  </section>
+  {% endif %}
 
   <!-- Latest Draw Results -->
   {% if latest %}
-  <section class="card highlight-card">
+  <section class="card latest-draw-card">
     <div class="card-header">
       <h2>🎯 {{ latest.round }}회 최신 추첨결과</h2>
       <div class="header-actions">
-        <span class="draw-date">{{ latest.draw_date if latest.draw_date else '' }}</span>
-        <button id="checkNewDrawBtn" class="btn-update" onclick="checkForNewDraw()">
-          새 회차 확인
-        </button>
-        <a href="https://dhlottery.co.kr/gameResult.do?method=byWin" target="_blank" class="btn-lotto-site">
-          🎲 로또구매
-        </a>
-      </div>
-    </div>
-
-    <!-- 새 회차 알림 -->
-    <div id="newDrawAlert" class="new-draw-alert" style="display: none;">
-      <div class="alert-content">
-        <span class="alert-icon">⚡</span>
-        <span class="alert-message">새로운 회차가 추첨되었을 수 있습니다!</span>
-        <button onclick="checkForNewDraw()" class="alert-btn">지금 확인하기</button>
+        <span class="draw-date">{{ latest.draw_date.strftime('%Y-%m-%d') if latest.draw_date else '' }}</span>
       </div>
     </div>
     <div class="draw-result">
@@ -57,36 +121,96 @@
         <span class="bonus-label">보너스</span>
       </div>
     </div>
+
+    {% if latest.total_winners_1st or latest.prize_amount_1st %}
+    <div class="draw-prizes">
+      {% if latest.total_winners_1st %}
+      <div class="prize-item">
+        <span class="prize-label">1등 당첨자</span>
+        <span class="prize-value">{{ latest.total_winners_1st }}명</span>
+      </div>
+      {% endif %}
+      {% if latest.prize_amount_1st %}
+      <div class="prize-item">
+        <span class="prize-label">1등 당첨금</span>
+        <span class="prize-value">{{ '{:,}'.format(latest.prize_amount_1st) }}원</span>
+      </div>
+      {% endif %}
+      {% if latest.total_sales %}
+      <div class="prize-item">
+        <span class="prize-label">총 판매액</span>
+        <span class="prize-value">{{ '{:,}'.format(latest.total_sales) }}원</span>
+      </div>
+      {% endif %}
+    </div>
+    {% endif %}
   </section>
   {% else %}
   <section class="card error-card">
     <h2>⚠️ 데이터 없음</h2>
-    <p>추첨 결과 데이터가 없습니다. 정보조회 페이지에서 데이터를 업데이트해주세요.</p>
+    <p>추첨 결과 데이터가 없습니다. 크롤링 페이지에서 데이터를 업데이트해주세요.</p>
+    <a href="{{ url_for('main.crawling_page') }}" class="btn btn-primary">크롤링 페이지로 이동</a>
   </section>
   {% endif %}
 
-
+  <!-- Recent Activity Feed (if authenticated) -->
+  {% if current_user.is_authenticated and user_stats.recent_purchases %}
+  <section class="card recent-activity-card">
+    <div class="card-header">
+      <h2>📝 최근 활동</h2>
+      <a href="{{ url_for('main.purchase_history') }}" class="view-all-link">전체보기 →</a>
+    </div>
+    <div class="activity-list">
+      {% for purchase in user_stats.recent_purchases %}
+      <div class="activity-item">
+        <div class="activity-icon">
+          {% if purchase.source == 'ai' %}🤖
+          {% elif purchase.source == 'qr' %}📱
+          {% elif purchase.source == 'random' %}🎲
+          {% else %}🎯{% endif %}
+        </div>
+        <div class="activity-content">
+          <div class="activity-title">
+            {{ purchase.purchase_round }}회 번호 {{ '등록' if purchase.status == 'DRAFT' else '구매' }}
+          </div>
+          <div class="activity-numbers">
+            {% for num in purchase.numbers_list()[:3] %}
+              <span class="mini-ball">{{ num }}</span>
+            {% endfor %}
+            <span class="more-numbers">...</span>
+          </div>
+        </div>
+        <div class="activity-meta">
+          <div class="activity-date">{{ purchase.purchase_date.strftime('%m/%d %H:%M') }}</div>
+          {% if purchase.winning_rank %}
+          <div class="activity-result rank-{{ purchase.winning_rank }}">{{ purchase.winning_rank }}등</div>
+          {% endif %}
+        </div>
+      </div>
+      {% endfor %}
+    </div>
+  </section>
+  {% endif %}
 
   <!-- Latest Winning Shops -->
   {% if latest and shops_rank1 %}
   <section class="card">
     <div class="card-header">
       <h2>🏪 {{ latest.round }}회 1등 당첨점 ({{ shops_rank1|length }}개)</h2>
+      <a href="{{ url_for('main.draw_info', round=latest.round) }}" class="view-all-link">전체보기 →</a>
     </div>
-
     {% if shops_rank1|length > 0 %}
     <div class="table-container">
       <table>
         <thead>
-          <tr><th>순번</th><th>상호</th><th>구분</th><th>주소</th></tr>
+          <tr><th>상호</th><th>구분</th><th>주소</th></tr>
         </thead>
         <tbody>
           {% for s in shops_rank1 %}
           <tr>
-            <td>{{ s.sequence or '' }}</td>
             <td><strong>{{ s.name }}</strong></td>
             <td><span class="badge-method">{{ s.method or '구분없음' }}</span></td>
-            <td>{{ s.address }}</td>
+            <td class="address-cell">{{ s.address }}</td>
           </tr>
           {% endfor %}
         </tbody>
@@ -97,378 +221,483 @@
       <p>아직 1등 당첨점 정보가 없습니다.</p>
     </div>
     {% endif %}
-
-    <div style="margin-top: 1rem; text-align: center;">
-      <p><small>더 자세한 당첨점 정보는 <a href="{{ url_for('main.info_page') }}">정보조회 페이지</a>에서 확인하세요.</small></p>
-    </div>
   </section>
   {% endif %}
 
-</div> <!-- End main-content -->
+</div> <!-- End dashboard-grid -->
 
 <style>
-/* 헤더 스타일 */
-.title-section {
-  flex: 1;
+/* Dashboard Grid Layout */
+.dashboard-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(350px, 1fr));
+  gap: 1.5rem;
+  max-width: 1400px;
+  margin: 0 auto;
 }
 
-.date-section {
-  text-align: right;
+/* Next Draw Card */
+.next-draw-card {
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  color: white;
+  border: none;
+  grid-column: span 2;
 }
 
-.current-date {
-  font-size: 0.9rem;
-  color: #666;
-  font-weight: 500;
+.next-draw-header h2 {
+  margin: 0;
+  font-size: 1.25rem;
+  font-weight: 600;
+}
+
+.next-draw-content {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 2rem;
+  margin-top: 1.5rem;
+}
+
+.next-draw-content > div {
+  text-align: center;
+}
+
+.next-draw-content .label {
+  font-size: 0.875rem;
+  opacity: 0.9;
   margin-bottom: 0.5rem;
 }
 
-.countdown-date {
-  font-size: 0.85rem;
-  color: #007bff;
-  font-weight: 600;
-  background: linear-gradient(135deg, #e3f2fd, #f0f8ff);
-  padding: 0.3rem 0.6rem;
-  border-radius: 0.4rem;
-  border: 1px solid rgba(0, 123, 255, 0.2);
+.next-draw-content .value {
+  font-size: 1.75rem;
+  font-weight: bold;
+}
+
+.countdown-value {
+  background: rgba(255, 255, 255, 0.2);
+  padding: 0.5rem 1rem;
+  border-radius: 0.5rem;
   display: inline-block;
 }
 
-/* 새 회차 알림 스타일 */
-.new-draw-alert {
-  background: linear-gradient(135deg, #ff6b6b, #ffa726);
-  color: white;
-  border-radius: 0.5rem;
-  margin: 1rem 0;
-  padding: 0;
-  overflow: hidden;
-  animation: slideDown 0.3s ease;
+/* Quick Actions Card */
+.quick-actions-card {
+  grid-column: span 2;
 }
 
-.alert-content {
+.quick-actions-grid {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 1rem;
+  margin-top: 1rem;
+}
+
+.action-item {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.75rem;
+  padding: 1.5rem;
+  background: linear-gradient(135deg, #f5f7fa 0%, #c3cfe2 100%);
+  border-radius: 0.75rem;
+  text-decoration: none;
+  color: #333;
+  transition: all 0.3s ease;
+  border: 2px solid transparent;
+}
+
+.action-item:hover {
+  transform: translateY(-4px);
+  box-shadow: 0 8px 20px rgba(0, 0, 0, 0.15);
+}
+
+.action-item.action-ai {
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  color: white;
+}
+
+.action-item.action-manual {
+  background: linear-gradient(135deg, #28a745 0%, #20c997 100%);
+  color: white;
+}
+
+.action-item.action-random {
+  background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);
+  color: white;
+}
+
+.action-item.action-history {
+  background: linear-gradient(135deg, #4facfe 0%, #00f2fe 100%);
+  color: white;
+}
+
+.action-icon {
+  font-size: 2.5rem;
+}
+
+.action-label {
+  font-weight: 600;
+  font-size: 0.95rem;
+}
+
+/* User Status Card */
+.user-status-card {
+  grid-column: span 2;
+}
+
+.status-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 1rem;
+  margin-top: 1rem;
+}
+
+.status-item {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  padding: 1.25rem;
+  background: #f8f9fa;
+  border-radius: 0.75rem;
+  border: 2px solid #e9ecef;
+}
+
+.status-icon {
+  font-size: 2rem;
+  opacity: 0.8;
+}
+
+.status-content {
+  flex: 1;
+}
+
+.status-value {
+  font-size: 1.75rem;
+  font-weight: bold;
+  color: #667eea;
+}
+
+.status-label {
+  font-size: 0.875rem;
+  color: #666;
+  margin-top: 0.25rem;
+}
+
+.status-action {
+  padding: 0.5rem 1rem;
+  background: #667eea;
+  color: white;
+  border-radius: 0.5rem;
+  text-decoration: none;
+  font-size: 0.875rem;
+  font-weight: 500;
+  transition: background 0.2s ease;
+}
+
+.status-action:hover {
+  background: #5a67d8;
+}
+
+/* Latest Draw Card */
+.latest-draw-card {
+  grid-column: span 2;
+}
+
+.draw-result {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 1.5rem;
+  padding: 2rem 1rem;
+}
+
+.numbers {
+  display: flex;
+  gap: 0.75rem;
+  flex-wrap: wrap;
+  justify-content: center;
+}
+
+.number-ball {
+  width: 50px;
+  height: 50px;
+  border-radius: 50%;
+  background: linear-gradient(135deg, #667eea, #764ba2);
+  color: white;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: bold;
+  font-size: 1.25rem;
+  box-shadow: 0 4px 12px rgba(102, 126, 234, 0.3);
+}
+
+.bonus-section {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+}
+
+.plus {
+  font-size: 1.5rem;
+  font-weight: bold;
+  color: #999;
+}
+
+.bonus-ball {
+  width: 50px;
+  height: 50px;
+  border-radius: 50%;
+  background: linear-gradient(135deg, #f093fb, #f5576c);
+  color: white;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: bold;
+  font-size: 1.25rem;
+  box-shadow: 0 4px 12px rgba(240, 147, 251, 0.3);
+}
+
+.bonus-label {
+  font-size: 0.875rem;
+  color: #666;
+  font-weight: 500;
+}
+
+.draw-prizes {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 1rem;
+  margin-top: 1.5rem;
+  padding-top: 1.5rem;
+  border-top: 1px solid #e9ecef;
+}
+
+.prize-item {
+  text-align: center;
+}
+
+.prize-label {
+  display: block;
+  font-size: 0.875rem;
+  color: #666;
+  margin-bottom: 0.5rem;
+}
+
+.prize-value {
+  display: block;
+  font-size: 1.1rem;
+  font-weight: bold;
+  color: #333;
+}
+
+/* Recent Activity Card */
+.recent-activity-card {
+  grid-column: span 2;
+}
+
+.activity-list {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+  margin-top: 1rem;
+}
+
+.activity-item {
   display: flex;
   align-items: center;
   gap: 1rem;
   padding: 1rem;
+  background: #f8f9fa;
+  border-radius: 0.5rem;
+  border: 1px solid #e9ecef;
 }
 
-.alert-icon {
-  font-size: 1.5rem;
+.activity-icon {
+  font-size: 1.75rem;
 }
 
-.alert-message {
+.activity-content {
   flex: 1;
-  font-weight: 500;
 }
 
-.alert-btn {
-  background: rgba(255, 255, 255, 0.2);
-  color: white;
-  border: 1px solid rgba(255, 255, 255, 0.3);
-  padding: 0.5rem 1rem;
-  border-radius: 0.25rem;
-  cursor: pointer;
-  font-weight: 500;
-  transition: all 0.2s ease;
+.activity-title {
+  font-weight: 600;
+  color: #333;
+  margin-bottom: 0.25rem;
 }
 
-.alert-btn:hover {
-  background: rgba(255, 255, 255, 0.3);
-}
-
-@keyframes slideDown {
-  from {
-    opacity: 0;
-    transform: translateY(-10px);
-  }
-  to {
-    opacity: 1;
-    transform: translateY(0);
-  }
-}
-
-.header-actions {
+.activity-numbers {
   display: flex;
+  gap: 0.25rem;
   align-items: center;
-  gap: 1rem;
 }
 
-.btn-update {
-  background: linear-gradient(135deg, #28a745, #20c997);
+.mini-ball {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 22px;
+  height: 22px;
+  background: linear-gradient(135deg, #667eea, #764ba2);
   color: white;
-  border: none;
-  padding: 0.5rem 1rem;
-  border-radius: 0.5rem;
-  font-size: 0.9rem;
+  border-radius: 50%;
+  font-size: 0.7rem;
+  font-weight: bold;
+}
+
+.more-numbers {
+  font-size: 0.875rem;
+  color: #999;
+  margin-left: 0.25rem;
+}
+
+.activity-meta {
+  text-align: right;
+}
+
+.activity-date {
+  font-size: 0.875rem;
+  color: #999;
+}
+
+.activity-result {
+  margin-top: 0.25rem;
+  padding: 0.25rem 0.5rem;
+  border-radius: 0.25rem;
+  font-size: 0.75rem;
   font-weight: 600;
-  cursor: pointer;
-  transition: all 0.3s ease;
-  white-space: nowrap;
-}
-
-.btn-update:hover {
-  transform: translateY(-2px);
-  box-shadow: 0 4px 15px rgba(40, 167, 69, 0.3);
-}
-
-.btn-update:disabled {
-  background: #6c757d;
-  cursor: not-allowed;
-  transform: none;
-  box-shadow: none;
-}
-
-.btn-lotto-site {
-  background: linear-gradient(135deg, #e74c3c, #c0392b);
-  color: white;
-  border: none;
-  padding: 0.5rem 1rem;
-  border-radius: 0.5rem;
-  font-size: 0.9rem;
-  font-weight: 600;
-  cursor: pointer;
-  transition: all 0.3s ease;
-  text-decoration: none;
-  white-space: nowrap;
   display: inline-block;
 }
 
-.btn-lotto-site:hover {
-  transform: translateY(-2px);
-  box-shadow: 0 4px 15px rgba(231, 76, 60, 0.3);
-  color: white;
-  text-decoration: none;
+.activity-result.rank-1 {
+  background: #ffd700;
+  color: #333;
 }
 
-/* 데스크톱 전용 - 기존 레이아웃 유지 */
+.activity-result.rank-2 {
+  background: #c0c0c0;
+  color: #333;
+}
+
+.activity-result.rank-3 {
+  background: #cd7f32;
+  color: white;
+}
+
+.activity-result.rank-4,
+.activity-result.rank-5 {
+  background: #667eea;
+  color: white;
+}
+
+/* View All Link */
+.view-all-link {
+  color: #667eea;
+  text-decoration: none;
+  font-size: 0.875rem;
+  font-weight: 500;
+}
+
+.view-all-link:hover {
+  text-decoration: underline;
+}
+
+/* Address Cell */
+.address-cell {
+  max-width: 300px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* Badge Method */
+.badge-method {
+  background: linear-gradient(135deg, #667eea, #764ba2);
+  color: white;
+  padding: 0.25rem 0.5rem;
+  border-radius: 0.25rem;
+  font-size: 0.75rem;
+  font-weight: 600;
+  display: inline-block;
+}
+
+/* Mobile Responsive */
+@media (max-width: 1024px) {
+  .dashboard-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .next-draw-card,
+  .quick-actions-card,
+  .user-status-card,
+  .latest-draw-card,
+  .recent-activity-card {
+    grid-column: span 1;
+  }
+
+  .next-draw-content {
+    grid-template-columns: 1fr;
+    gap: 1rem;
+  }
+
+  .quick-actions-grid {
+    grid-template-columns: repeat(2, 1fr);
+  }
+
+  .status-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .draw-prizes {
+    grid-template-columns: 1fr;
+  }
+}
+
+@media (max-width: 640px) {
+  .quick-actions-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .number-ball,
+  .bonus-ball {
+    width: 40px;
+    height: 40px;
+    font-size: 1rem;
+  }
+}
 </style>
 
 <script>
-// 페이지 로드 시 초기화
-document.addEventListener('DOMContentLoaded', function() {
-  // 현재 날짜와 시간 표시 (초단위까지)
-  function updateCurrentTime() {
-    const now = new Date();
-    const dateStr = now.toLocaleDateString('ko-KR', {
-      year: 'numeric',
-      month: 'long',
-      day: 'numeric',
-      weekday: 'long'
-    });
-    const timeStr = now.toLocaleTimeString('ko-KR', {
-      hour: '2-digit',
-      minute: '2-digit',
-      second: '2-digit',
-      hour12: false
-    });
-    document.getElementById('currentDate').textContent = `${dateStr} ${timeStr}`;
+// Update countdown timer
+function updateCountdown() {
+  const drawDate = new Date('{{ next_draw_date.strftime("%Y-%m-%d %H:%M:%S") }}');
+  const now = new Date();
+  const diff = drawDate - now;
+
+  if (diff < 0) {
+    document.getElementById('countdownTimer').textContent = '추첨완료';
+    return;
   }
 
-  // 다음 추첨까지 남은 시간 계산 및 표시
-  function updateCountdown() {
-    const now = new Date();
+  const days = Math.floor(diff / (1000 * 60 * 60 * 24));
+  const hours = Math.floor((diff % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60));
+  const minutes = Math.floor((diff % (1000 * 60 * 60)) / (1000 * 60));
+  const seconds = Math.floor((diff % (1000 * 60)) / 1000);
 
-    // 다음 토요일 8시 45분 계산 (로또 추첨 시간)
-    let nextSaturday = new Date(now);
-    const daysUntilSaturday = (6 - now.getDay()) % 7; // 0=일요일, 6=토요일
-
-    if (now.getDay() === 6) {  // 현재가 토요일
-      if (now.getHours() < 20 || (now.getHours() === 20 && now.getMinutes() < 45)) {
-        // 오늘 추첨 전이면 오늘
-        nextSaturday.setHours(20, 45, 0, 0);
-      } else {
-        // 오늘 추첨이 끝났으면 다음 주 토요일
-        nextSaturday.setDate(now.getDate() + 7);
-        nextSaturday.setHours(20, 45, 0, 0);
-      }
-    } else {
-      // 다음 토요일로 설정
-      nextSaturday.setDate(now.getDate() + (daysUntilSaturday === 0 ? 7 : daysUntilSaturday));
-      nextSaturday.setHours(20, 45, 0, 0);
-    }
-
-    const timeDiff = nextSaturday - now;
-
-    if (timeDiff <= 0) {
-      document.getElementById('nextDrawCountdown').textContent = '🎯 추첨이 진행 중입니다';
-      return;
-    }
-
-    const days = Math.floor(timeDiff / (1000 * 60 * 60 * 24));
-    const hours = Math.floor((timeDiff % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60));
-    const minutes = Math.floor((timeDiff % (1000 * 60 * 60)) / (1000 * 60));
-    const seconds = Math.floor((timeDiff % (1000 * 60)) / 1000);
-
-    let countdownText = '';
-
-    // 모바일 체크
-    const isMobile = window.innerWidth <= 768;
-
-    if (days > 0) {
-      // 날짜 단위로 표시 (하루 이상 남음)
-      if (isMobile) {
-        countdownText = `🎯 다음 추첨까지\n${days}일 ${hours}시간`;
-      } else {
-        countdownText = `🎯 다음 추첨까지 ${days}일 ${hours}시간`;
-      }
-    } else {
-      // 시간/분/초 단위로 표시 (하루 이하 남음)
-      if (hours > 0) {
-        if (isMobile) {
-          countdownText = `🎯 다음 추첨까지\n${hours}시간 ${minutes}분 ${seconds}초`;
-        } else {
-          countdownText = `🎯 다음 추첨까지 ${hours}시간 ${minutes}분 ${seconds}초`;
-        }
-      } else if (minutes > 0) {
-        if (isMobile) {
-          countdownText = `🎯 다음 추첨까지\n${minutes}분 ${seconds}초`;
-        } else {
-          countdownText = `🎯 다음 추첨까지 ${minutes}분 ${seconds}초`;
-        }
-      } else {
-        countdownText = `🎯 ${seconds}초 후 추첨`;
-      }
-    }
-
-    // 모바일에서는 줄바꿈을 <br>로 변환
-    if (isMobile) {
-      document.getElementById('nextDrawCountdown').innerHTML = countdownText.replace('\n', '<br>');
-    } else {
-      document.getElementById('nextDrawCountdown').textContent = countdownText;
-    }
-  }
-
-  // 초기 시간 표시
-  updateCurrentTime();
-  updateCountdown();
-
-  // 매초마다 시간 및 카운트다운 업데이트
-  setInterval(() => {
-    updateCurrentTime();
-    updateCountdown();
-  }, 1000);
-
-  // 화면 크기 변경 시 카운트다운 업데이트
-  window.addEventListener('resize', () => {
-    updateCountdown();
-  });
-
-  // 새 회차 확인 유도
-  checkIfNewDrawNeeded();
-});
-
-// 새 회차 확인이 필요한지 체크
-function checkIfNewDrawNeeded() {
-  const drawDateText = document.querySelector('.draw-date').textContent.trim();
-  if (!drawDateText) return;
-
-  // 추첨날짜 파싱 (YYYY-MM-DD 형식 가정)
-  const drawDate = new Date(drawDateText);
-  const today = new Date();
-
-  // 다음 토요일 8시 45분 계산 (로또 추첨 시간)
-  const nextSaturday = new Date(today);
-  const daysUntilSaturday = (6 - today.getDay()) % 7; // 0=일요일, 6=토요일
-  if (daysUntilSaturday === 0 && today.getHours() < 21) {
-    // 오늘이 토요일이고 추첨 전이면
-    nextSaturday.setHours(20, 45, 0, 0);
+  if (days > 0) {
+    document.getElementById('countdownTimer').textContent = `${days}일 ${hours}시간`;
+  } else if (hours > 0) {
+    document.getElementById('countdownTimer').textContent = `${hours}시간 ${minutes}분`;
   } else {
-    // 다음 토요일로 설정
-    nextSaturday.setDate(today.getDate() + (daysUntilSaturday || 7));
-    nextSaturday.setHours(20, 45, 0, 0);
-  }
-
-  // 마지막 추첨에서 다음 추첨 시간이 지났는지 확인
-  const weeksSinceLastDraw = Math.floor((today - drawDate) / (1000 * 60 * 60 * 24 * 7));
-  const shouldHaveNewDraw = weeksSinceLastDraw >= 1 && today >= nextSaturday;
-
-  if (shouldHaveNewDraw) {
-    const alertDiv = document.getElementById('newDrawAlert');
-    if (alertDiv) {
-      alertDiv.style.display = 'block';
-      // 알림 메시지도 더 구체적으로 변경
-      const alertMessage = alertDiv.querySelector('.alert-message');
-      if (alertMessage) {
-        const hoursLeft = Math.max(0, Math.floor((nextSaturday - today) / (1000 * 60 * 60)));
-        if (hoursLeft > 0) {
-          alertMessage.textContent = `새로운 회차가 추첨되었을 수 있습니다! (다음 추첨: ${hoursLeft}시간 후)`;
-        } else {
-          alertMessage.textContent = '새로운 회차가 추첨되었을 수 있습니다!';
-        }
-      }
-    }
+    document.getElementById('countdownTimer').textContent = `${minutes}분 ${seconds}초`;
   }
 }
 
-async function checkForNewDraw() {
-  const button = document.getElementById('checkNewDrawBtn');
-  const originalText = button.innerHTML;
-
-  button.disabled = true;
-  button.innerHTML = '<span class="spinner">⏳</span> 확인중...';
-
-  try {
-    // 새로운 회차가 있는지 확인
-    const response = await fetch('/api/check-new-draw');
-    const data = await response.json();
-
-    // 상세한 메시지 먼저 표시
-    let alertMessage = data.message || '새로운 추첨 결과가 없습니다.';
-
-    // 추가 정보가 있으면 포함
-    if (data.draw_completed && data.next_draw_time) {
-      alertMessage += `\n다음 추첨: ${data.next_draw_time}`;
-    } else if (!data.draw_completed && data.hours_until_draw > 0) {
-      alertMessage += `\n(${data.hours_until_draw}시간 후 추첨)`;
-    }
-
-    if (data.has_new_draw) {
-      // 추첨 완료 여부에 따른 다른 확인 메시지
-      let confirmMessage;
-      if (data.draw_completed) {
-        confirmMessage = `${data.message}\n\n${data.latest_round}회 추첨 결과를 업데이트하시겠습니까?`;
-      } else {
-        confirmMessage = `${data.message}\n\n${data.latest_round}회 결과를 지금 업데이트하시겠습니까?`;
-      }
-
-      const confirmed = confirm(confirmMessage);
-
-      if (confirmed) {
-        button.innerHTML = '<span class="spinner">⏳</span> 업데이트중...';
-
-        // 최신 회차 데이터 업데이트
-        const updateResponse = await fetch('/api/update-new-draw', {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json'
-          },
-          body: JSON.stringify({
-            round: data.latest_round,
-            csrf_token: window.csrfToken
-          })
-        });
-
-        const updateData = await updateResponse.json();
-
-        if (updateData.success) {
-          alert(`${data.latest_round}회 추첨 결과가 업데이트되었습니다!`);
-          // 페이지 새로고침
-          window.location.reload();
-        } else {
-          alert(`업데이트 실패: ${updateData.message}`);
-        }
-      }
-    } else {
-      alert(alertMessage);
-    }
-  } catch (error) {
-    console.error('Error checking for new draw:', error);
-    alert('확인 중 오류가 발생했습니다.');
-  } finally {
-    button.disabled = false;
-    button.innerHTML = originalText;
-  }
-}
+// Initialize countdown
+document.addEventListener('DOMContentLoaded', function() {
+  updateCountdown();
+  setInterval(updateCountdown, 1000);
+});
 </script>
 
 {% endblock %}

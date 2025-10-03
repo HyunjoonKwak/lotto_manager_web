@@ -1,0 +1,518 @@
+{% extends "mobile/base.html" %}
+{% block title %}구매관리 - 모바일{% endblock %}
+{% block content %}
+
+<!-- CSRF Token -->
+<input type="hidden" id="csrf-token" name="csrf_token" value="{{ csrf_token() }}"/>
+
+<div class="mobile-header">
+  <div class="title">
+    <h1>🛒 구매관리</h1>
+    <div class="subtitle">번호 입력 및 관리</div>
+  </div>
+</div>
+
+<!-- 회차 선택 카드 -->
+<div class="mobile-card">
+  <div class="card-header">
+    <h2>🎯 회차 선택</h2>
+  </div>
+
+  <div style="padding: 1rem;">
+    <div style="background: linear-gradient(135deg, #f7fafc, #edf2f7); padding: 1rem; border-radius: 0.8rem; margin-bottom: 1rem;">
+      <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.5rem;">
+        <span style="font-weight: 600; color: #4a5568;">선택된 회차</span>
+        <span style="font-size: 1.5rem; font-weight: 700; color: #667eea;">{{ selected_round }}회</span>
+      </div>
+      <div style="font-size: 0.85rem; color: #718096; text-align: center;">
+        {% if draw_info %}
+          {{ draw_info['date'] }} ({{ draw_info['day'] }}) 추첨 예정<br>
+          <span style="color: #e53e3e; font-weight: 600;">{{ draw_info['dday'] }}</span>
+        {% endif %}
+      </div>
+    </div>
+
+    <div style="display: flex; gap: 0.5rem;">
+      {% for i in range(max(1, selected_round - 1), selected_round + 4) %}
+      <button onclick="changeRound({{ i }})"
+              class="round-btn {% if i == selected_round %}active{% endif %}"
+              style="flex: 1; padding: 0.8rem; border: 2px solid {% if i == selected_round %}#667eea{% else %}#e2e8f0{% endif %};
+                     background: {% if i == selected_round %}linear-gradient(135deg, #667eea, #764ba2){% else %}white{% endif %};
+                     color: {% if i == selected_round %}white{% else %}#4a5568{% endif %};
+                     border-radius: 0.5rem; font-weight: 600; font-size: 0.9rem; cursor: pointer;">
+        {{ i }}회
+      </button>
+      {% endfor %}
+    </div>
+  </div>
+</div>
+
+<!-- 입력 방식 선택 -->
+<div class="mobile-card">
+  <div class="card-header">
+    <h2>📝 입력 방식</h2>
+  </div>
+
+  <div class="quick-menu" style="padding: 0.5rem;">
+    <a href="{{ url_for('main.mobile_strategy') }}" class="menu-item" style="background: linear-gradient(135deg, #667eea, #764ba2); color: white; border: none;">
+      <div class="menu-icon">🤖</div>
+      <div class="menu-text">AI 추천</div>
+    </a>
+    <button onclick="showManualInput()" class="menu-item" style="border: 2px solid #4299e1; cursor: pointer;">
+      <div class="menu-icon">🎯</div>
+      <div class="menu-text">수동 입력</div>
+    </button>
+    <button onclick="showTextInput()" class="menu-item" style="border: 2px solid #48bb78; cursor: pointer;">
+      <div class="menu-icon">⌨️</div>
+      <div class="menu-text">텍스트 입력</div>
+    </button>
+    <button onclick="showRandomInput()" class="menu-item" style="border: 2px solid #ed8936; cursor: pointer;">
+      <div class="menu-icon">🎲</div>
+      <div class="menu-text">랜덤 생성</div>
+    </button>
+  </div>
+</div>
+
+<!-- 수동 입력 섹션 -->
+<div id="manualInputSection" class="mobile-card" style="display: none;">
+  <div class="card-header">
+    <h2>🎯 수동 입력</h2>
+    <button onclick="clearSelection()" style="background: rgba(255,255,255,0.2); border: none; color: white; padding: 0.5rem 1rem; border-radius: 0.5rem; font-size: 0.85rem; cursor: pointer;">
+      초기화
+    </button>
+  </div>
+
+  <div style="padding: 1rem;">
+    <!-- 선택된 번호 표시 -->
+    <div style="background: linear-gradient(135deg, #f7fafc, #edf2f7); padding: 1rem; border-radius: 0.8rem; margin-bottom: 1rem; min-height: 60px;">
+      <div style="font-size: 0.85rem; color: #718096; margin-bottom: 0.5rem;">
+        선택된 번호 (<span id="selectedCount">0</span>/6)
+      </div>
+      <div id="selectedNumbers" style="display: flex; gap: 0.3rem; flex-wrap: wrap; min-height: 40px;"></div>
+    </div>
+
+    <!-- 번호 그리드 -->
+    <div style="display: grid; grid-template-columns: repeat(5, 1fr); gap: 0.5rem;" id="numberGrid"></div>
+
+    <button onclick="addManualNumbers()" class="btn-primary" style="width: 100%; margin-top: 1rem; padding: 1rem; font-size: 1rem;">
+      장바구니에 추가
+    </button>
+  </div>
+</div>
+
+<!-- 텍스트 입력 섹션 -->
+<div id="textInputSection" class="mobile-card" style="display: none;">
+  <div class="card-header">
+    <h2>⌨️ 텍스트 입력</h2>
+  </div>
+
+  <div style="padding: 1rem;">
+    <div style="margin-bottom: 0.8rem;">
+      <textarea id="textNumbers" placeholder="번호를 입력하세요 (예: 1,7,12,23,32,40)"
+                style="width: 100%; padding: 1rem; border: 2px solid #e2e8f0; border-radius: 0.8rem; font-size: 1rem; min-height: 100px; resize: vertical;"></textarea>
+      <div style="font-size: 0.85rem; color: #718096; margin-top: 0.5rem;">
+        💡 콤마(,) 또는 공백으로 구분하여 6개 번호 입력
+      </div>
+    </div>
+    <button onclick="addTextNumbers()" class="btn-primary" style="width: 100%; padding: 1rem; font-size: 1rem;">
+      장바구니에 추가
+    </button>
+  </div>
+</div>
+
+<!-- 랜덤 생성 섹션 -->
+<div id="randomInputSection" class="mobile-card" style="display: none;">
+  <div class="card-header">
+    <h2>🎲 랜덤 생성</h2>
+  </div>
+
+  <div style="padding: 1rem;">
+    <div style="display: flex; flex-direction: column; gap: 0.5rem; margin-bottom: 1rem;">
+      <button onclick="generateRandom('pure')" style="padding: 1rem; background: linear-gradient(135deg, #667eea, #764ba2); color: white; border: none; border-radius: 0.8rem; font-weight: 600; font-size: 0.95rem; cursor: pointer;">
+        🎲 완전 랜덤
+      </button>
+      <button onclick="generateRandom('frequent')" style="padding: 1rem; background: linear-gradient(135deg, #4299e1, #3182ce); color: white; border: none; border-radius: 0.8rem; font-weight: 600; font-size: 0.95rem; cursor: pointer;">
+        📊 빈출번호 기반
+      </button>
+      <button onclick="generateRandom('infrequent')" style="padding: 1rem; background: linear-gradient(135deg, #48bb78, #38a169); color: white; border: none; border-radius: 0.8rem; font-weight: 600; font-size: 0.95rem; cursor: pointer;">
+        🔮 미출번호 기반
+      </button>
+    </div>
+
+    <!-- 생성된 번호 표시 -->
+    <div id="generatedNumbers" style="background: linear-gradient(135deg, #f7fafc, #edf2f7); padding: 1rem; border-radius: 0.8rem; margin-bottom: 1rem; min-height: 60px; display: none;">
+      <div style="font-size: 0.85rem; color: #718096; margin-bottom: 0.5rem;">생성된 번호</div>
+      <div id="generatedNumbersDisplay" style="display: flex; gap: 0.3rem; flex-wrap: wrap;"></div>
+    </div>
+
+    <button onclick="addGeneratedNumbers()" id="addGeneratedBtn" class="btn-primary" style="width: 100%; padding: 1rem; font-size: 1rem; display: none;">
+      장바구니에 추가
+    </button>
+  </div>
+</div>
+
+<!-- 장바구니 -->
+<div class="mobile-card">
+  <div class="card-header">
+    <h2>🛒 장바구니</h2>
+    <span class="count" id="cartCount">{{ draft_purchases|length }}개</span>
+  </div>
+
+  <div id="cartList" style="padding: 1rem;">
+    {% if draft_purchases %}
+      {% for purchase in draft_purchases %}
+      <div class="shop-item" style="display: flex; justify-content: space-between; align-items: center;">
+        <div style="flex: 1;">
+          <div style="display: flex; gap: 0.25rem; margin-bottom: 0.5rem;">
+            {% for num in purchase.numbers_list() %}
+            <span style="width: 1.8rem; height: 1.8rem; border-radius: 50%; background: linear-gradient(135deg, #4299e1, #3182ce); color: white; display: flex; align-items: center; justify-content: center; font-size: 0.75rem; font-weight: 700;">{{ num }}</span>
+            {% endfor %}
+          </div>
+          <div style="font-size: 0.8rem; color: #718096;">
+            {{ purchase.purchase_round }}회 |
+            {% if purchase.source == 'ai' %}🤖 AI
+            {% elif purchase.source == 'manual' %}🎯 수동
+            {% elif purchase.source == 'random' %}🎲 랜덤
+            {% elif purchase.source == 'qr' %}📱 QR
+            {% else %}📝 입력{% endif %}
+          </div>
+        </div>
+        <button onclick="deleteDraft({{ purchase.id }})" style="background: linear-gradient(135deg, #f56565, #e53e3e); color: white; border: none; padding: 0.6rem 1rem; border-radius: 0.5rem; font-size: 0.85rem; cursor: pointer;">
+          삭제
+        </button>
+      </div>
+      {% endfor %}
+
+      <button onclick="confirmAllPurchases()" class="btn-primary" style="width: 100%; margin-top: 1rem; padding: 1rem; font-size: 1rem; background: linear-gradient(135deg, #48bb78, #38a169);">
+        전체 구매 확정 ({{ draft_purchases|length }}개)
+      </button>
+    {% else %}
+    <div style="text-align: center; padding: 2rem; color: #718096;">
+      <div style="font-size: 3rem; margin-bottom: 0.5rem;">🛒</div>
+      <div style="font-size: 0.9rem;">장바구니가 비어있습니다</div>
+    </div>
+    {% endif %}
+  </div>
+</div>
+
+<!-- 데스크톱 버전 링크 -->
+<div class="desktop-link">
+  <a href="{{ url_for('main.buy') }}?desktop=1" class="link-desktop">
+    🖥️ 데스크톱 버전으로 보기
+  </a>
+</div>
+
+<style>
+  .number-ball {
+    width: 2.2rem;
+    height: 2.2rem;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-weight: 700;
+    font-size: 0.85rem;
+    color: white;
+    background: linear-gradient(135deg, #4299e1, #3182ce);
+    box-shadow: 0 2px 8px rgba(66, 153, 225, 0.3);
+  }
+
+  .number-btn {
+    width: 100%;
+    aspect-ratio: 1;
+    border-radius: 50%;
+    border: 2px solid #e2e8f0;
+    background: white;
+    color: #4a5568;
+    font-weight: 600;
+    font-size: 1rem;
+    cursor: pointer;
+    transition: all 0.2s;
+  }
+
+  .number-btn.selected {
+    background: linear-gradient(135deg, #667eea, #764ba2);
+    color: white;
+    border-color: #667eea;
+    transform: scale(1.1);
+  }
+
+  .number-btn:active {
+    transform: scale(0.95);
+  }
+</style>
+
+{% endblock %}
+
+{% block scripts %}
+<script>
+  let selectedNumbers = [];
+  let currentRound = {{ selected_round }};
+  let generatedNumbers = [];
+
+  // 페이지 로드 시 번호 그리드 생성
+  document.addEventListener('DOMContentLoaded', function() {
+    createNumberGrid();
+  });
+
+  // 번호 그리드 생성
+  function createNumberGrid() {
+    const grid = document.getElementById('numberGrid');
+    grid.innerHTML = '';
+
+    for (let i = 1; i <= 45; i++) {
+      const btn = document.createElement('button');
+      btn.className = 'number-btn';
+      btn.textContent = i;
+      btn.onclick = () => toggleNumber(i);
+      grid.appendChild(btn);
+    }
+  }
+
+  // 번호 토글
+  function toggleNumber(num) {
+    const index = selectedNumbers.indexOf(num);
+
+    if (index > -1) {
+      selectedNumbers.splice(index, 1);
+    } else {
+      if (selectedNumbers.length >= 6) {
+        alert('최대 6개까지만 선택할 수 있습니다.');
+        return;
+      }
+      selectedNumbers.push(num);
+    }
+
+    selectedNumbers.sort((a, b) => a - b);
+    updateSelectedDisplay();
+    updateNumberButtons();
+  }
+
+  // 선택된 번호 표시 업데이트
+  function updateSelectedDisplay() {
+    const display = document.getElementById('selectedNumbers');
+    const count = document.getElementById('selectedCount');
+
+    count.textContent = selectedNumbers.length;
+    display.innerHTML = '';
+
+    selectedNumbers.forEach(num => {
+      const ball = document.createElement('span');
+      ball.className = 'number-ball';
+      ball.textContent = num;
+      display.appendChild(ball);
+    });
+  }
+
+  // 번호 버튼 상태 업데이트
+  function updateNumberButtons() {
+    const buttons = document.querySelectorAll('.number-btn');
+    buttons.forEach((btn, index) => {
+      const num = index + 1;
+      if (selectedNumbers.includes(num)) {
+        btn.classList.add('selected');
+      } else {
+        btn.classList.remove('selected');
+      }
+    });
+  }
+
+  // 선택 초기화
+  function clearSelection() {
+    selectedNumbers = [];
+    updateSelectedDisplay();
+    updateNumberButtons();
+  }
+
+  // 입력 방식 표시
+  function showManualInput() {
+    hideAllInputSections();
+    document.getElementById('manualInputSection').style.display = 'block';
+  }
+
+  function showTextInput() {
+    hideAllInputSections();
+    document.getElementById('textInputSection').style.display = 'block';
+  }
+
+  function showRandomInput() {
+    hideAllInputSections();
+    document.getElementById('randomInputSection').style.display = 'block';
+  }
+
+  function hideAllInputSections() {
+    document.getElementById('manualInputSection').style.display = 'none';
+    document.getElementById('textInputSection').style.display = 'none';
+    document.getElementById('randomInputSection').style.display = 'none';
+  }
+
+  // 회차 변경
+  function changeRound(round) {
+    window.location.href = `{{ url_for('main.mobile_buy') }}?round=${round}`;
+  }
+
+  // 수동 입력 추가
+  async function addManualNumbers() {
+    if (selectedNumbers.length !== 6) {
+      alert('6개의 번호를 선택해주세요.');
+      return;
+    }
+
+    await addToCart(selectedNumbers, 'manual');
+    clearSelection();
+  }
+
+  // 텍스트 입력 추가
+  async function addTextNumbers() {
+    const text = document.getElementById('textNumbers').value.trim();
+    if (!text) {
+      alert('번호를 입력해주세요.');
+      return;
+    }
+
+    const numbers = text.split(/[,\s]+/).map(n => parseInt(n.trim())).filter(n => !isNaN(n) && n >= 1 && n <= 45);
+
+    if (numbers.length !== 6) {
+      alert('정확히 6개의 번호를 입력해주세요 (1-45 범위).');
+      return;
+    }
+
+    await addToCart(numbers, 'manual');
+    document.getElementById('textNumbers').value = '';
+  }
+
+  // 랜덤 생성
+  async function generateRandom(type) {
+    try {
+      const response = await fetch(`/api/random-numbers?type=${type}&count=6`, {
+        headers: {
+          'X-CSRFToken': window.csrfToken
+        }
+      });
+
+      if (!response.ok) throw new Error('랜덤 생성 실패');
+
+      const data = await response.json();
+      generatedNumbers = data.numbers.sort((a, b) => a - b);
+
+      // 표시
+      const display = document.getElementById('generatedNumbersDisplay');
+      display.innerHTML = '';
+
+      generatedNumbers.forEach(num => {
+        const ball = document.createElement('span');
+        ball.className = 'number-ball';
+        ball.textContent = num;
+        display.appendChild(ball);
+      });
+
+      document.getElementById('generatedNumbers').style.display = 'block';
+      document.getElementById('addGeneratedBtn').style.display = 'block';
+
+    } catch (error) {
+      alert('랜덤 생성 중 오류가 발생했습니다.');
+      console.error(error);
+    }
+  }
+
+  // 생성된 번호 추가
+  async function addGeneratedNumbers() {
+    if (generatedNumbers.length !== 6) {
+      alert('먼저 번호를 생성해주세요.');
+      return;
+    }
+
+    await addToCart(generatedNumbers, 'random');
+
+    // 초기화
+    generatedNumbers = [];
+    document.getElementById('generatedNumbers').style.display = 'none';
+    document.getElementById('addGeneratedBtn').style.display = 'none';
+  }
+
+  // 장바구니에 추가
+  async function addToCart(numbers, source) {
+    try {
+      const response = await fetch('/api/purchases/add', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'X-CSRFToken': window.csrfToken
+        },
+        body: JSON.stringify({
+          numbers: numbers.join(','),
+          round: currentRound,
+          source: source
+        })
+      });
+
+      const result = await response.json();
+
+      if (result.success) {
+        alert('장바구니에 추가되었습니다!');
+        location.reload();
+      } else {
+        alert(result.message || '추가 실패');
+      }
+
+    } catch (error) {
+      alert('추가 중 오류가 발생했습니다.');
+      console.error(error);
+    }
+  }
+
+  // 장바구니 항목 삭제
+  async function deleteDraft(id) {
+    if (!confirm('이 번호를 삭제하시겠습니까?')) return;
+
+    try {
+      const response = await fetch(`/api/purchases/draft/${id}/delete`, {
+        method: 'POST',
+        headers: {
+          'X-CSRFToken': window.csrfToken
+        }
+      });
+
+      const result = await response.json();
+
+      if (result.success) {
+        location.reload();
+      } else {
+        alert(result.message || '삭제 실패');
+      }
+
+    } catch (error) {
+      alert('삭제 중 오류가 발생했습니다.');
+      console.error(error);
+    }
+  }
+
+  // 전체 구매 확정
+  async function confirmAllPurchases() {
+    if (!confirm('장바구니의 모든 번호를 구매 확정하시겠습니까?')) return;
+
+    try {
+      const response = await fetch('/api/purchases/confirm', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'X-CSRFToken': window.csrfToken
+        }
+      });
+
+      const result = await response.json();
+
+      if (result.success) {
+        alert(`${result.count}개의 번호가 구매 확정되었습니다!`);
+        location.reload();
+      } else {
+        alert(result.message || '구매 확정 실패');
+      }
+
+    } catch (error) {
+      alert('구매 확정 중 오류가 발생했습니다.');
+      console.error(error);
+    }
+  }
+</script>
+{% endblock %}
