@@ -1180,10 +1180,34 @@ def api_update_new_draw():
 def api_data_stats():
     """기본 데이터 통계 정보 API"""
     try:
+        import os
         from .services.updater import get_latest_round, find_missing_rounds
 
         # 총 저장된 회차 수
         total_rounds = Draw.query.count()
+
+        # 데이터베이스 파일 크기 계산
+        db_path = os.path.join(current_app.instance_path, 'lotto.db')
+        db_size_bytes = 0
+        db_size_human = "0 MB"
+
+        if os.path.exists(db_path):
+            db_size_bytes = os.path.getsize(db_path)
+            # 사람이 읽기 쉬운 형식으로 변환
+            if db_size_bytes < 1024:
+                db_size_human = f"{db_size_bytes} B"
+            elif db_size_bytes < 1024 * 1024:
+                db_size_human = f"{db_size_bytes / 1024:.2f} KB"
+            elif db_size_bytes < 1024 * 1024 * 1024:
+                db_size_human = f"{db_size_bytes / (1024 * 1024):.2f} MB"
+            else:
+                db_size_human = f"{db_size_bytes / (1024 * 1024 * 1024):.2f} GB"
+
+        # 테이블별 레코드 수
+        draws_count = Draw.query.count()
+        shops_count = WinningShop.query.count()
+        purchases_count = Purchase.query.count()
+        users_count = User.query.count()
 
         # 최신 가능 회차
         latest_round = get_latest_round()
@@ -1198,6 +1222,14 @@ def api_data_stats():
                 "completion_rate": 100.0,
                 "total_rounds": total_rounds,
                 "latest_round": max_db_round,
+                "db_size": db_size_human,
+                "db_size_bytes": db_size_bytes,
+                "table_stats": {
+                    "draws": draws_count,
+                    "shops": shops_count,
+                    "purchases": purchases_count,
+                    "users": users_count
+                },
                 "warning": "로또 API 연결 불가 - 데이터베이스 기반 통계"
             })
 
@@ -1212,10 +1244,19 @@ def api_data_stats():
             "missing_count": missing_count,
             "completion_rate": completion_rate,
             "total_rounds": total_rounds,
-            "latest_round": latest_round
+            "latest_round": latest_round,
+            "db_size": db_size_human,
+            "db_size_bytes": db_size_bytes,
+            "table_stats": {
+                "draws": draws_count,
+                "shops": shops_count,
+                "purchases": purchases_count,
+                "users": users_count
+            }
         })
 
     except Exception as e:
+        current_app.logger.error(f"Error in api_data_stats: {str(e)}")
         return jsonify({"error": str(e)}), 500
 
 

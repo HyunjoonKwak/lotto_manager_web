@@ -5,6 +5,8 @@
 <input type="hidden" id="csrf-token" name="csrf_token" value="{{ csrf_token() }}"/>
 <script>
   window.csrfToken = '{{ csrf_token() }}';
+  // Cache busting - v2.0
+  console.log('Crawling page loaded - v2.0 with enhanced stats');
 </script>
 <div class="header">
   <div>
@@ -22,25 +24,76 @@
       <h2>📊 데이터 현황</h2>
       <button type="button" class="btn-detail" onclick="toggleDataDetail()">Detail</button>
     </div>
-    <div class="info-grid">
-      <div class="info-item">
-        <h4>저장된 회차</h4>
-        <p>{{ total_rounds }}회</p>
+
+    <!-- 로딩 오버레이 -->
+    <div id="stats-loading-overlay" class="stats-loading-overlay">
+      <div class="spinner"></div>
+      <p>데이터를 불러오는 중...</p>
+    </div>
+
+    <div id="stats-content" class="info-grid" style="opacity: 0.3;">
+      <div class="info-item tooltip-container">
+        <h4>
+          저장된 회차
+          <span class="tooltip-icon">ℹ️</span>
+          <span class="tooltip-text">데이터베이스에 저장된 총 로또 회차 수</span>
+        </h4>
+        <p id="total-rounds-display">{{ total_rounds }}회</p>
       </div>
-      {% if latest %}
-      <div class="info-item">
-        <h4>최신 회차</h4>
-        <p>{{ latest.round }}회</p>
+
+      <div class="info-item tooltip-container">
+        <h4>
+          최신 회차
+          <span class="tooltip-icon">ℹ️</span>
+          <span class="tooltip-text">현재까지 발표된 가장 최근 로또 회차</span>
+        </h4>
+        <p id="latest-round-display">
+          {% if latest %}{{ latest.round }}회{% else %}로딩중...{% endif %}
+        </p>
       </div>
-      {% endif %}
-      <div class="info-item">
-        <h4>누락된 회차</h4>
-        <p id="missing-count">계산 중...</p>
+
+      <div class="info-item tooltip-container">
+        <h4>
+          누락된 회차
+          <span class="tooltip-icon">ℹ️</span>
+          <span class="tooltip-text">수집되지 않은 회차의 개수</span>
+        </h4>
+        <p id="missing-count" class="stat-loading">계산 중...</p>
       </div>
-      <div class="info-item">
-        <h4>데이터 완성도</h4>
-        <p id="completion-rate">계산 중...</p>
+
+      <div class="info-item tooltip-container">
+        <h4>
+          데이터 완성도
+          <span class="tooltip-icon">ℹ️</span>
+          <span class="tooltip-text">전체 회차 대비 수집 완료 비율</span>
+        </h4>
+        <p id="completion-rate" class="stat-loading">계산 중...</p>
       </div>
+
+      <div class="info-item tooltip-container">
+        <h4>
+          DB 용량
+          <span class="tooltip-icon">ℹ️</span>
+          <span class="tooltip-text">데이터베이스 파일 크기</span>
+        </h4>
+        <p id="db-size" class="stat-loading">계산 중...</p>
+      </div>
+
+      <div class="info-item tooltip-container">
+        <h4>
+          판매점 정보
+          <span class="tooltip-icon">ℹ️</span>
+          <span class="tooltip-text">저장된 당첨 판매점 정보 수</span>
+        </h4>
+        <p id="shops-count" class="stat-loading">계산 중...</p>
+      </div>
+    </div>
+
+    <!-- 에러 메시지 -->
+    <div id="stats-error" class="stats-error" style="display: none;">
+      <div class="error-icon">⚠️</div>
+      <p class="error-message"></p>
+      <button class="btn-retry" onclick="loadBasicStats()">다시 시도</button>
     </div>
 
     <!-- 상세 정보 패널 -->
@@ -420,29 +473,187 @@
 
 .info-grid {
   display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 2rem;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 1.5rem;
   margin-top: 1rem;
+  position: relative;
+  transition: opacity 0.3s ease;
 }
 
 .info-item {
   text-align: center;
-  padding: 2rem;
-  background: #f8f9fa;
-  border-radius: 0.5rem;
+  padding: 1.5rem;
+  background: linear-gradient(135deg, #f8f9fa, #ffffff);
+  border: 2px solid #e9ecef;
+  border-radius: 0.8rem;
+  transition: all 0.3s ease;
+  position: relative;
+}
+
+.info-item:hover {
+  transform: translateY(-3px);
+  box-shadow: 0 6px 20px rgba(102, 126, 234, 0.15);
+  border-color: #667eea;
 }
 
 .info-item h4 {
-  margin: 0 0 0.5rem 0;
+  margin: 0 0 0.8rem 0;
   color: #666;
-  font-size: 1rem;
+  font-size: 0.95rem;
+  font-weight: 600;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.3rem;
 }
 
 .info-item p {
   margin: 0;
-  font-size: 2rem;
+  font-size: 1.8rem;
   font-weight: bold;
   color: #333;
+  transition: color 0.3s ease;
+}
+
+/* 툴팁 스타일 */
+.tooltip-container {
+  position: relative;
+}
+
+.tooltip-icon {
+  font-size: 0.75rem;
+  cursor: help;
+  opacity: 0.6;
+  transition: opacity 0.3s ease;
+}
+
+.tooltip-icon:hover {
+  opacity: 1;
+}
+
+.tooltip-text {
+  visibility: hidden;
+  opacity: 0;
+  position: absolute;
+  top: -60px;
+  left: 50%;
+  transform: translateX(-50%);
+  background: #2d3748;
+  color: white;
+  padding: 0.6rem 1rem;
+  border-radius: 0.5rem;
+  font-size: 0.8rem;
+  font-weight: normal;
+  white-space: nowrap;
+  z-index: 100;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
+  transition: all 0.3s ease;
+  pointer-events: none;
+}
+
+.tooltip-text::after {
+  content: '';
+  position: absolute;
+  top: 100%;
+  left: 50%;
+  transform: translateX(-50%);
+  border: 6px solid transparent;
+  border-top-color: #2d3748;
+}
+
+.tooltip-container:hover .tooltip-text {
+  visibility: visible;
+  opacity: 1;
+  top: -70px;
+}
+
+/* 로딩 오버레이 */
+.stats-loading-overlay {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(255, 255, 255, 0.95);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  z-index: 10;
+  border-radius: 0.5rem;
+  gap: 1rem;
+}
+
+.stats-loading-overlay.hidden {
+  display: none;
+}
+
+.spinner {
+  width: 50px;
+  height: 50px;
+  border: 4px solid #e9ecef;
+  border-top-color: #667eea;
+  border-radius: 50%;
+  animation: spin 1s linear infinite;
+}
+
+@keyframes spin {
+  to { transform: rotate(360deg); }
+}
+
+.stats-loading-overlay p {
+  color: #667eea;
+  font-weight: 600;
+  margin: 0;
+}
+
+/* 로딩 중 텍스트 애니메이션 */
+.stat-loading {
+  color: #667eea !important;
+  animation: pulse 1.5s ease-in-out infinite;
+}
+
+@keyframes pulse {
+  0%, 100% { opacity: 0.6; }
+  50% { opacity: 1; }
+}
+
+/* 에러 메시지 스타일 */
+.stats-error {
+  text-align: center;
+  padding: 2rem;
+  background: linear-gradient(135deg, #fff5f5, #ffffff);
+  border: 2px solid #fed7d7;
+  border-radius: 0.8rem;
+  margin-top: 1rem;
+}
+
+.error-icon {
+  font-size: 3rem;
+  margin-bottom: 1rem;
+}
+
+.error-message {
+  color: #c53030;
+  font-weight: 600;
+  margin-bottom: 1.5rem;
+  font-size: 1.1rem;
+}
+
+.btn-retry {
+  background: linear-gradient(135deg, #667eea, #764ba2);
+  color: white;
+  border: none;
+  padding: 0.8rem 1.5rem;
+  border-radius: 0.5rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.3s ease;
+}
+
+.btn-retry:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 4px 15px rgba(102, 126, 234, 0.3);
 }
 
 /* Progress Card Styles */
@@ -549,6 +760,40 @@
   box-shadow: 0 4px 12px rgba(220, 53, 69, 0.3);
 }
 
+/* 토스트 애니메이션 */
+@keyframes slideInRight {
+  from {
+    transform: translateX(100%);
+    opacity: 0;
+  }
+  to {
+    transform: translateX(0);
+    opacity: 1;
+  }
+}
+
+@keyframes slideOutRight {
+  from {
+    transform: translateX(0);
+    opacity: 1;
+  }
+  to {
+    transform: translateX(100%);
+    opacity: 0;
+  }
+}
+
+.toast-icon {
+  font-size: 1.5rem;
+  flex-shrink: 0;
+}
+
+.toast-message {
+  color: #744210;
+  font-weight: 600;
+  font-size: 0.9rem;
+}
+
 @media (max-width: 768px) {
   .crawling-grid {
     grid-template-columns: 1fr;
@@ -565,8 +810,27 @@
   }
 
   .info-grid {
-    grid-template-columns: 1fr;
+    grid-template-columns: 1fr 1fr;
     gap: 1rem;
+  }
+
+  .info-item {
+    padding: 1.2rem 0.8rem;
+  }
+
+  .info-item h4 {
+    font-size: 0.85rem;
+  }
+
+  .info-item p {
+    font-size: 1.5rem;
+  }
+
+  .tooltip-text {
+    font-size: 0.75rem;
+    padding: 0.5rem 0.8rem;
+    white-space: normal;
+    max-width: 200px;
   }
 
   .range-input {
@@ -594,6 +858,20 @@
 
   .status-text {
     font-size: 1.3rem;
+  }
+
+  .warning-toast {
+    max-width: 90% !important;
+    right: 5% !important;
+    top: 10px !important;
+  }
+
+  .stats-error {
+    padding: 1.5rem 1rem;
+  }
+
+  .error-message {
+    font-size: 0.95rem;
   }
 }
 
@@ -1374,31 +1652,127 @@ window.addEventListener('beforeunload', function() {
 
 // 기본 통계 정보 로드
 async function loadBasicStats() {
+  const loadingOverlay = document.getElementById('stats-loading-overlay');
+  const statsContent = document.getElementById('stats-content');
+  const statsError = document.getElementById('stats-error');
+
   try {
+    // 로딩 시작
+    loadingOverlay.classList.remove('hidden');
+    statsContent.style.opacity = '0.3';
+    statsError.style.display = 'none';
+
     const response = await fetch('/api/data-stats');
+
+    // HTTP 에러 체크
+    if (!response.ok) {
+      throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+    }
+
     const data = await response.json();
 
     // API 에러 응답 처리
     if (data.error) {
-      console.error('API error:', data.error);
-      document.getElementById('missing-count').textContent = '오류';
-      document.getElementById('completion-rate').textContent = '오류';
-      return;
+      throw new Error(data.error);
     }
 
     // 정상 데이터 처리
-    document.getElementById('missing-count').textContent = `${data.missing_count || 0}회`;
-    document.getElementById('completion-rate').textContent = `${data.completion_rate || 0}%`;
+    updateStatsUI(data);
 
-    // 경고 메시지가 있으면 콘솔에 표시
+    // 로딩 완료
+    loadingOverlay.classList.add('hidden');
+    statsContent.style.opacity = '1';
+
+    // 경고 메시지가 있으면 사용자에게 알림
     if (data.warning) {
       console.warn('Data stats warning:', data.warning);
+      showWarningToast(data.warning);
     }
+
   } catch (error) {
     console.error('Failed to load basic stats:', error);
-    document.getElementById('missing-count').textContent = '오류';
-    document.getElementById('completion-rate').textContent = '오류';
+
+    // 로딩 오버레이 숨김
+    loadingOverlay.classList.add('hidden');
+    statsContent.style.opacity = '0.3';
+
+    // 에러 메시지 표시
+    const errorMessage = statsError.querySelector('.error-message');
+    errorMessage.textContent = `데이터를 불러오는데 실패했습니다: ${error.message}`;
+    statsError.style.display = 'block';
   }
+}
+
+// UI 업데이트 함수
+function updateStatsUI(data) {
+  // 기본 통계
+  document.getElementById('total-rounds-display').textContent = `${data.total_rounds || 0}회`;
+  document.getElementById('latest-round-display').textContent = `${data.latest_round || 0}회`;
+  document.getElementById('missing-count').textContent = `${data.missing_count || 0}회`;
+
+  // 완성도 - 색상 코딩
+  const completionRate = data.completion_rate || 0;
+  const completionElement = document.getElementById('completion-rate');
+  completionElement.textContent = `${completionRate}%`;
+
+  // 완성도에 따라 색상 변경
+  if (completionRate >= 95) {
+    completionElement.style.color = '#48bb78'; // 녹색
+  } else if (completionRate >= 80) {
+    completionElement.style.color = '#ed8936'; // 주황색
+  } else {
+    completionElement.style.color = '#f56565'; // 빨강색
+  }
+
+  // 데이터베이스 용량
+  document.getElementById('db-size').textContent = data.db_size || '0 MB';
+
+  // 판매점 정보
+  if (data.table_stats) {
+    document.getElementById('shops-count').textContent = `${data.table_stats.shops || 0}개`;
+  }
+
+  // 로딩 클래스 제거
+  document.querySelectorAll('.stat-loading').forEach(el => {
+    el.classList.remove('stat-loading');
+  });
+}
+
+// 경고 토스트 메시지 표시
+function showWarningToast(message) {
+  // 토스트 요소 생성
+  const toast = document.createElement('div');
+  toast.className = 'warning-toast';
+  toast.innerHTML = `
+    <div class="toast-icon">⚠️</div>
+    <div class="toast-message">${message}</div>
+  `;
+
+  // 스타일 추가
+  toast.style.cssText = `
+    position: fixed;
+    top: 20px;
+    right: 20px;
+    background: linear-gradient(135deg, #fff5e6, #ffffff);
+    border: 2px solid #fbd38d;
+    border-radius: 0.8rem;
+    padding: 1rem 1.5rem;
+    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.15);
+    z-index: 1000;
+    display: flex;
+    align-items: center;
+    gap: 0.8rem;
+    max-width: 400px;
+    animation: slideInRight 0.3s ease;
+  `;
+
+  document.body.appendChild(toast);
+
+  // 3초 후 제거
+  setTimeout(() => {
+    toast.style.animation = 'slideOutRight 0.3s ease';
+    setTimeout(() => toast.remove(), 300);
+  }, 3000);
 }
 
 // 상세 정보 패널 토글

@@ -290,6 +290,20 @@ def mobile_new_feature():
 
 **Remember: Mobile users represent a significant portion of lottery players. Providing an excellent mobile experience is critical for user adoption and satisfaction.**
 
+### API Response Patterns
+The application uses consistent JSON response patterns for mobile and AJAX requests:
+- **Success**: `{"success": true, "data": {...}, "message": "..."}`
+- **Error**: `{"success": false, "error": "...", "details": {...}}`
+- **Progress**: `/api/crawling-progress` returns real-time status with `is_running`, `status`, `current_round`, `total_rounds`
+- **CSRF Protection**: All POST requests require CSRF tokens, exempt only for specific APIs marked with `@csrf.exempt`
+
+### QR Code Integration Flow
+The desktop QR app connects to the Flask backend via REST API:
+1. QR app authenticates using `/api/login` endpoint
+2. Sends parsed lottery data to `/api/purchases/bulk` endpoint
+3. Flask validates and stores purchases in the database
+4. Web interface displays QR-collected purchases with `recognition_method='QR'` and `confidence_score`
+
 # important-instruction-reminders
 Do what has been asked; nothing more, nothing less.
 NEVER create files unless they're absolutely necessary for achieving your goal.
