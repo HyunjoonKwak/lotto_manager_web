@@ -287,6 +287,35 @@ class QRDatabase:
         conn.commit()
         conn.close()
 
+    def save_failed_upload(self, scan_id: int, error_message: str):
+        """실패한 업로드 저장 (재시도 대상)"""
+        self.save_upload_status(scan_id, False, f"자동 재시도 실패: {error_message}")
+
+    def get_failed_uploads(self) -> List[Dict]:
+        """실패한 업로드 목록 조회"""
+        conn = sqlite3.connect(self.db_path)
+        cursor = conn.cursor()
+
+        cursor.execute('''
+            SELECT qs.id, qs.round_number, qs.scan_date, us.upload_message
+            FROM qr_scans qs
+            INNER JOIN upload_status us ON qs.id = us.scan_id
+            WHERE us.upload_success = 0
+            ORDER BY qs.scan_date DESC
+        ''')
+
+        failed_uploads = []
+        for row in cursor.fetchall():
+            failed_uploads.append({
+                'scan_id': row[0],
+                'round_number': row[1],
+                'scan_date': row[2],
+                'error_message': row[3]
+            })
+
+        conn.close()
+        return failed_uploads
+
     def delete_round_data(self, round_number: int) -> int:
         """특정 회차 데이터 삭제"""
         conn = sqlite3.connect(self.db_path)
@@ -348,6 +377,129 @@ class QRDatabase:
             }
         }
 
+    def get_statistics_for_visualization(self, start_date: Optional[str] = None, end_date: Optional[str] = None) -> Dict:
+        """시각화를 위한 상세 통계 데이터"""
+        conn = sqlite3.connect(self.db_path)
+        cursor = conn.cursor()
+
+        # 날짜 필터 조건
+        date_filter = ""
+        date_and_filter = ""
+        params = []
+        if start_date and end_date:
+            date_filter = "WHERE qs.scan_date BETWEEN ? AND ?"
+            date_and_filter = "AND qs.scan_date BETWEEN ? AND ?"
+            params = [start_date, end_date]
+
+        # 1. 일별 스캔 횟수
+        cursor.execute(f'''
+            SELECT DATE(qs.scan_date) as scan_day, COUNT(*) as count
+            FROM qr_scans qs
+            {date_filter}
+            GROUP BY scan_day
+            ORDER BY scan_day
+        ''', params)
+        daily_scans = [{'date': row[0], 'count': row[1]} for row in cursor.fetchall()]
+
+        # 2. 회차별 스캔 분포
+        if start_date and end_date:
+            cursor.execute(f'''
+                SELECT round_number, COUNT(*) as count
+                FROM qr_scans qs
+                WHERE qs.round_number > 0 AND qs.scan_date BETWEEN ? AND ?
+                GROUP BY round_number
+                ORDER BY round_number DESC
+                LIMIT 20
+            ''', params)
+        else:
+            cursor.execute('''
+                SELECT round_number, COUNT(*) as count
+                FROM qr_scans
+                WHERE round_number > 0
+                GROUP BY round_number
+                ORDER BY round_number DESC
+                LIMIT 20
+            ''')
+        round_distribution = [{'round': row[0], 'count': row[1]} for row in cursor.fetchall()]
+
+        # 3. 업로드 성공률
+        cursor.execute(f'''
+            SELECT
+                SUM(CASE WHEN us.upload_success = 1 THEN 1 ELSE 0 END) as success_count,
+                SUM(CASE WHEN us.upload_success = 0 THEN 1 ELSE 0 END) as fail_count,
+                COUNT(CASE WHEN us.id IS NULL THEN 1 END) as pending_count
+            FROM qr_scans qs
+            LEFT JOIN upload_status us ON qs.id = us.scan_id
+            {date_filter}
+        ''', params)
+        result = cursor.fetchone()
+        upload_stats = {
+            'success': result[0] or 0,
+            'failed': result[1] or 0,
+            'pending': result[2] or 0
+        }
+
+        # 4. 시간대별 스캔 분포
+        cursor.execute(f'''
+            SELECT
+                CAST(strftime('%H', qs.scan_date) AS INTEGER) as hour,
+                COUNT(*) as count
+            FROM qr_scans qs
+            {date_filter}
+            GROUP BY hour
+            ORDER BY hour
+        ''', params)
+        hourly_distribution = [{'hour': row[0], 'count': row[1]} for row in cursor.fetchall()]
+
+        # 5. QR 포맷별 분포
+        if start_date and end_date:
+            cursor.execute(f'''
+                SELECT qr_format, COUNT(*) as count
+                FROM qr_scans qs
+                WHERE qs.qr_format IS NOT NULL AND qs.scan_date BETWEEN ? AND ?
+                GROUP BY qr_format
+            ''', params)
+        else:
+            cursor.execute('''
+                SELECT qr_format, COUNT(*) as count
+                FROM qr_scans
+                WHERE qr_format IS NOT NULL
+                GROUP BY qr_format
+            ''')
+        format_distribution = [{'format': row[0], 'count': row[1]} for row in cursor.fetchall()]
+
+        # 6. 상위 10개 회차 (스캔 횟수 기준)
+        if start_date and end_date:
+            cursor.execute(f'''
+                SELECT round_number, COUNT(*) as scan_count
+                FROM qr_scans qs
+                WHERE qs.round_number > 0 AND qs.scan_date BETWEEN ? AND ?
+                GROUP BY round_number
+                ORDER BY scan_count DESC
+                LIMIT 10
+            ''', params)
+        else:
+            cursor.execute('''
+                SELECT round_number, COUNT(*) as scan_count
+                FROM qr_scans
+                WHERE round_number > 0
+                GROUP BY round_number
+                ORDER BY scan_count DESC
+                LIMIT 10
+            ''')
+        top_rounds = [{'round': row[0], 'count': row[1]} for row in cursor.fetchall()]
+
+        conn.close()
+
+        return {
+            'daily_scans': daily_scans,
+            'round_distribution': round_distribution,
+            'upload_stats': upload_stats,
+            'hourly_distribution': hourly_distribution,
+            'format_distribution': format_distribution,
+            'top_rounds': top_rounds
+        }
+
     def cleanup_old_data(self, days: int = 30) -> int:
         """오래된 데이터 정리 (기본 30일)"""
         conn = sqlite3.connect(self.db_path)
@@ -365,3 +517,98 @@ class QRDatabase:
         conn.close()
 
         return deleted_count
+
+    def export_to_csv(self, file_path: str, round_filter: Optional[int] = None) -> bool:
+        """CSV 파일로 내보내기"""
+        import csv
+
+        try:
+            conn = sqlite3.connect(self.db_path)
+            cursor = conn.cursor()
+
+            # 데이터 조회
+            if round_filter:
+                query = '''
+                    SELECT qs.round_number, qs.scan_date, gn.game_index, gn.numbers, us.upload_success
+                    FROM qr_scans qs
+                    INNER JOIN game_numbers gn ON qs.id = gn.scan_id
+                    LEFT JOIN upload_status us ON qs.id = us.scan_id
+                    WHERE qs.round_number = ?
+                    ORDER BY qs.round_number DESC, gn.game_index
+                '''
+                cursor.execute(query, (round_filter,))
+            else:
+                query = '''
+                    SELECT qs.round_number, qs.scan_date, gn.game_index, gn.numbers, us.upload_success
+                    FROM qr_scans qs
+                    INNER JOIN game_numbers gn ON qs.id = gn.scan_id
+                    LEFT JOIN upload_status us ON qs.id = us.scan_id
+                    ORDER BY qs.round_number DESC, gn.game_index
+                '''
+                cursor.execute(query)
+
+            rows = cursor.fetchall()
+            conn.close()
+
+            # CSV 작성
+            with open(file_path, 'w', newline='', encoding='utf-8-sig') as csvfile:
+                writer = csv.writer(csvfile)
+
+                # 헤더
+                writer.writerow(['회차', '스캔일시', '게임번호', '번호1', '번호2', '번호3', '번호4', '번호5', '번호6', '업로드여부'])
+
+                # 데이터
+                for row in rows:
+                    round_num, scan_date, game_idx, numbers_json, uploaded = row
+                    numbers = json.loads(numbers_json)
+
+                    csv_row = [
+                        round_num,
+                        scan_date,
+                        game_idx,
+                        *numbers,
+                        '예' if uploaded else '아니오'
+                    ]
+                    writer.writerow(csv_row)
+
+            return True
+
+        except Exception as e:
+            print(f"CSV export error: {e}")
+            return False
+
+    def export_to_json(self, file_path: str, round_filter: Optional[int] = None) -> bool:
+        """JSON 파일로 내보내기 (전체 메타데이터 포함)"""
+        try:
+            conn = sqlite3.connect(self.db_path)
+            cursor = conn.cursor()
+
+            # 회차별로 조회
+            if round_filter:
+                cursor.execute('SELECT DISTINCT round_number FROM qr_scans WHERE round_number = ? ORDER BY round_number DESC', (round_filter,))
+            else:
+                cursor.execute('SELECT DISTINCT round_number FROM qr_scans ORDER BY round_number DESC')
+
+            rounds = [r[0] for r in cursor.fetchall()]
+
+            export_data = {
+                'export_date': datetime.now().isoformat(),
+                'total_rounds': len(rounds),
+                'rounds': []
+            }
+
+            for round_num in rounds:
+                round_data = self.get_round_details(round_num)
+                export_data['rounds'].append(round_data)
+
+            conn.close()
+
+            # JSON 작성
+            with open(file_path, 'w', encoding='utf-8') as jsonfile:
+                json.dump(export_data, jsonfile, ensure_ascii=False, indent=2)
+
+            return True
+
+        except Exception as e:
+            print(f"JSON export error: {e}")
+            return False

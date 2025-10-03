@@ -21,6 +21,10 @@ DEFAULT_SERVER = "local"
 WEB_APP_URL = SERVERS[DEFAULT_SERVER]["url"]
 API_ENDPOINT = f"{WEB_APP_URL}/api/purchases"
 
+# 앱 버전
+APP_VERSION = "1.2.0"
+APP_NAME = "로또 QR 인식 앱"
+
 # OCR 설정
 TESSERACT_CONFIG = '--psm 8 -c tessedit_char_whitelist=0123456789'
 TESSERACT_PATH = '/opt/homebrew/bin/tesseract'  # macOS Homebrew 경로
@@ -35,7 +39,7 @@ LOTTO_MAX_NUMBER = 45
 NUMBERS_PER_GAME = 6
 
 # GUI 설정
-WINDOW_SIZE = "800x600"
+WINDOW_SIZE = "1200x1250"
 SUPPORTED_FORMATS = [
     ("로또 용지 사진 (JPG, PNG)", "*.jpg *.jpeg *.png"),
     ("모든 이미지 파일", "*.jpg *.jpeg *.png *.bmp *.tiff *.gif"),

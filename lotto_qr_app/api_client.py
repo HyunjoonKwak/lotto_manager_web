@@ -674,6 +674,40 @@ class APIClient:
 
         return None
 
+    def get_server_database_stats(self) -> Dict:
+        """서버 데이터베이스 통계 조회"""
+        try:
+            url = f"{self.base_url}/api/data-stats"
+            response = self.session.get(url, timeout=10)
+
+            if response.status_code == 200:
+                data = response.json()
+                return {
+                    "success": True,
+                    "data": data
+                }
+            else:
+                return {
+                    "success": False,
+                    "error": f"서버 응답 오류 (HTTP {response.status_code})"
+                }
+
+        except requests.exceptions.ConnectionError:
+            return {
+                "success": False,
+                "error": "서버 연결 실패"
+            }
+        except requests.exceptions.Timeout:
+            return {
+                "success": False,
+                "error": "요청 시간 초과"
+            }
+        except Exception as e:
+            return {
+                "success": False,
+                "error": f"통계 조회 오류: {str(e)}"
+            }
+
     def validate_round(self, round_num: int) -> bool:
         """회차 번호 유효성 검증"""
         try:

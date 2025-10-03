@@ -3130,3 +3130,29 @@ def api_get_user_info():
         "is_active": current_user.is_active,
         "created_at": current_user.created_at.isoformat() if current_user.created_at else None
     })
+
+
+
+# ======================
+# QR 앱 관련 API
+# ======================
+
+@main_bp.get("/api/qr-app/version")
+@csrf.exempt
+def api_qr_app_version():
+    """QR 앱 버전 정보 API"""
+    return jsonify({
+        "version": "1.1.0",
+        "release_date": "2025-10-04",
+        "download_url": "https://github.com/your-repo/releases/latest",
+        "changelog": [
+            "✨ 드래그 앤 드롭 지원",
+            "✨ 폴더 일괄 처리 기능",
+            "✨ 프로그레스 바 추가",
+            "✨ 키보드 단축키 지원",
+            "✨ 자동 재시도 메커니즘",
+            "✨ CSV/JSON 내보내기 기능"
+        ],
+        "minimum_version": "1.0.0"
+    })
+
