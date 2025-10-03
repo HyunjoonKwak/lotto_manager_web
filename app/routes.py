@@ -3056,6 +3056,108 @@ def api_upload_qr_purchase():
         return jsonify({"error": f"QR 코드 처리 중 오류: {str(e)}"}), 500
 
 
+@main_bp.post('/api/purchases/text')
+@csrf.exempt
+@login_required
+def api_upload_text_purchase():
+    """텍스트에서 구매 데이터 업로드"""
+    try:
+        from app.services.text_parser import parse_lottery_text
+        from datetime import datetime
+
+        data = request.get_json()
+
+        if not data or 'text' not in data:
+            return jsonify({"error": "텍스트 데이터가 필요합니다"}), 400
+
+        text = data.get('text')
+
+        # 텍스트 파싱
+        parse_result = parse_lottery_text(text)
+
+        if not parse_result['success']:
+            return jsonify({
+                "error": f"텍스트 파싱 실패: {parse_result.get('error', 'Unknown error')}"
+            }), 400
+
+        parsed_data = parse_result['data']
+        round_number = parsed_data['round']
+        games = parsed_data['games']
+
+        # purchase_date를 datetime 객체로 변환
+        purchase_date = None
+        if parsed_data.get('purchase_date'):
+            try:
+                purchase_date = datetime.strptime(parsed_data['purchase_date'], '%Y-%m-%d')
+            except ValueError:
+                pass
+
+        # 각 게임을 Purchase로 저장
+        saved_purchases = []
+        duplicates = []
+
+        for game in games:
+            numbers = ','.join(map(str, game['numbers']))
+
+            # 중복 체크
+            existing = Purchase.query.filter_by(
+                user_id=current_user.id,
+                purchase_round=round_number,
+                numbers=numbers
+            ).first()
+
+            if existing:
+                duplicates.append({
+                    "numbers": numbers,
+                    "round": round_number,
+                    "game_type": game['game_type']
+                })
+                continue
+
+            # 새 구매 기록 생성
+            purchase = Purchase(
+                user_id=current_user.id,
+                purchase_round=round_number,
+                numbers=numbers,
+                purchase_method=game['mode'],  # 자동/수동
+                purchase_date=purchase_date,
+                recognition_method='text_input',
+                source='web_text_input',
+                result_checked=False
+            )
+
+            db.session.add(purchase)
+            saved_purchases.append({
+                "game_type": game['game_type'],
+                "numbers": numbers,
+                "mode": game['mode']
+            })
+
+        # 커밋
+        if saved_purchases:
+            db.session.commit()
+
+        return jsonify({
+            "success": True,
+            "message": f"{len(saved_purchases)}개 게임 저장 완료",
+            "data": {
+                "round": round_number,
+                "purchase_date": parsed_data.get('purchase_date'),
+                "draw_date": parsed_data.get('draw_date'),
+                "games": games
+            },
+            "upload_result": {
+                "saved": len(saved_purchases),
+                "duplicates": len(duplicates)
+            }
+        })
+
+    except Exception as e:
+        db.session.rollback()
+        current_app.logger.error(f"Text upload error: {e}")
+        return jsonify({"error": f"텍스트 처리 중 오류: {str(e)}"}), 500
+
+
 @main_bp.get('/api/purchases/sync')
 @csrf.exempt
 def api_sync_purchases():

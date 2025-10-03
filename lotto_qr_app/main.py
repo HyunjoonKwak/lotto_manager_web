@@ -73,6 +73,7 @@ from qr_processor import QRProcessor
 from api_client import APIClient
 from image_preprocessor import ImagePreprocessor
 from database import QRDatabase
+from text_parser import parse_lottery_text
 
 
 class LottoQRApp:
@@ -127,9 +128,10 @@ class LottoQRApp:
         file_frame.grid(row=0, column=0, columnspan=2, sticky=(tk.W, tk.E), pady=(0, 10))
 
         self.file_path_var = tk.StringVar()
-        ttk.Entry(file_frame, textvariable=self.file_path_var, width=50, state="readonly").grid(row=0, column=0, padx=(0, 5))
+        ttk.Entry(file_frame, textvariable=self.file_path_var, width=40, state="readonly").grid(row=0, column=0, padx=(0, 5))
         ttk.Button(file_frame, text="파일 선택", command=self.select_file).grid(row=0, column=1, padx=(0, 5))
-        ttk.Button(file_frame, text="폴더 일괄처리", command=self.select_folder).grid(row=0, column=2)
+        ttk.Button(file_frame, text="폴더 일괄처리", command=self.select_folder).grid(row=0, column=2, padx=(0, 5))
+        ttk.Button(file_frame, text="📝 텍스트 입력", command=self.open_text_input_dialog).grid(row=0, column=3)
 
         # 좌측: 이미지 미리보기
         image_frame = ttk.LabelFrame(main_frame, text="이미지 미리보기 (드래그 앤 드롭 가능)", padding="10")
@@ -238,8 +240,11 @@ class LottoQRApp:
         self.setup_log_context_menu()
         self.notebook.add(self.log_text, text="로그")
 
-        # 데이터베이스 탭
+        # 데이터베이스 탭 (로컬)
         self.setup_database_tab()
+
+        # 서버 정보 탭
+        self.setup_server_info_tab()
 
         # 통계 탭
         self.setup_statistics_tab()
@@ -326,6 +331,49 @@ class LottoQRApp:
 
         # 초기 데이터 로드
         self.refresh_database_tab()
+
+    def setup_server_info_tab(self):
+        """서버 정보 탭 설정"""
+        server_frame = ttk.Frame(self.notebook)
+        self.notebook.add(server_frame, text="🌐 서버 정보")
+
+        # 상단: 서버 연결 정보
+        connection_frame = ttk.LabelFrame(server_frame, text="서버 연결 정보", padding="10")
+        connection_frame.grid(row=0, column=0, sticky=(tk.W, tk.E), padx=5, pady=5)
+
+        self.server_info_text = tk.Text(connection_frame, height=4, width=70, wrap=tk.WORD)
+        self.server_info_text.grid(row=0, column=0, sticky=(tk.W, tk.E))
+        self.server_info_text.config(state=tk.DISABLED)
+
+        # 중단: 서버 데이터베이스 통계
+        stats_frame = ttk.LabelFrame(server_frame, text="서버 데이터베이스 통계", padding="10")
+        stats_frame.grid(row=1, column=0, sticky=(tk.W, tk.E, tk.N, tk.S), padx=5, pady=5)
+
+        self.server_stats_text = tk.Text(stats_frame, height=12, width=70, wrap=tk.WORD, font=('Courier', 11))
+        self.server_stats_text.grid(row=0, column=0, sticky=(tk.W, tk.E, tk.N, tk.S))
+        self.server_stats_text.config(state=tk.DISABLED)
+
+        # 스크롤바
+        stats_scrollbar = ttk.Scrollbar(stats_frame, orient=tk.VERTICAL, command=self.server_stats_text.yview)
+        stats_scrollbar.grid(row=0, column=1, sticky=(tk.N, tk.S))
+        self.server_stats_text.configure(yscrollcommand=stats_scrollbar.set)
+
+        # 하단: 버튼들
+        button_frame = ttk.Frame(server_frame)
+        button_frame.grid(row=2, column=0, sticky=(tk.W, tk.E), padx=5, pady=5)
+
+        ttk.Button(button_frame, text="🔄 새로고침", command=self.refresh_server_info).pack(side=tk.LEFT, padx=(0, 5))
+        ttk.Button(button_frame, text="🔌 연결 테스트", command=self.test_connection).pack(side=tk.LEFT, padx=(0, 5))
+
+        # 그리드 가중치 설정
+        server_frame.columnconfigure(0, weight=1)
+        server_frame.rowconfigure(1, weight=1)
+        connection_frame.columnconfigure(0, weight=1)
+        stats_frame.columnconfigure(0, weight=1)
+        stats_frame.rowconfigure(0, weight=1)
+
+        # 초기 서버 정보 로드
+        self.refresh_server_info()
 
     def setup_statistics_tab(self):
         """통계 탭 설정"""
@@ -1964,6 +2012,142 @@ class LottoQRApp:
         ttk.Button(button_frame, text="내보내기", command=do_export).pack(side=tk.RIGHT, padx=(5, 0))
         ttk.Button(button_frame, text="취소", command=export_window.destroy).pack(side=tk.RIGHT)
 
+    def open_text_input_dialog(self):
+        """텍스트 입력 다이얼로그 열기"""
+        dialog = tk.Toplevel(self.root)
+        dialog.title("로또 구매 번호 텍스트 입력")
+        dialog.geometry("700x600")
+
+        # 설명
+        desc_frame = ttk.Frame(dialog, padding="10")
+        desc_frame.pack(fill=tk.X)
+
+        ttk.Label(desc_frame, text="로또 구매 용지의 텍스트를 복사하여 붙여넣으세요", font=('Arial', 11, 'bold')).pack(anchor=tk.W)
+        ttk.Label(desc_frame, text="예시: 인터넷 로또 구매 내역, 복권 용지 스캔 결과 등", foreground="gray").pack(anchor=tk.W, pady=(2, 0))
+
+        # 텍스트 입력 영역
+        text_frame = ttk.LabelFrame(dialog, text="텍스트 입력", padding="10")
+        text_frame.pack(fill=tk.BOTH, expand=True, padx=10, pady=10)
+
+        text_widget = scrolledtext.ScrolledText(text_frame, height=20, width=70, wrap=tk.WORD)
+        text_widget.pack(fill=tk.BOTH, expand=True)
+
+        # 예시 텍스트
+        example_text = """인터넷 로또 6/45 구매번호
+복권 로또 645제 1191회
+발 행 일 : 2025/09/27 (토) 10:08:16
+추 첨 일 : 2025/09/27
+
+A 수동 (낙첨)379152635
+B 수동 (낙첨)3711121526
+C 자동 (낙첨)2517223641
+D 자동 (낙첨)132224283338
+E 수동 (낙첨)121517303135"""
+
+        text_widget.insert("1.0", example_text)
+
+        # 버튼 프레임
+        button_frame = ttk.Frame(dialog, padding="10")
+        button_frame.pack(fill=tk.X)
+
+        def parse_and_upload():
+            """텍스트 파싱 및 업로드"""
+            text = text_widget.get("1.0", tk.END).strip()
+
+            if not text:
+                messagebox.showwarning("경고", "텍스트를 입력해주세요.")
+                return
+
+            # 텍스트 파싱
+            result = parse_lottery_text(text)
+
+            if not result["success"]:
+                messagebox.showerror("파싱 실패", f"텍스트 파싱에 실패했습니다.\n\n{result.get('error', 'Unknown error')}")
+                return
+
+            data = result["data"]
+
+            # 파싱 결과 표시
+            summary = f"파싱 결과:\n\n"
+            summary += f"회차: {data['round']}회\n"
+            summary += f"구매일: {data.get('purchase_date', 'N/A')}\n"
+            summary += f"추첨일: {data.get('draw_date', 'N/A')}\n"
+            summary += f"게임 수: {len(data['games'])}게임\n\n"
+
+            for game in data['games']:
+                summary += f"{game['game_type']} {game['mode']}: {game['numbers']}\n"
+
+            confirmed = messagebox.askyesnocancel(
+                "파싱 완료",
+                f"{summary}\n\n서버에 업로드하시겠습니까?\n\n"
+                f"예: 서버에 업로드\n"
+                f"아니오: 로컬 DB에만 저장\n"
+                f"취소: 아무것도 하지 않음"
+            )
+
+            if confirmed is None:  # 취소
+                return
+
+            try:
+                # 로컬 DB에 저장
+                for game in data['games']:
+                    qr_data = {
+                        'round': data['round'],
+                        'numbers': game['numbers'],
+                        'format': 'text_input',
+                        'game_type': game['game_type'],
+                        'mode': game['mode']
+                    }
+
+                    scan_id = self.db.save_qr_scan(
+                        round_number=data['round'],
+                        game_numbers={1: game['numbers']},
+                        qr_data=json.dumps(qr_data),
+                        qr_format='text_input'
+                    )
+
+                self.log(f"✅ 텍스트에서 {len(data['games'])}개 게임 파싱 완료")
+
+                # 서버 업로드
+                if confirmed:  # 예
+                    if not self.api_client.is_authenticated:
+                        messagebox.showwarning("인증 필요", "먼저 로그인해주세요.")
+                        return
+
+                    # 각 게임을 개별로 업로드
+                    success_count = 0
+                    for game in data['games']:
+                        upload_data = {
+                            'round': data['round'],
+                            'draw_number': data['round'],
+                            'numbers': game['numbers'],
+                            'purchase_date': data.get('purchase_date', datetime.now().strftime('%Y-%m-%d'))
+                        }
+
+                        upload_result = self.api_client.upload_purchase_data(upload_data)
+                        if upload_result['success']:
+                            success_count += 1
+                        else:
+                            self.log(f"⚠️ 게임 {game['game_type']} 업로드 실패: {upload_result.get('error')}")
+
+                    if success_count > 0:
+                        messagebox.showinfo("성공", f"{success_count}/{len(data['games'])}개 게임이 서버에 업로드되었습니다.")
+                        self.log(f"✅ {success_count}개 게임 업로드 완료")
+                    else:
+                        messagebox.showerror("실패", "게임 업로드에 모두 실패했습니다.")
+                else:
+                    messagebox.showinfo("완료", "로컬 DB에 저장되었습니다.")
+
+                dialog.destroy()
+                self.refresh_database_tab()
+
+            except Exception as e:
+                messagebox.showerror("오류", f"처리 중 오류가 발생했습니다:\n{e}")
+                self.log(f"❌ 텍스트 처리 오류: {e}")
+
+        ttk.Button(button_frame, text="파싱 및 저장", command=parse_and_upload).pack(side=tk.LEFT, padx=(0, 5))
+        ttk.Button(button_frame, text="취소", command=dialog.destroy).pack(side=tk.LEFT)
+
     # ======================
     # 통계 및 시각화 메서드
     # ======================
@@ -2138,6 +2322,92 @@ class LottoQRApp:
         canvas = FigureCanvasTkAgg(fig, master=self.hour_chart_frame)
         canvas.draw()
         canvas.get_tk_widget().pack(fill=tk.BOTH, expand=True)
+
+    def refresh_server_info(self):
+        """서버 정보 새로고침"""
+        try:
+            # 서버 연결 정보 업데이트
+            server_info = self.api_client.get_server_info()
+
+            self.server_info_text.config(state=tk.NORMAL)
+            self.server_info_text.delete("1.0", tk.END)
+
+            info_text = f"서버 이름: {server_info['server_name']}\n"
+            info_text += f"서버 URL: {server_info['server_url']}\n"
+            info_text += f"설명: {server_info['description']}\n"
+            info_text += f"인증 상태: {'✅ 로그인됨' if server_info['is_authenticated'] else '❌ 로그인 필요'}"
+
+            self.server_info_text.insert("1.0", info_text)
+            self.server_info_text.config(state=tk.DISABLED)
+
+            # 서버 데이터베이스 통계 조회
+            self.server_stats_text.config(state=tk.NORMAL)
+            self.server_stats_text.delete("1.0", tk.END)
+
+            self.server_stats_text.insert("1.0", "서버 데이터베이스 통계를 조회 중...\n")
+            self.server_stats_text.config(state=tk.DISABLED)
+
+            # 백그라운드 스레드로 통계 조회
+            threading.Thread(target=self._fetch_server_stats_thread, daemon=True).start()
+
+        except Exception as e:
+            self.log(f"⚠️ 서버 정보 로드 실패: {e}")
+
+    def _fetch_server_stats_thread(self):
+        """서버 통계 조회 스레드"""
+        try:
+            stats_result = self.api_client.get_server_database_stats()
+
+            if stats_result["success"]:
+                stats = stats_result["data"]
+
+                stats_text = "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n"
+                stats_text += "📊 서버 데이터베이스 현황\n"
+                stats_text += "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n\n"
+
+                stats_text += f"🎯 로또 데이터:\n"
+                stats_text += f"  • 최신 회차: {stats.get('latest_round', 'N/A')}회\n"
+                stats_text += f"  • 전체 회차: {stats.get('total_draws', 'N/A')}개\n"
+                stats_text += f"  • 데이터 범위: {stats.get('earliest_round', 'N/A')}회 ~ {stats.get('latest_round', 'N/A')}회\n\n"
+
+                stats_text += f"👥 사용자 정보:\n"
+                stats_text += f"  • 등록 사용자: {stats.get('total_users', 'N/A')}명\n"
+                stats_text += f"  • 활성 사용자: {stats.get('active_users', 'N/A')}명\n\n"
+
+                stats_text += f"🎫 구매 기록:\n"
+                stats_text += f"  • 총 구매 건수: {stats.get('total_purchases', 'N/A')}건\n"
+                stats_text += f"  • 총 게임 수: {stats.get('total_games', 'N/A')}게임\n\n"
+
+                if stats.get('winning_stats'):
+                    winning = stats['winning_stats']
+                    stats_text += f"🏆 당첨 통계:\n"
+                    stats_text += f"  • 1등 당첨: {winning.get('rank_1', 0)}건\n"
+                    stats_text += f"  • 2등 당첨: {winning.get('rank_2', 0)}건\n"
+                    stats_text += f"  • 3등 당첨: {winning.get('rank_3', 0)}건\n"
+                    stats_text += f"  • 4등 당첨: {winning.get('rank_4', 0)}건\n"
+                    stats_text += f"  • 5등 당첨: {winning.get('rank_5', 0)}건\n\n"
+
+                stats_text += f"📅 마지막 업데이트: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}\n"
+                stats_text += "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n"
+
+                self.root.after(0, lambda: self._update_server_stats_display(stats_text))
+                self.root.after(0, lambda: self.log("✅ 서버 통계 조회 완료"))
+            else:
+                error_text = f"⚠️ 서버 통계 조회 실패\n\n오류: {stats_result.get('error', 'Unknown')}"
+                self.root.after(0, lambda: self._update_server_stats_display(error_text))
+                self.root.after(0, lambda: self.log(f"⚠️ 서버 통계 조회 실패: {stats_result.get('error')}"))
+
+        except Exception as e:
+            error_text = f"⚠️ 서버 통계 조회 중 오류 발생\n\n상세: {str(e)}"
+            self.root.after(0, lambda: self._update_server_stats_display(error_text))
+            self.root.after(0, lambda: self.log(f"⚠️ 서버 통계 조회 오류: {e}"))
+
+    def _update_server_stats_display(self, text: str):
+        """서버 통계 텍스트 업데이트"""
+        self.server_stats_text.config(state=tk.NORMAL)
+        self.server_stats_text.delete("1.0", tk.END)
+        self.server_stats_text.insert("1.0", text)
+        self.server_stats_text.config(state=tk.DISABLED)
 
     def on_closing(self):
         """앱 종료 시 로그 저장 및 정리"""

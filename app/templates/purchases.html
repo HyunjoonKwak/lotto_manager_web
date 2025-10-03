@@ -112,6 +112,45 @@
     </div>
   </section>
 
+  <!-- 텍스트 입력 -->
+  <section class="card">
+    <div class="card-header">
+      <h2>📝 텍스트로 구매 기록 추가</h2>
+      <button onclick="toggleTextInput()" class="btn-secondary" id="toggleTextBtn">
+        입력창 열기
+      </button>
+    </div>
+    <div id="textInputSection" style="display: none; padding: 1rem;">
+      <div class="form-group">
+        <label for="purchaseText" style="display: block; margin-bottom: 0.5rem; font-weight: bold;">
+          로또 구매 용지 텍스트 붙여넣기
+        </label>
+        <p style="color: #666; font-size: 0.9rem; margin-bottom: 1rem;">
+          인터넷 로또 구매 내역을 복사하여 붙여넣으세요. 회차, 발행일, 게임 번호가 자동으로 인식됩니다.
+        </p>
+        <textarea id="purchaseText" rows="12" style="width: 100%; padding: 0.75rem; border: 1px solid #ddd; border-radius: 4px; font-family: monospace; font-size: 0.9rem;"
+                  placeholder="예시:
+인터넷 로또 6/45 구매번호
+복권 로또 645제 1191회
+발 행 일 : 2025/09/27 (토) 10:08:16
+추 첨 일 : 2025/09/27
+
+A 수동 (낙첨)379152635
+B 수동 (낙첨)3711121526
+C 자동 (낙첨)2517223641"></textarea>
+      </div>
+      <div style="display: flex; gap: 0.5rem; margin-top: 1rem;">
+        <button onclick="parseAndUploadText()" class="btn-primary" id="parseTextBtn">
+          파싱 및 저장
+        </button>
+        <button onclick="clearTextInput()" class="btn-secondary">
+          지우기
+        </button>
+      </div>
+      <div id="textParseResult" style="margin-top: 1rem; display: none;"></div>
+    </div>
+  </section>
+
   <!-- 구매 이력 -->
   <section class="card">
     <div class="card-header">
@@ -1388,5 +1427,77 @@ document.addEventListener('DOMContentLoaded', function() {
   color: #0369a1;
 }
 </style>
+
+<script>
+// 텍스트 입력 섹션 토글
+function toggleTextInput() {
+  const section = document.getElementById('textInputSection');
+  const button = event.target;
+
+  if (section.style.display === 'none') {
+    section.style.display = 'block';
+    button.textContent = '입력창 닫기';
+  } else {
+    section.style.display = 'none';
+    button.textContent = '입력창 열기';
+  }
+}
+
+// 텍스트 파싱 및 업로드
+async function parseAndUploadText() {
+  const textarea = document.getElementById('purchaseText');
+  const text = textarea.value.trim();
+
+  if (!text) {
+    alert('텍스트를 입력해주세요.');
+    return;
+  }
+
+  try {
+    const response = await fetch('/api/purchases/text', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({ text: text })
+    });
+
+    const result = await response.json();
+
+    if (result.success) {
+      let message = `✅ 파싱 성공!\n\n`;
+      message += `회차: ${result.data.round}\n`;
+      message += `구매일: ${result.data.purchase_date || '미상'}\n`;
+      message += `추첨일: ${result.data.draw_date || '미상'}\n`;
+      message += `게임 수: ${result.data.games.length}\n\n`;
+
+      result.data.games.forEach((game, idx) => {
+        message += `${game.game_type}. ${game.mode} - ${game.numbers.join(', ')}\n`;
+      });
+
+      if (result.upload_result) {
+        message += `\n📤 업로드 결과:\n`;
+        message += `- 저장됨: ${result.upload_result.saved}건\n`;
+        message += `- 중복: ${result.upload_result.duplicates}건\n`;
+      }
+
+      alert(message);
+
+      // 성공 시 텍스트 지우고 구매 목록 새로고침
+      clearTextInput();
+      location.reload();
+    } else {
+      alert(`❌ 파싱 실패\n\n${result.error}`);
+    }
+  } catch (error) {
+    alert(`오류 발생: ${error.message}`);
+  }
+}
+
+// 텍스트 입력 초기화
+function clearTextInput() {
+  document.getElementById('purchaseText').value = '';
+}
+</script>
 
 {% endblock %}
