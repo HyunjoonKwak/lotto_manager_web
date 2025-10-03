@@ -23,10 +23,30 @@
   </div>
 </div>
 
+<!-- CSRF Token -->
+<input type="hidden" id="csrf-token" name="csrf_token" value="{{ csrf_token() }}"/>
+<script>
+  window.csrfToken = '{{ csrf_token() }}';
+</script>
+
+<!-- 구매 패턴 분석 -->
+<div class="mobile-card">
+  <div class="card-header">
+    <h2>📊 나의 구매 패턴</h2>
+    <button onclick="loadUserStats()" class="btn-refresh" style="background: rgba(255,255,255,0.2); border: none; color: white; padding: 0.4rem 0.8rem; border-radius: 0.5rem; font-size: 0.8rem;">새로고침</button>
+  </div>
+
+  <div id="mobileUserStats" style="padding: 1rem;">
+    <div style="text-align: center; padding: 1rem; color: #999;">
+      통계를 불러오는 중...
+    </div>
+  </div>
+</div>
+
 <!-- 구매 통계 -->
 <div class="mobile-card">
   <div class="card-header">
-    <h2>📊 구매 통계</h2>
+    <h2>📈 구매 요약</h2>
   </div>
 
   <div class="stats-summary">
@@ -614,6 +634,121 @@ document.addEventListener('DOMContentLoaded', function() {
     document.getElementById('numbersInput').value = autoNumbers;
     showPurchaseModal();
   }
+
+  // Load user statistics on page load
+  loadUserStats();
 });
+
+// Load user statistics for mobile
+async function loadUserStats() {
+  const container = document.getElementById('mobileUserStats');
+
+  try {
+    const response = await fetch('/api/user-statistics', {
+      headers: {
+        'X-CSRFToken': window.csrfToken
+      }
+    });
+
+    if (!response.ok) throw new Error('통계 로드 실패');
+
+    const data = await response.json();
+    displayMobileStats(data);
+
+  } catch (error) {
+    container.innerHTML = `
+      <div style="text-align: center; padding: 1rem; color: #e53e3e; font-size: 0.9rem;">
+        통계를 불러올 수 없습니다
+      </div>
+    `;
+    console.error('Error loading statistics:', error);
+  }
+}
+
+function displayMobileStats(data) {
+  const container = document.getElementById('mobileUserStats');
+  const stats = data.basic_stats;
+  const sources = data.source_distribution;
+  const favorites = data.favorite_numbers;
+
+  let html = `
+    <!-- 기본 통계 그리드 -->
+    <div style="display: grid; grid-template-columns: repeat(2, 1fr); gap: 0.5rem; margin-bottom: 1rem;">
+      <div style="background: linear-gradient(135deg, #667eea, #764ba2); color: white; padding: 0.75rem; border-radius: 0.75rem; text-align: center;">
+        <div style="font-size: 1.5rem; font-weight: 700;">${stats.total_purchases}</div>
+        <div style="font-size: 0.8rem; opacity: 0.9;">총 구매</div>
+      </div>
+      <div style="background: linear-gradient(135deg, #4299e1, #3182ce); color: white; padding: 0.75rem; border-radius: 0.75rem; text-align: center;">
+        <div style="font-size: 1.5rem; font-weight: 700;">${stats.total_wins}</div>
+        <div style="font-size: 0.8rem; opacity: 0.9;">당첨</div>
+      </div>
+      <div style="background: linear-gradient(135deg, #48bb78, #38a169); color: white; padding: 0.75rem; border-radius: 0.75rem; text-align: center;">
+        <div style="font-size: 1.5rem; font-weight: 700;">${stats.win_rate}%</div>
+        <div style="font-size: 0.8rem; opacity: 0.9;">당첨률</div>
+      </div>
+      <div style="background: linear-gradient(135deg, #ed8936, #dd6b20); color: white; padding: 0.75rem; border-radius: 0.75rem; text-align: center;">
+        <div style="font-size: 1.5rem; font-weight: 700;">${stats.total_drafts}</div>
+        <div style="font-size: 0.8rem; opacity: 0.9;">장바구니</div>
+      </div>
+    </div>
+
+    <!-- 입력 방식 선호도 -->
+    <div style="margin-bottom: 1rem;">
+      <h4 style="font-size: 0.95rem; margin-bottom: 0.5rem; color: #4a5568;">🎯 입력 방식</h4>
+      <div style="display: flex; flex-direction: column; gap: 0.5rem;">
+  `;
+
+  if (Object.keys(sources).length > 0) {
+    const total = Object.values(sources).reduce((a, b) => a + b, 0);
+    for (const [source, count] of Object.entries(sources)) {
+      const percentage = Math.round((count / total) * 100);
+      html += `
+        <div>
+          <div style="display: flex; justify-content: space-between; font-size: 0.85rem; margin-bottom: 0.25rem;">
+            <span>${source}</span>
+            <span style="color: #667eea; font-weight: 600;">${count}회 (${percentage}%)</span>
+          </div>
+          <div style="height: 6px; background: #e2e8f0; border-radius: 3px; overflow: hidden;">
+            <div style="height: 100%; background: linear-gradient(90deg, #667eea, #764ba2); width: ${percentage}%;"></div>
+          </div>
+        </div>
+      `;
+    }
+  } else {
+    html += '<div style="text-align: center; padding: 0.5rem; color: #999; font-size: 0.85rem;">데이터 없음</div>';
+  }
+
+  html += `
+      </div>
+    </div>
+
+    <!-- 자주 선택한 번호 -->
+    <div>
+      <h4 style="font-size: 0.95rem; margin-bottom: 0.5rem; color: #4a5568;">⭐ 자주 선택한 번호</h4>
+      <div style="display: grid; grid-template-columns: repeat(5, 1fr); gap: 0.4rem;">
+  `;
+
+  if (favorites.length > 0) {
+    favorites.slice(0, 10).forEach(item => {
+      html += `
+        <div style="text-align: center;">
+          <div style="width: 100%; aspect-ratio: 1; border-radius: 50%; background: linear-gradient(135deg, #667eea, #764ba2); color: white; display: flex; align-items: center; justify-content: center; font-weight: 700; font-size: 0.9rem; margin-bottom: 0.2rem;">
+            ${item.number}
+          </div>
+          <div style="font-size: 0.7rem; color: #999;">${item.count}회</div>
+        </div>
+      `;
+    });
+  } else {
+    html += '<div style="text-align: center; padding: 0.5rem; color: #999; font-size: 0.85rem; grid-column: 1/-1;">데이터 없음</div>';
+  }
+
+  html += `
+      </div>
+    </div>
+  `;
+
+  container.innerHTML = html;
+}
 </script>
 {% endblock %}

@@ -107,6 +107,101 @@ def get_user_lucky_numbers(user_id: int, top_n: int = 10) -> List[int]:
     return [num for num, freq in winning_numbers[:top_n]]
 
 
+def generate_recommendation_insights(user_id: int) -> Dict:
+    """
+    Generate actionable insights for improving user's recommendation strategy.
+    Returns hints based on purchase history and winning patterns.
+    """
+    from ..models import Purchase
+    from ..extensions import db
+
+    # Get user's purchase history
+    all_purchases = Purchase.query.filter_by(
+        user_id=user_id,
+        status='PURCHASED'
+    ).all()
+
+    if not all_purchases:
+        return {
+            'insights': [],
+            'recommendations': [],
+            'warnings': []
+        }
+
+    # Analyze patterns
+    total_purchases = len(all_purchases)
+    winning_purchases = [p for p in all_purchases if p.winning_rank]
+
+    # Source method analysis
+    source_counter = Counter(p.source for p in all_purchases)
+    winning_source_counter = Counter(p.source for p in winning_purchases)
+
+    # Number pattern analysis
+    all_numbers = Counter()
+    for p in all_purchases:
+        all_numbers.update(p.numbers_list())
+
+    insights = []
+    recommendations = []
+    warnings = []
+
+    # Insight 1: Source method effectiveness
+    if winning_purchases and total_purchases >= 10:
+        for source, count in winning_source_counter.most_common(1):
+            source_name = {'ai': 'AI 추천', 'manual': '수동 입력', 'random': '랜덤', 'qr': 'QR'}.get(source, source)
+            win_rate = (count / winning_source_counter.total()) * 100
+            if win_rate > 50:
+                insights.append(f"💡 '{source_name}' 방식이 당첨률이 높습니다 ({win_rate:.1f}%)")
+
+    # Insight 2: Number concentration
+    most_common_numbers = all_numbers.most_common(10)
+    if most_common_numbers:
+        top_number, top_count = most_common_numbers[0]
+        if top_count > total_purchases * 0.5:
+            warnings.append(f"⚠️ {top_number}번이 너무 자주 선택되었습니다. 다양성이 필요할 수 있습니다.")
+
+    # Insight 3: Purchase frequency
+    if total_purchases >= 5:
+        avg_per_round = total_purchases / len(set(p.purchase_round for p in all_purchases if p.purchase_round))
+        if avg_per_round < 1:
+            recommendations.append("📈 회차당 구매 횟수를 늘리면 당첨 확률이 높아집니다")
+        elif avg_per_round > 5:
+            recommendations.append("💰 회차당 구매가 많습니다. 전략적 선택이 필요할 수 있습니다")
+
+    # Insight 4: Winning pattern hints
+    winning_patterns = analyze_winning_patterns(user_id)
+    if winning_patterns['total_wins'] > 0:
+        best_pattern = max(winning_patterns['winning_patterns'].items(), key=lambda x: x[1], default=None)
+        if best_pattern:
+            pattern_name, pattern_count = best_pattern
+            insights.append(f"🎯 당첨 이력에서 '{pattern_name}' 패턴이 효과적이었습니다")
+
+    # Insight 5: Number range balance
+    low = sum(1 for num, count in all_numbers.items() if num <= 15)
+    mid = sum(1 for num, count in all_numbers.items() if 16 <= num <= 30)
+    high = sum(1 for num, count in all_numbers.items() if num >= 31)
+    total_nums = low + mid + high
+
+    if total_nums > 0:
+        low_pct = (low / total_nums) * 100
+        high_pct = (high / total_nums) * 100
+
+        if low_pct > 50:
+            recommendations.append("🔄 저구간(1-15) 번호가 많습니다. 중고구간 번호를 추가해보세요")
+        elif high_pct > 50:
+            recommendations.append("🔄 고구간(31-45) 번호가 많습니다. 저중구간 번호를 추가해보세요")
+
+    # Default recommendations if no data
+    if not insights and not recommendations:
+        recommendations.append("📊 더 많은 구매 데이터가 쌓이면 맞춤 분석을 제공합니다")
+
+    return {
+        'insights': insights[:3],  # Top 3 insights
+        'recommendations': recommendations[:3],  # Top 3 recommendations
+        'warnings': warnings[:2]  # Top 2 warnings
+    }
+
+
 def enhanced_auto_recommend(draw_numbers: Iterable[List[int]], user_id: Optional[int] = None, count: int = 3) -> Tuple[List[List[int]], List[List[str]]]:
     """
     Enhanced recommendation system that considers:

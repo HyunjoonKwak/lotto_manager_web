@@ -60,6 +60,21 @@
 <!-- Main Content Grid -->
 <div class="main-content">
 
+  <!-- 사용자 통계 및 패턴 분석 -->
+  <section class="card user-stats-card">
+    <div class="card-header">
+      <h2>📊 나의 구매 패턴</h2>
+      <button onclick="loadUserStatistics()" class="btn-secondary" id="refreshStatsBtn">
+        새로고침
+      </button>
+    </div>
+    <div id="userStatsContent" class="user-stats-content">
+      <div class="loading-spinner" style="text-align: center; padding: 2rem; color: #999;">
+        통계를 불러오는 중...
+      </div>
+    </div>
+  </section>
+
   <!-- 요약 통계 -->
   <section class="card">
     <div class="card-header">
@@ -987,5 +1002,391 @@ function deletePurchase(purchaseId) {
         deleteBtn.innerHTML = '삭제';
     });
 }
+
+// Load user statistics
+async function loadUserStatistics() {
+  const content = document.getElementById('userStatsContent');
+  const refreshBtn = document.getElementById('refreshStatsBtn');
+
+  refreshBtn.disabled = true;
+  refreshBtn.textContent = '불러오는 중...';
+
+  try {
+    const response = await fetch('/api/user-statistics', {
+      headers: {
+        'X-CSRFToken': window.csrfToken
+      }
+    });
+
+    if (!response.ok) throw new Error('통계 로드 실패');
+
+    const data = await response.json();
+    displayUserStatistics(data);
+
+  } catch (error) {
+    content.innerHTML = `
+      <div style="text-align: center; padding: 2rem; color: #e53e3e;">
+        통계를 불러오는 중 오류가 발생했습니다.
+      </div>
+    `;
+    console.error('Error loading statistics:', error);
+  } finally {
+    refreshBtn.disabled = false;
+    refreshBtn.textContent = '새로고침';
+  }
+}
+
+function displayUserStatistics(data) {
+  const content = document.getElementById('userStatsContent');
+  const stats = data.basic_stats;
+  const sources = data.source_distribution;
+  const favorites = data.favorite_numbers;
+  const wins = data.winning_stats;
+  const comparison = data.comparison || {};
+  const patterns = data.number_patterns || {};
+
+  // HTML 생성
+  let html = `
+    <div class="stats-grid">
+      <!-- 기본 통계 -->
+      <div class="stat-card">
+        <div class="stat-icon">📊</div>
+        <div class="stat-content">
+          <div class="stat-value">${stats.total_purchases}</div>
+          <div class="stat-label">총 구매</div>
+          ${comparison.avg_purchases_all_users ? `<div class="stat-compare">평균: ${comparison.avg_purchases_all_users} <span class="${comparison.purchases_rank === '평균 이상' ? 'stat-up' : 'stat-down'}">${comparison.purchases_rank}</span></div>` : ''}
+        </div>
+      </div>
+
+      <div class="stat-card">
+        <div class="stat-icon">🛒</div>
+        <div class="stat-content">
+          <div class="stat-value">${stats.total_drafts}</div>
+          <div class="stat-label">장바구니</div>
+        </div>
+      </div>
+
+      <div class="stat-card">
+        <div class="stat-icon">🎯</div>
+        <div class="stat-content">
+          <div class="stat-value">${stats.total_wins}</div>
+          <div class="stat-label">당첨 횟수</div>
+        </div>
+      </div>
+
+      <div class="stat-card">
+        <div class="stat-icon">📈</div>
+        <div class="stat-content">
+          <div class="stat-value">${stats.win_rate}%</div>
+          <div class="stat-label">당첨률</div>
+          ${comparison.avg_win_rate_all_users ? `<div class="stat-compare">평균: ${comparison.avg_win_rate_all_users}% <span class="${comparison.win_rate_rank === '평균 이상' ? 'stat-up' : 'stat-down'}">${comparison.win_rate_rank}</span></div>` : ''}
+        </div>
+      </div>
+    </div>
+
+    ${Object.keys(patterns).length > 0 ? `
+    <div class="pattern-section">
+      <h3>🔍 번호 선택 패턴 분석</h3>
+      <div class="pattern-grid">
+        <div class="pattern-item">
+          <div class="pattern-label">저구간 (1-15)</div>
+          <div class="pattern-value">${patterns.low_numbers || 0}개</div>
+        </div>
+        <div class="pattern-item">
+          <div class="pattern-label">중구간 (16-30)</div>
+          <div class="pattern-value">${patterns.mid_numbers || 0}개</div>
+        </div>
+        <div class="pattern-item">
+          <div class="pattern-label">고구간 (31-45)</div>
+          <div class="pattern-value">${patterns.high_numbers || 0}개</div>
+        </div>
+        <div class="pattern-item">
+          <div class="pattern-label">홀수 선택</div>
+          <div class="pattern-value">${patterns.odd_numbers || 0}회</div>
+        </div>
+        <div class="pattern-item">
+          <div class="pattern-label">짝수 선택</div>
+          <div class="pattern-value">${patterns.even_numbers || 0}회</div>
+        </div>
+      </div>
+    </div>
+    ` : ''}
+    </div>
+
+    <div class="analysis-grid">
+      <!-- 입력 방식 분포 -->
+      <div class="analysis-section">
+        <h3>🎯 입력 방식 선호도</h3>
+        <div class="source-list">
+  `;
+
+  if (Object.keys(sources).length > 0) {
+    const total = Object.values(sources).reduce((a, b) => a + b, 0);
+    for (const [source, count] of Object.entries(sources)) {
+      const percentage = Math.round((count / total) * 100);
+      html += `
+        <div class="source-item">
+          <div class="source-info">
+            <span class="source-name">${source}</span>
+            <span class="source-count">${count}회 (${percentage}%)</span>
+          </div>
+          <div class="source-bar">
+            <div class="source-fill" style="width: ${percentage}%"></div>
+          </div>
+        </div>
+      `;
+    }
+  } else {
+    html += '<div style="text-align: center; padding: 1rem; color: #999;">데이터가 없습니다</div>';
+  }
+
+  html += `
+        </div>
+      </div>
+
+      <!-- 자주 선택한 번호 -->
+      <div class="analysis-section">
+        <h3>⭐ 자주 선택한 번호 TOP 10</h3>
+        <div class="favorite-numbers">
+  `;
+
+  if (favorites.length > 0) {
+    favorites.forEach((item, index) => {
+      html += `
+        <div class="favorite-item">
+          <span class="favorite-rank">#${index + 1}</span>
+          <span class="favorite-ball">${item.number}</span>
+          <span class="favorite-count">${item.count}회</span>
+        </div>
+      `;
+    });
+  } else {
+    html += '<div style="text-align: center; padding: 1rem; color: #999;">데이터가 없습니다</div>';
+  }
+
+  html += `
+        </div>
+      </div>
+    </div>
+  `;
+
+  content.innerHTML = html;
+}
+
+// 페이지 로드 시 통계 불러오기
+document.addEventListener('DOMContentLoaded', function() {
+  loadUserStatistics();
+});
 </script>
+
+<style>
+/* 사용자 통계 스타일 */
+.user-stats-card {
+  margin-bottom: 1.5rem;
+}
+
+.user-stats-content {
+  padding: 1.5rem;
+}
+
+.stats-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+  gap: 1rem;
+  margin-bottom: 1.5rem;
+}
+
+.stat-card {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  padding: 1rem;
+  background: linear-gradient(135deg, #f7fafc, #edf2f7);
+  border-radius: 0.5rem;
+  border: 1px solid #e2e8f0;
+}
+
+.stat-icon {
+  font-size: 2rem;
+}
+
+.stat-value {
+  font-size: 1.5rem;
+  font-weight: 700;
+  color: #667eea;
+}
+
+.stat-label {
+  font-size: 0.85rem;
+  color: #718096;
+}
+
+.analysis-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+  gap: 1.5rem;
+}
+
+.analysis-section h3 {
+  font-size: 1rem;
+  margin-bottom: 1rem;
+  color: #4a5568;
+}
+
+.source-list {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+
+.source-item {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+}
+
+.source-info {
+  display: flex;
+  justify-content: space-between;
+  font-size: 0.9rem;
+}
+
+.source-name {
+  font-weight: 600;
+  color: #4a5568;
+}
+
+.source-count {
+  color: #718096;
+}
+
+.source-bar {
+  height: 8px;
+  background: #e2e8f0;
+  border-radius: 4px;
+  overflow: hidden;
+}
+
+.source-fill {
+  height: 100%;
+  background: linear-gradient(90deg, #667eea, #764ba2);
+  transition: width 0.3s ease;
+}
+
+.favorite-numbers {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 0.5rem;
+}
+
+.favorite-item {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.5rem;
+  background: #f7fafc;
+  border-radius: 0.5rem;
+  border: 1px solid #e2e8f0;
+}
+
+.favorite-rank {
+  font-size: 0.8rem;
+  color: #999;
+  font-weight: 600;
+  min-width: 2rem;
+}
+
+.favorite-ball {
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  background: linear-gradient(135deg, #667eea, #764ba2);
+  color: white;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: 700;
+  font-size: 0.9rem;
+}
+
+.favorite-count {
+  margin-left: auto;
+  font-size: 0.85rem;
+  color: #667eea;
+  font-weight: 600;
+}
+
+@media (max-width: 768px) {
+  .stats-grid {
+    grid-template-columns: repeat(2, 1fr);
+  }
+
+  .analysis-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .favorite-numbers {
+    grid-template-columns: 1fr;
+  }
+}
+
+/* Comparison stats styling */
+.stat-compare {
+  font-size: 0.75rem;
+  color: #718096;
+  margin-top: 0.25rem;
+}
+
+.stat-up {
+  color: #48bb78;
+  font-weight: 600;
+}
+
+.stat-down {
+  color: #f56565;
+  font-weight: 600;
+}
+
+/* Pattern analysis section */
+.pattern-section {
+  background: linear-gradient(135deg, #f0f9ff, #e0f2fe);
+  border: 1px solid #bae6fd;
+  border-radius: 0.75rem;
+  padding: 1.5rem;
+  margin-top: 1.5rem;
+}
+
+.pattern-section h3 {
+  font-size: 1rem;
+  margin-bottom: 1rem;
+  color: #0369a1;
+}
+
+.pattern-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
+  gap: 0.75rem;
+}
+
+.pattern-item {
+  background: white;
+  padding: 0.75rem;
+  border-radius: 0.5rem;
+  text-align: center;
+  border: 1px solid #e0f2fe;
+}
+
+.pattern-label {
+  font-size: 0.8rem;
+  color: #64748b;
+  margin-bottom: 0.25rem;
+}
+
+.pattern-value {
+  font-size: 1.1rem;
+  font-weight: bold;
+  color: #0369a1;
+}
+</style>
+
 {% endblock %}

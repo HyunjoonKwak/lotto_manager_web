@@ -1078,6 +1078,7 @@ def purchase_lottery():
 def purchase_history():
     """구매 이력 페이지"""
     from collections import defaultdict
+    from sqlalchemy.orm import joinedload
 
     # 모바일 기기 감지 및 리다이렉트
     if mobile_redirect_check():
@@ -1091,8 +1092,8 @@ def purchase_history():
     show_all = request.args.get('show_all', 'false').lower() == 'true'
     user_filter = request.args.get('user_id', '').strip()
 
-    # 기본적으로는 현재 사용자의 기록만 조회
-    query = Purchase.query
+    # 기본적으로는 현재 사용자의 기록만 조회 (N+1 방지: user 관계 eager loading)
+    query = Purchase.query.options(joinedload(Purchase.user))
     current_user_id = current_user.id
 
     # 관리자 또는 kingchic 사용자는 모든 기록 조회 가능
@@ -1571,6 +1572,172 @@ def api_shop_statistics():
 
     except Exception as e:
         current_app.logger.error(f"Error in api_shop_statistics: {str(e)}")
+        return jsonify({"error": str(e)}), 500
+
+
+@main_bp.get("/api/recommendation-insights")
+@login_required
+def api_recommendation_insights():
+    """사용자 추천 개선 인사이트 API"""
+    try:
+        from app.services.recommender import generate_recommendation_insights
+
+        insights_data = generate_recommendation_insights(current_user.id)
+
+        return jsonify({
+            "success": True,
+            "data": insights_data
+        })
+
+    except Exception as e:
+        current_app.logger.error(f"Error in api_recommendation_insights: {str(e)}")
+        return jsonify({"error": str(e)}), 500
+
+
+@main_bp.get("/api/user-statistics")
+@login_required
+def api_user_statistics():
+    """사용자 구매 패턴 분석 API"""
+    try:
+        user_id = current_user.id
+
+        # 기본 통계
+        total_purchases = Purchase.query.filter_by(
+            user_id=user_id,
+            status='PURCHASED'
+        ).count()
+
+        total_drafts = Purchase.query.filter_by(
+            user_id=user_id,
+            status='DRAFT'
+        ).count()
+
+        # 입력 방식별 통계
+        source_stats = db.session.query(
+            Purchase.source,
+            db.func.count().label('count')
+        ).filter(
+            Purchase.user_id == user_id,
+            Purchase.status == 'PURCHASED'
+        ).group_by(Purchase.source).all()
+
+        source_distribution = {}
+        for source, count in source_stats:
+            source_name = {
+                'ai': 'AI 추천',
+                'manual': '수동 입력',
+                'random': '랜덤 생성',
+                'qr': 'QR 스캔',
+                None: '기타'
+            }.get(source, source or '기타')
+            source_distribution[source_name] = count
+
+        # 자주 선택한 번호 (전체 구매 내역에서 추출)
+        purchases = Purchase.query.filter_by(
+            user_id=user_id,
+            status='PURCHASED'
+        ).all()
+
+        number_frequency = {}
+        for purchase in purchases:
+            numbers = purchase.numbers_list()
+            for num in numbers:
+                number_frequency[num] = number_frequency.get(num, 0) + 1
+
+        # 상위 10개 번호
+        top_numbers = sorted(
+            number_frequency.items(),
+            key=lambda x: x[1],
+            reverse=True
+        )[:10]
+
+        # 당첨 통계
+        wins_by_rank = db.session.query(
+            Purchase.winning_rank,
+            db.func.count().label('count')
+        ).filter(
+            Purchase.user_id == user_id,
+            Purchase.winning_rank.isnot(None)
+        ).group_by(Purchase.winning_rank).all()
+
+        winning_stats = {}
+        total_wins = 0
+        for rank, count in wins_by_rank:
+            winning_stats[f'{rank}등'] = count
+            total_wins += count
+
+        # 회차별 구매 빈도
+        round_frequency = db.session.query(
+            db.func.count().label('count')
+        ).filter(
+            Purchase.user_id == user_id,
+            Purchase.status == 'PURCHASED'
+        ).group_by(Purchase.purchase_round).all()
+
+        avg_purchases_per_round = (
+            sum(f[0] for f in round_frequency) / len(round_frequency)
+            if round_frequency else 0
+        )
+
+        # 전체 사용자 평균 통계 (비교용)
+        all_users_purchases = db.session.query(
+            db.func.count(Purchase.id).label('total'),
+            db.func.count(db.func.distinct(Purchase.user_id)).label('user_count')
+        ).filter(
+            Purchase.status == 'PURCHASED'
+        ).first()
+
+        avg_purchases_all_users = (
+            all_users_purchases.total / all_users_purchases.user_count
+            if all_users_purchases.user_count > 0 else 0
+        )
+
+        all_users_wins = db.session.query(
+            db.func.count().label('wins')
+        ).filter(
+            Purchase.status == 'PURCHASED',
+            Purchase.winning_rank.isnot(None)
+        ).scalar()
+
+        avg_win_rate_all_users = (
+            (all_users_wins / all_users_purchases.total * 100)
+            if all_users_purchases.total > 0 else 0
+        )
+
+        # 사용자 번호 선택 패턴 분석
+        number_patterns = {
+            'low_numbers': sum(1 for num, _ in number_frequency.items() if num <= 15),
+            'mid_numbers': sum(1 for num, _ in number_frequency.items() if 16 <= num <= 30),
+            'high_numbers': sum(1 for num, _ in number_frequency.items() if num >= 31),
+            'odd_numbers': sum(count for num, count in number_frequency.items() if num % 2 == 1),
+            'even_numbers': sum(count for num, count in number_frequency.items() if num % 2 == 0)
+        }
+
+        return jsonify({
+            "basic_stats": {
+                "total_purchases": total_purchases,
+                "total_drafts": total_drafts,
+                "total_wins": total_wins,
+                "win_rate": round((total_wins / total_purchases * 100), 2) if total_purchases > 0 else 0,
+                "avg_purchases_per_round": round(avg_purchases_per_round, 1)
+            },
+            "comparison": {
+                "avg_purchases_all_users": round(avg_purchases_all_users, 1),
+                "avg_win_rate_all_users": round(avg_win_rate_all_users, 2),
+                "purchases_rank": "평균 이상" if total_purchases > avg_purchases_all_users else "평균 이하",
+                "win_rate_rank": "평균 이상" if (total_wins / total_purchases * 100 if total_purchases > 0 else 0) > avg_win_rate_all_users else "평균 이하"
+            },
+            "source_distribution": source_distribution,
+            "favorite_numbers": [
+                {"number": num, "count": count}
+                for num, count in top_numbers
+            ],
+            "number_patterns": number_patterns,
+            "winning_stats": winning_stats
+        })
+
+    except Exception as e:
+        current_app.logger.error(f"Error in api_user_statistics: {str(e)}")
         return jsonify({"error": str(e)}), 500
 
 

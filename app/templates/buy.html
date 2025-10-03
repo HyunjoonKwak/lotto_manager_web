@@ -87,12 +87,53 @@
 
     <!-- 텍스트 입력 탭 -->
     <div class="input-method text-method">
-      <div class="text-input-row">
-        <input type="text" id="textNumbers" placeholder="예: 1, 7, 12, 23, 32, 40" maxlength="50" class="numbers-input">
-        <button type="button" class="parse-btn" onclick="parseTextNumbers()">번호 적용</button>
-      </div>
-      <div class="input-help">
-        <small>1-45 사이의 6개 번호를 콤마(,) 또는 공백으로 구분하여 입력하세요.</small>
+      <div class="batch-input-section">
+        <div class="batch-mode-toggle">
+          <button type="button" class="mode-btn active" data-mode="single" onclick="toggleBatchMode('single')">단일 입력</button>
+          <button type="button" class="mode-btn" data-mode="batch" onclick="toggleBatchMode('batch')">배치 입력</button>
+        </div>
+
+        <!-- 단일 입력 모드 -->
+        <div id="singleInputMode" class="single-input-mode">
+          <div class="text-input-row">
+            <input type="text" id="textNumbers" placeholder="예: 1, 7, 12, 23, 32, 40" class="numbers-input">
+            <button type="button" class="parse-btn" onclick="parseTextNumbers()">번호 적용</button>
+          </div>
+          <div class="input-help">
+            <small>💡 1-45 사이의 6개 번호를 콤마(,) 또는 공백으로 구분하여 입력하세요.</small>
+          </div>
+        </div>
+
+        <!-- 배치 입력 모드 -->
+        <div id="batchInputMode" class="batch-input-mode" style="display: none;">
+          <textarea id="batchTextNumbers" placeholder="여러 줄로 번호를 입력하세요. 한 줄에 6개씩&#10;예:&#10;1, 7, 12, 23, 32, 40&#10;3, 9, 15, 21, 27, 33&#10;2, 8, 14, 20, 26, 38" rows="8" class="batch-textarea"></textarea>
+          <div class="batch-controls">
+            <button type="button" class="btn btn-secondary" onclick="clearBatchInput()">초기화</button>
+            <button type="button" class="btn btn-primary" onclick="parseBatchNumbers()">
+              <span id="batchParseCount">배치 분석</span>
+            </button>
+          </div>
+          <div class="input-help">
+            <small>💡 한 줄에 6개씩, 여러 줄 입력 가능합니다. 콤마(,) 또는 공백으로 구분하세요.</small>
+          </div>
+
+          <!-- 배치 결과 표시 -->
+          <div id="batchResult" style="display: none; margin-top: 1rem;">
+            <div style="background: #f8f9fa; border-radius: 0.5rem; padding: 1rem; margin-bottom: 1rem;">
+              <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.5rem;">
+                <span style="font-weight: 600; color: #495057;">분석 결과</span>
+                <span id="batchResultCount" style="color: #667eea; font-weight: 600;"></span>
+              </div>
+              <div id="batchResultList" style="max-height: 300px; overflow-y: auto;"></div>
+            </div>
+            <div style="display: flex; gap: 0.5rem;">
+              <button type="button" class="btn btn-secondary" style="flex: 1;" onclick="clearBatchResult()">취소</button>
+              <button type="button" class="btn btn-success" style="flex: 2;" onclick="addAllBatchNumbers()">
+                <span id="batchAddCount">전체 추가 (0개)</span>
+              </button>
+            </div>
+          </div>
+        </div>
       </div>
     </div>
 
@@ -438,6 +479,96 @@
 
 .parse-btn:hover {
   background: #5a67d8;
+}
+
+/* Batch Input */
+.batch-mode-toggle {
+  display: flex;
+  gap: 0.5rem;
+  margin-bottom: 1rem;
+  background: #f8f9fa;
+  padding: 0.25rem;
+  border-radius: 0.5rem;
+}
+
+.mode-btn {
+  flex: 1;
+  padding: 0.6rem 1rem;
+  border: none;
+  background: transparent;
+  color: #666;
+  font-weight: 600;
+  border-radius: 0.4rem;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.mode-btn.active {
+  background: white;
+  color: #667eea;
+  box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+}
+
+.batch-textarea {
+  width: 100%;
+  padding: 0.75rem;
+  border: 2px solid #e9ecef;
+  border-radius: 0.5rem;
+  font-size: 0.95rem;
+  font-family: 'Courier New', monospace;
+  resize: vertical;
+  margin-bottom: 0.75rem;
+}
+
+.batch-textarea:focus {
+  outline: none;
+  border-color: #667eea;
+}
+
+.batch-controls {
+  display: flex;
+  gap: 0.5rem;
+  margin-bottom: 0.75rem;
+}
+
+.batch-result-item {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 0.75rem;
+  margin-bottom: 0.5rem;
+  background: white;
+  border-radius: 0.5rem;
+  border: 1px solid #e9ecef;
+}
+
+.batch-result-item.error {
+  background: #fff5f5;
+  border-color: #fc8181;
+}
+
+.batch-numbers {
+  display: flex;
+  gap: 0.25rem;
+  flex-wrap: wrap;
+}
+
+.batch-number {
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  background: linear-gradient(135deg, #667eea, #764ba2);
+  color: white;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 0.8rem;
+  font-weight: 600;
+}
+
+.batch-error {
+  color: #c53030;
+  font-size: 0.85rem;
 }
 
 /* Random Controls */
@@ -814,6 +945,184 @@ function parseTextNumbers() {
   updateAddButton();
   switchInputMethod('manual');
   alert('번호가 적용되었습니다!');
+}
+
+// Batch input mode toggle
+let batchValidNumbers = [];
+
+function toggleBatchMode(mode) {
+  const singleMode = document.getElementById('singleInputMode');
+  const batchMode = document.getElementById('batchInputMode');
+  const modeBtns = document.querySelectorAll('.mode-btn');
+
+  modeBtns.forEach(btn => {
+    if (btn.dataset.mode === mode) {
+      btn.classList.add('active');
+    } else {
+      btn.classList.remove('active');
+    }
+  });
+
+  if (mode === 'single') {
+    singleMode.style.display = 'block';
+    batchMode.style.display = 'none';
+  } else {
+    singleMode.style.display = 'none';
+    batchMode.style.display = 'block';
+  }
+}
+
+function clearBatchInput() {
+  document.getElementById('batchTextNumbers').value = '';
+  clearBatchResult();
+}
+
+function clearBatchResult() {
+  document.getElementById('batchResult').style.display = 'none';
+  document.getElementById('batchResultList').innerHTML = '';
+  batchValidNumbers = [];
+}
+
+// Parse batch numbers from textarea
+function parseBatchNumbers() {
+  const textarea = document.getElementById('batchTextNumbers');
+  const lines = textarea.value.split('\n').filter(line => line.trim());
+
+  if (lines.length === 0) {
+    alert('번호를 입력해주세요.');
+    return;
+  }
+
+  const results = [];
+  const validSets = [];
+
+  lines.forEach((line, index) => {
+    const numbers = line.split(/[,\s]+/)
+      .map(n => parseInt(n.trim()))
+      .filter(n => !isNaN(n) && n >= 1 && n <= 45);
+
+    if (numbers.length !== 6) {
+      results.push({
+        line: index + 1,
+        numbers: line.trim(),
+        error: `6개가 아닙니다 (${numbers.length}개 발견)`
+      });
+    } else if (new Set(numbers).size !== 6) {
+      results.push({
+        line: index + 1,
+        numbers: line.trim(),
+        error: '중복된 번호가 있습니다'
+      });
+    } else {
+      const sorted = [...numbers].sort((a, b) => a - b);
+      results.push({
+        line: index + 1,
+        numbers: sorted,
+        valid: true
+      });
+      validSets.push(sorted);
+    }
+  });
+
+  // 전역 변수에 저장
+  batchValidNumbers = validSets;
+
+  // 결과 표시
+  displayBatchResults(results);
+}
+
+function displayBatchResults(results) {
+  const resultDiv = document.getElementById('batchResult');
+  const listDiv = document.getElementById('batchResultList');
+  const countSpan = document.getElementById('batchResultCount');
+  const addCountSpan = document.getElementById('batchAddCount');
+
+  const validCount = results.filter(r => r.valid).length;
+  const totalCount = results.length;
+
+  countSpan.textContent = `총 ${totalCount}개 / 유효 ${validCount}개`;
+  addCountSpan.textContent = `전체 추가 (${validCount}개)`;
+
+  listDiv.innerHTML = results.map(result => {
+    if (result.valid) {
+      const numbersHtml = result.numbers.map(num =>
+        `<span class="batch-number">${num}</span>`
+      ).join('');
+      return `
+        <div class="batch-result-item">
+          <div>
+            <small style="color: #999; margin-right: 0.5rem;">라인 ${result.line}</small>
+            <div class="batch-numbers">${numbersHtml}</div>
+          </div>
+          <span style="color: #48bb78; font-weight: 600;">✓</span>
+        </div>
+      `;
+    } else {
+      return `
+        <div class="batch-result-item error">
+          <div>
+            <small style="color: #999; margin-right: 0.5rem;">라인 ${result.line}</small>
+            <div class="batch-error">${result.error}</div>
+            <div style="font-family: monospace; font-size: 0.85rem; color: #666; margin-top: 0.25rem;">${result.numbers}</div>
+          </div>
+          <span style="color: #fc8181; font-weight: 600;">✗</span>
+        </div>
+      `;
+    }
+  }).join('');
+
+  resultDiv.style.display = 'block';
+
+  if (validCount === 0) {
+    alert(`유효한 번호 세트가 없습니다. 총 ${totalCount}개 라인 중 ${totalCount}개 오류`);
+  }
+}
+
+// Add all batch numbers to cart
+async function addAllBatchNumbers() {
+  if (batchValidNumbers.length === 0) {
+    alert('추가할 유효한 번호가 없습니다.');
+    return;
+  }
+
+  const confirmed = confirm(`${batchValidNumbers.length}개의 번호를 모두 장바구니에 추가하시겠습니까?`);
+  if (!confirmed) return;
+
+  let successCount = 0;
+  let failCount = 0;
+
+  for (const numbers of batchValidNumbers) {
+    try {
+      const response = await fetch('/api/purchases/add', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'X-CSRFToken': window.csrfToken
+        },
+        body: JSON.stringify({
+          numbers: numbers.join(','),
+          round: currentRound,
+          source: 'manual'
+        })
+      });
+
+      const result = await response.json();
+      if (result.success) {
+        successCount++;
+      } else {
+        failCount++;
+      }
+    } catch (error) {
+      failCount++;
+      console.error('Error adding numbers:', error);
+    }
+  }
+
+  alert(`배치 추가 완료!\n성공: ${successCount}개\n실패: ${failCount}개`);
+
+  if (successCount > 0) {
+    location.reload();
+  }
 }
 
 // Generate random numbers
