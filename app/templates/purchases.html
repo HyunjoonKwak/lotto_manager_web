@@ -102,11 +102,77 @@
     <div class="card-header">
       <h2>📝 구매 기록</h2>
       <div class="header-actions">
+        <div class="view-toggle">
+          <a href="{{ url_for('main.purchase_history', view='list', page=1, show_all=show_all, user_id=user_filter) }}"
+             class="toggle-btn {% if view_mode == 'list' %}active{% endif %}">
+            📋 목록형
+          </a>
+          <a href="{{ url_for('main.purchase_history', view='grouped', page=1, show_all=show_all, user_id=user_filter) }}"
+             class="toggle-btn {% if view_mode == 'grouped' %}active{% endif %}">
+            📊 회차별
+          </a>
+        </div>
         <span id="checkResultsStatus" class="status-message"></span>
       </div>
     </div>
 
-    {% if purchases.items %}
+    {% if view_mode == 'grouped' and grouped_purchases %}
+    <!-- 회차별 그룹화 뷰 -->
+    <div class="purchases-grouped">
+      {% for round_num, round_purchases in grouped_purchases.items() %}
+      <div class="round-group">
+        <div class="round-header">
+          <h3>🎯 {{ round_num }}회</h3>
+          <div class="round-info">
+            <span class="purchase-count">{{ round_purchases|length }}개 번호</span>
+            {% set draw = round_purchases[0].draw %}
+            {% if draw %}
+              <span class="draw-date">{{ draw.draw_date.strftime('%Y-%m-%d') if draw.draw_date else '' }}</span>
+            {% endif %}
+          </div>
+        </div>
+
+        <div class="round-purchases">
+          {% for purchase in round_purchases %}
+          <div class="purchase-row-compact">
+            <div class="purchase-meta">
+              <span class="date-text">{{ purchase.purchase_date.strftime('%m/%d %H:%M') }}</span>
+              <span class="method-text">{{ purchase.purchase_method }}</span>
+              {% if is_admin and show_all %}
+              <span class="user-text">{{ purchase.user.username }}</span>
+              {% endif %}
+            </div>
+
+            <div class="numbers-section">
+              <div class="numbers-display">
+                {% for num in purchase.numbers.split(',') %}
+                  <span class="number-ball">{{ num.strip() }}</span>
+                {% endfor %}
+              </div>
+            </div>
+
+            <div class="result-section">
+              {% if not purchase.result_checked %}
+                <span class="status-badge waiting">결과대기</span>
+              {% elif purchase.winning_rank %}
+                <span class="status-badge winning">{{ purchase.winning_rank }}등</span>
+                <span class="prize-amount">{{ "{:,}".format(purchase.prize_amount) }}원</span>
+              {% else %}
+                <span class="status-badge losing">낙첨</span>
+                <span class="match-count">{{ purchase.matched_count }}개</span>
+              {% endif %}
+            </div>
+
+            <div class="actions">
+              <button class="delete-btn-small" onclick="deletePurchase({{ purchase.id }})">×</button>
+            </div>
+          </div>
+          {% endfor %}
+        </div>
+      </div>
+      {% endfor %}
+    </div>
+    {% elif view_mode == 'list' and purchases.items %}
     <div class="purchases-simple">
       {% for purchase in purchases.items %}
       <div class="purchase-row">
@@ -157,23 +223,27 @@
   {% if purchases.pages > 1 %}
   <section class="pagination-section">
     <div class="pagination-info">
-      페이지 {{ purchases.page }} / {{ purchases.pages }} (총 {{ purchases.total }}건)
+      {% if view_mode == 'grouped' %}
+        페이지 {{ purchases.page }} / {{ purchases.pages }} (총 {{ purchases.total }}개 회차)
+      {% else %}
+        페이지 {{ purchases.page }} / {{ purchases.pages }} (총 {{ purchases.total }}건)
+      {% endif %}
     </div>
     <div class="pagination-controls">
       {% if purchases.has_prev %}
-        <a href="{{ url_for('main.purchase_history', page=purchases.prev_num) }}" class="page-btn pagination-link">‹ 이전</a>
+        <a href="{{ url_for('main.purchase_history', view=view_mode, page=purchases.prev_num, show_all=show_all, user_id=user_filter) }}" class="page-btn pagination-link">‹ 이전</a>
       {% endif %}
 
       {% for page_num in range(1, purchases.pages + 1) %}
         {% if page_num == purchases.page %}
           <span class="page-btn current">{{ page_num }}</span>
         {% else %}
-          <a href="{{ url_for('main.purchase_history', page=page_num) }}" class="page-btn pagination-link">{{ page_num }}</a>
+          <a href="{{ url_for('main.purchase_history', view=view_mode, page=page_num, show_all=show_all, user_id=user_filter) }}" class="page-btn pagination-link">{{ page_num }}</a>
         {% endif %}
       {% endfor %}
 
       {% if purchases.has_next %}
-        <a href="{{ url_for('main.purchase_history', page=purchases.next_num) }}" class="page-btn pagination-link">다음 ›</a>
+        <a href="{{ url_for('main.purchase_history', view=view_mode, page=purchases.next_num, show_all=show_all, user_id=user_filter) }}" class="page-btn pagination-link">다음 ›</a>
       {% endif %}
     </div>
   </section>
@@ -183,6 +253,145 @@
 
 <style>
 /* 구매이력 페이지 전용 스타일 */
+
+/* 뷰 토글 버튼 */
+.view-toggle {
+  display: flex;
+  gap: 0.5rem;
+  background: #f8f9fa;
+  padding: 0.25rem;
+  border-radius: 0.5rem;
+}
+
+.toggle-btn {
+  padding: 0.5rem 1rem;
+  background: transparent;
+  color: #666;
+  text-decoration: none;
+  border-radius: 0.375rem;
+  font-weight: 600;
+  font-size: 0.9rem;
+  transition: all 0.3s ease;
+  white-space: nowrap;
+}
+
+.toggle-btn:hover {
+  background: #e9ecef;
+  color: #333;
+}
+
+.toggle-btn.active {
+  background: linear-gradient(135deg, #667eea, #764ba2);
+  color: white;
+  box-shadow: 0 2px 8px rgba(102, 126, 234, 0.3);
+}
+
+/* 회차별 그룹화 뷰 */
+.purchases-grouped {
+  display: flex;
+  flex-direction: column;
+  gap: 1.5rem;
+}
+
+.round-group {
+  background: linear-gradient(135deg, #f8f9fa, #ffffff);
+  border: 2px solid #e9ecef;
+  border-radius: 1rem;
+  overflow: hidden;
+  transition: all 0.3s ease;
+}
+
+.round-group:hover {
+  border-color: #667eea;
+  box-shadow: 0 4px 12px rgba(102, 126, 234, 0.15);
+}
+
+.round-header {
+  background: linear-gradient(135deg, #667eea, #764ba2);
+  color: white;
+  padding: 1rem 1.5rem;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.round-header h3 {
+  margin: 0;
+  font-size: 1.3rem;
+  font-weight: bold;
+}
+
+.round-info {
+  display: flex;
+  gap: 1rem;
+  align-items: center;
+  font-size: 0.9rem;
+}
+
+.purchase-count {
+  background: rgba(255, 255, 255, 0.2);
+  padding: 0.25rem 0.75rem;
+  border-radius: 1rem;
+  font-weight: 600;
+}
+
+.draw-date {
+  opacity: 0.9;
+}
+
+.round-purchases {
+  padding: 1rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.purchase-row-compact {
+  background: white;
+  border: 1px solid #e9ecef;
+  border-radius: 0.5rem;
+  padding: 0.75rem;
+  display: grid;
+  grid-template-columns: auto 1fr auto auto;
+  gap: 0.75rem;
+  align-items: center;
+  transition: all 0.2s ease;
+}
+
+.purchase-row-compact:hover {
+  background: #f8f9fa;
+  border-color: #667eea;
+}
+
+.purchase-meta {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+  min-width: 80px;
+  font-size: 0.85rem;
+}
+
+.delete-btn-small {
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  border: 1px solid #dc3545;
+  background: white;
+  color: #dc3545;
+  font-size: 1.2rem;
+  line-height: 1;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.delete-btn-small:hover {
+  background: #dc3545;
+  color: white;
+  transform: scale(1.1);
+}
 
 /* 구매 기록 행 스타일 */
 .purchases-simple {
@@ -607,6 +816,37 @@
 @media (max-width: 768px) {
   .summary-grid {
     grid-template-columns: repeat(2, 1fr);
+  }
+
+  .view-toggle {
+    flex-direction: column;
+    gap: 0.25rem;
+  }
+
+  .toggle-btn {
+    width: 100%;
+    text-align: center;
+  }
+
+  .round-header {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 0.5rem;
+  }
+
+  .round-info {
+    width: 100%;
+    justify-content: space-between;
+  }
+
+  .purchase-row-compact {
+    grid-template-columns: 1fr;
+    gap: 0.5rem;
+    text-align: center;
+  }
+
+  .purchase-meta {
+    align-items: center;
   }
 
   .purchase-row {

@@ -982,5 +982,598 @@
 .prize-stat.highlight .stat-winners {
   background: rgba(255, 255, 255, 0.7);
 }
+
+/* 당첨점 통계 스타일 */
+.shop-statistics {
+  margin-top: 2rem;
+}
+
+.stats-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+  gap: 1.5rem;
+  margin-top: 1rem;
+}
+
+.stat-card {
+  background: linear-gradient(135deg, #f8f9fa, #ffffff);
+  border: 2px solid #e9ecef;
+  border-radius: 0.8rem;
+  padding: 1.5rem;
+  transition: all 0.3s ease;
+}
+
+.stat-card:hover {
+  transform: translateY(-3px);
+  box-shadow: 0 6px 20px rgba(102, 126, 234, 0.15);
+  border-color: #667eea;
+}
+
+.stat-card h3 {
+  margin: 0 0 1rem 0;
+  color: #333;
+  font-size: 1.1rem;
+  font-weight: 600;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  border-bottom: 2px solid #667eea;
+  padding-bottom: 0.5rem;
+}
+
+.stat-summary {
+  display: flex;
+  justify-content: space-around;
+  margin-bottom: 1rem;
+}
+
+.summary-item {
+  text-align: center;
+}
+
+.summary-number {
+  font-size: 2rem;
+  font-weight: bold;
+  color: #667eea;
+}
+
+.summary-label {
+  font-size: 0.85rem;
+  color: #666;
+  margin-top: 0.25rem;
+}
+
+.stat-list {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+}
+
+.stat-list li {
+  padding: 0.75rem;
+  margin-bottom: 0.5rem;
+  background: white;
+  border-radius: 0.5rem;
+  border: 1px solid #e9ecef;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  transition: all 0.2s ease;
+}
+
+.stat-list li:hover {
+  background: #f8f9fa;
+  border-color: #667eea;
+}
+
+.stat-list li:last-child {
+  margin-bottom: 0;
+}
+
+.stat-rank {
+  display: inline-block;
+  width: 24px;
+  height: 24px;
+  background: linear-gradient(135deg, #667eea, #764ba2);
+  color: white;
+  border-radius: 50%;
+  text-align: center;
+  line-height: 24px;
+  font-weight: bold;
+  font-size: 0.85rem;
+  margin-right: 0.75rem;
+}
+
+.stat-name {
+  flex: 1;
+  font-weight: 600;
+  color: #333;
+}
+
+.stat-value {
+  font-weight: bold;
+  color: #667eea;
+  font-size: 1.1rem;
+}
+
+.stat-address {
+  font-size: 0.85rem;
+  color: #666;
+  margin-top: 0.25rem;
+}
+
+.method-badge {
+  display: inline-block;
+  padding: 0.25rem 0.75rem;
+  background: linear-gradient(135deg, #4299e1, #3182ce);
+  color: white;
+  border-radius: 1rem;
+  font-size: 0.8rem;
+  font-weight: 600;
+  margin-left: 0.5rem;
+}
+
+.loading-stats {
+  text-align: center;
+  padding: 2rem;
+  color: #667eea;
+  font-style: italic;
+}
+
+.error-stats {
+  text-align: center;
+  padding: 2rem;
+  color: #c53030;
+  background: #fff5f5;
+  border-radius: 0.5rem;
+  border: 1px solid #fed7d7;
+}
+
+/* 검색 카드 스타일 */
+.search-card {
+  margin-bottom: 1.5rem;
+}
+
+/* 등수 필터 스타일 */
+.rank-filter {
+  display: flex;
+  gap: 1rem;
+  margin-bottom: 1rem;
+  padding: 1rem;
+  background: #f8f9fa;
+  border-radius: 0.5rem;
+}
+
+.rank-option {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  cursor: pointer;
+  font-weight: 600;
+  color: #333;
+  padding: 0.5rem 1rem;
+  border-radius: 0.5rem;
+  transition: all 0.3s ease;
+}
+
+.rank-option:hover {
+  background: #e9ecef;
+}
+
+.rank-option input[type="radio"] {
+  margin: 0;
+  width: 18px;
+  height: 18px;
+  cursor: pointer;
+}
+
+.rank-option input[type="radio"]:checked + span {
+  color: #667eea;
+}
+
+.search-box {
+  display: flex;
+  gap: 0.75rem;
+  margin-bottom: 0.75rem;
+}
+
+.search-input {
+  flex: 1;
+  padding: 0.75rem 1rem;
+  border: 2px solid #e9ecef;
+  border-radius: 0.5rem;
+  font-size: 1rem;
+  transition: all 0.3s ease;
+}
+
+.search-input:focus {
+  outline: none;
+  border-color: #667eea;
+  box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
+}
+
+.btn-search {
+  padding: 0.75rem 2rem;
+  background: linear-gradient(135deg, #667eea, #764ba2);
+  color: white;
+  border: none;
+  border-radius: 0.5rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  white-space: nowrap;
+}
+
+.btn-search:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 4px 15px rgba(102, 126, 234, 0.3);
+}
+
+.search-hint {
+  font-size: 0.85rem;
+  color: #666;
+  margin-bottom: 1rem;
+  padding-left: 0.5rem;
+}
+
+.search-summary {
+  margin: 1.5rem 0 1rem 0;
+  padding: 1rem;
+  background: linear-gradient(135deg, #e6f2ff, #ffffff);
+  border-left: 4px solid #667eea;
+  border-radius: 0.5rem;
+  font-weight: 600;
+  color: #333;
+}
+
+.search-results-container {
+  max-height: 600px;
+  overflow-y: auto;
+  margin-top: 1rem;
+}
+
+.search-result-item {
+  padding: 1rem;
+  margin-bottom: 0.75rem;
+  background: white;
+  border: 1px solid #e9ecef;
+  border-radius: 0.5rem;
+  transition: all 0.2s ease;
+}
+
+.search-result-item:hover {
+  background: #f8f9fa;
+  border-color: #667eea;
+  transform: translateX(3px);
+}
+
+.result-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 0.5rem;
+}
+
+.result-round {
+  font-size: 1.1rem;
+  font-weight: bold;
+  color: #667eea;
+}
+
+.result-rank {
+  padding: 0.25rem 0.75rem;
+  border-radius: 1rem;
+  font-size: 0.85rem;
+  font-weight: 600;
+}
+
+.result-rank.rank-1 {
+  background: linear-gradient(135deg, #ffd700, #ffed4e);
+  color: #8b7500;
+}
+
+.result-rank.rank-2 {
+  background: linear-gradient(135deg, #c0c0c0, #e8e8e8);
+  color: #666;
+}
+
+.result-name {
+  font-size: 1.05rem;
+  font-weight: 600;
+  color: #333;
+  margin-bottom: 0.5rem;
+}
+
+.result-address {
+  font-size: 0.9rem;
+  color: #666;
+  margin-bottom: 0.25rem;
+}
+
+.result-method {
+  display: inline-block;
+  padding: 0.25rem 0.5rem;
+  background: #e9ecef;
+  color: #495057;
+  border-radius: 0.25rem;
+  font-size: 0.8rem;
+  font-weight: 500;
+}
+
+@media (max-width: 768px) {
+  .stats-grid {
+    grid-template-columns: 1fr;
+    gap: 1rem;
+  }
+
+  .stat-summary {
+    flex-direction: column;
+    gap: 1rem;
+  }
+
+  .stat-list li {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 0.5rem;
+  }
+
+  .search-box {
+    flex-direction: column;
+  }
+
+  .btn-search {
+    width: 100%;
+    padding: 0.875rem;
+  }
+
+  .result-header {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 0.5rem;
+  }
+
+  .rank-filter {
+    flex-direction: column;
+    gap: 0.5rem;
+  }
+
+  .rank-option {
+    width: 100%;
+  }
+}
 </style>
+
+<!-- 당첨점 통계 섹션 -->
+<section class="card shop-statistics">
+  <div class="card-header">
+    <h2>🏪 당첨점 통계 분석</h2>
+  </div>
+
+  <div id="shop-stats-loading" class="loading-stats">
+    데이터를 불러오는 중...
+  </div>
+
+  <div id="shop-stats-error" class="error-stats" style="display: none;">
+    통계 데이터를 불러오는데 실패했습니다.
+  </div>
+
+  <div id="shop-stats-content" style="display: none;">
+    <!-- 기본 통계 -->
+    <div class="stat-card">
+      <h3>📊 전체 통계</h3>
+      <div class="stat-summary">
+        <div class="summary-item">
+          <div class="summary-number" id="total-shops">0</div>
+          <div class="summary-label">전체 당첨점</div>
+        </div>
+        <div class="summary-item">
+          <div class="summary-number" id="rank1-shops">0</div>
+          <div class="summary-label">1등 당첨점</div>
+        </div>
+        <div class="summary-item">
+          <div class="summary-number" id="rank2-shops">0</div>
+          <div class="summary-label">2등 당첨점</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- 당첨점 검색 -->
+    <div class="stat-card search-card">
+      <h3>🔍 당첨판매점 조회</h3>
+
+      <!-- 등수 필터 -->
+      <div class="rank-filter">
+        <label class="rank-option">
+          <input type="radio" name="rank-filter" value="all" checked>
+          <span>전체</span>
+        </label>
+        <label class="rank-option">
+          <input type="radio" name="rank-filter" value="1">
+          <span>1등만</span>
+        </label>
+        <label class="rank-option">
+          <input type="radio" name="rank-filter" value="2">
+          <span>2등만</span>
+        </label>
+      </div>
+
+      <div class="search-box">
+        <input
+          type="text"
+          id="shop-search-input"
+          placeholder="지역명 또는 판매점명을 입력하세요 (예: 서울, 강남, 행운복권방)"
+          class="search-input"
+          onkeypress="if(event.key==='Enter') searchShops()"
+        />
+        <button onclick="searchShops()" class="btn-search">검색</button>
+      </div>
+      <div class="search-hint">
+        💡 지역명(시/도/구), 판매점명 등으로 검색 가능합니다
+      </div>
+
+      <!-- 검색 결과 -->
+      <div id="search-results" style="display: none;">
+        <div class="search-summary">
+          <span id="search-summary-text"></span>
+        </div>
+        <div id="search-results-list" class="search-results-container">
+          <!-- 검색 결과가 여기에 표시됩니다 -->
+        </div>
+      </div>
+    </div>
+
+    <div class="stats-grid">
+      <!-- 지역별 통계 -->
+      <div class="stat-card">
+        <h3>📍 지역별 당첨 TOP 10</h3>
+        <ul class="stat-list" id="location-stats">
+          <!-- JavaScript로 동적 생성 -->
+        </ul>
+      </div>
+
+      <!-- 상위 당첨 판매점 -->
+      <div class="stat-card">
+        <h3>🏆 복수 당첨 판매점 TOP 20</h3>
+        <ul class="stat-list" id="top-shops">
+          <!-- JavaScript로 동적 생성 -->
+        </ul>
+      </div>
+    </div>
+  </div>
+</section>
+
+<script>
+// 당첨점 통계 로드
+async function loadShopStatistics() {
+  const loading = document.getElementById('shop-stats-loading');
+  const error = document.getElementById('shop-stats-error');
+  const content = document.getElementById('shop-stats-content');
+
+  try {
+    const response = await fetch('/api/shop-statistics');
+    if (!response.ok) {
+      throw new Error('Failed to load statistics');
+    }
+
+    const data = await response.json();
+
+    // 기본 통계
+    document.getElementById('total-shops').textContent = data.total_stats.total_shops.toLocaleString();
+    document.getElementById('rank1-shops').textContent = data.total_stats.rank1_shops.toLocaleString();
+    document.getElementById('rank2-shops').textContent = data.total_stats.rank2_shops.toLocaleString();
+
+    // 지역별 통계
+    const locationList = document.getElementById('location-stats');
+    locationList.innerHTML = data.location_stats.map((item, index) => `
+      <li>
+        <div style="display: flex; align-items: center;">
+          <span class="stat-rank">${index + 1}</span>
+          <span class="stat-name">${item.region}</span>
+        </div>
+        <span class="stat-value">${item.count}회</span>
+      </li>
+    `).join('');
+
+    // 상위 당첨 판매점
+    const topShopsList = document.getElementById('top-shops');
+    topShopsList.innerHTML = data.top_shops.map((shop, index) => `
+      <li>
+        <div style="flex: 1;">
+          <div style="display: flex; align-items: center;">
+            <span class="stat-rank">${index + 1}</span>
+            <span class="stat-name">${shop.name}</span>
+          </div>
+          <div class="stat-address">${shop.address || ''}</div>
+        </div>
+        <span class="stat-value">${shop.win_count}회</span>
+      </li>
+    `).join('');
+
+    // 표시
+    loading.style.display = 'none';
+    error.style.display = 'none';
+    content.style.display = 'block';
+
+  } catch (err) {
+    console.error('Error loading shop statistics:', err);
+    loading.style.display = 'none';
+    error.style.display = 'block';
+    content.style.display = 'none';
+  }
+}
+
+// 당첨점 검색 함수
+async function searchShops() {
+  const query = document.getElementById('shop-search-input').value.trim();
+  const resultsDiv = document.getElementById('search-results');
+  const summaryText = document.getElementById('search-summary-text');
+  const resultsList = document.getElementById('search-results-list');
+
+  // 선택된 등수 필터 가져오기
+  const rankFilter = document.querySelector('input[name="rank-filter"]:checked').value;
+
+  if (!query || query.length < 2) {
+    alert('검색어는 2글자 이상 입력해주세요');
+    return;
+  }
+
+  try {
+    // 로딩 표시
+    resultsDiv.style.display = 'block';
+    summaryText.textContent = '검색 중...';
+    resultsList.innerHTML = '';
+
+    const response = await fetch(`/api/shop-search?q=${encodeURIComponent(query)}&rank=${rankFilter}`);
+    const data = await response.json();
+
+    if (!data.success) {
+      summaryText.textContent = `❌ ${data.error}`;
+      return;
+    }
+
+    // 검색 결과 요약
+    let filterText = '';
+    if (rankFilter === '1') {
+      filterText = ' [1등만]';
+    } else if (rankFilter === '2') {
+      filterText = ' [2등만]';
+    }
+
+    summaryText.innerHTML = `
+      "<strong>${data.query}</strong>" 검색 결과${filterText}:
+      총 <strong>${data.total_count}건</strong>
+      ${rankFilter === 'all' ? `(1등: ${data.rank1_count}건, 2등: ${data.rank2_count}건)` : ''}
+    `;
+
+    // 검색 결과 없음
+    if (data.results.length === 0) {
+      resultsList.innerHTML = '<div style="text-align: center; padding: 2rem; color: #666;">검색 결과가 없습니다.</div>';
+      return;
+    }
+
+    // 검색 결과 렌더링
+    resultsList.innerHTML = data.results.map(shop => `
+      <div class="search-result-item">
+        <div class="result-header">
+          <div class="result-round">${shop.round}회</div>
+          <div class="result-rank rank-${shop.rank}">${shop.rank}등</div>
+        </div>
+        <div class="result-name">${shop.name}</div>
+        <div class="result-address">📍 ${shop.address || '주소 정보 없음'}</div>
+        ${shop.method ? `<div style="margin-top: 0.5rem;"><span class="result-method">${shop.method}</span></div>` : ''}
+      </div>
+    `).join('');
+
+  } catch (err) {
+    console.error('Search error:', err);
+    summaryText.textContent = '❌ 검색 중 오류가 발생했습니다';
+    resultsList.innerHTML = '';
+  }
+}
+
+// 페이지 로드시 통계 로드
+document.addEventListener('DOMContentLoaded', function() {
+  loadShopStatistics();
+});
+</script>
 {% endblock %}

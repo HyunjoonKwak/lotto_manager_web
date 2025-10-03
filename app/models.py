@@ -117,13 +117,19 @@ class Purchase(db.Model):
     user_id = db.Column(db.Integer, db.ForeignKey('users.id'), nullable=False, index=True)  # 구매자 ID
     purchase_round = db.Column(db.Integer, nullable=False, index=True)  # 구매한 회차
     numbers = db.Column(db.String(50), nullable=False)  # e.g. "1,2,3,4,5,6"
-    purchase_method = db.Column(db.String(20), nullable=True)  # 자동/수동/반자동
+    purchase_method = db.Column(db.String(20), nullable=True)  # 자동/수동/반자동 (구매 방법)
     purchase_date = db.Column(db.DateTime, nullable=False, default=datetime.utcnow)
 
     # QR 수집 관련 필드
     recognition_method = db.Column(db.String(10), nullable=True)  # 'QR'
     confidence_score = db.Column(db.Float, nullable=True)  # 인식 신뢰도 (0-100)
-    source = db.Column(db.String(50), nullable=True)  # 'local_collector', 'manual'
+    source = db.Column(db.String(50), nullable=True)  # 입력 소스: 'manual', 'ai', 'qr', 'random', 'local_collector'
+
+    # 구매 상태 관리 (Phase 1 추가)
+    status = db.Column(db.String(20), nullable=False, default='DRAFT', index=True)  # DRAFT, PURCHASED, CHECKED
+    is_real_purchase = db.Column(db.Boolean, nullable=False, default=False)  # 실제 구매 여부
+    purchase_location = db.Column(db.String(200), nullable=True)  # 구매처 (예: "GS25 강남점")
+    cost = db.Column(db.Integer, nullable=True, default=1000)  # 구매 금액 (원)
 
     # User 관계 설정
     user = db.relationship('User', backref=db.backref('purchases', lazy=True))
@@ -134,6 +140,12 @@ class Purchase(db.Model):
     matched_count = db.Column(db.Integer, nullable=True)  # 맞춘 번호 개수
     bonus_matched = db.Column(db.Boolean, nullable=False, default=False)  # 보너스 번호 일치 여부
     prize_amount = db.Column(db.Integer, nullable=True)  # 당첨금액 (원)
+
+    # Draw 관계 설정 (역참조)
+    @property
+    def draw(self):
+        """해당 회차의 추첨 결과 조회"""
+        return Draw.query.filter_by(round=self.purchase_round).first()
 
     def numbers_list(self) -> List[int]:
         return [int(x) for x in self.numbers.split(",") if x]

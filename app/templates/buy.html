@@ -1,0 +1,1040 @@
+{% extends "base.html" %}
+
+{% block content %}
+<!-- CSRF Token -->
+<input type="hidden" id="csrf-token" name="csrf_token" value="{{ csrf_token() }}"/>
+<script>
+  window.csrfToken = '{{ csrf_token() }}';
+</script>
+
+<div class="header">
+  <div>
+    <h1>🛒 구매관리</h1>
+    <div class="muted">로또 번호 입력 및 구매 관리</div>
+  </div>
+</div>
+
+<div class="main-content">
+
+  <!-- 회차 선택 섹션 -->
+  <section class="card">
+    <div class="card-header">
+      <h2>📅 구매 회차 선택</h2>
+    </div>
+    <div class="round-selection">
+      <div class="round-info">
+        <div class="round-number">
+          <span class="label">다음 회차</span>
+          <span class="value">{{ next_round }}회</span>
+        </div>
+        <div class="round-date">
+          <span class="label">추첨일시</span>
+          <span class="value">{{ next_draw_date.strftime('%Y년 %m월 %d일 %H:%M') }}</span>
+        </div>
+        <div class="round-dday">
+          <span class="label">D-Day</span>
+          <span class="value" id="dday-counter">계산중...</span>
+        </div>
+      </div>
+      <div class="round-input">
+        <label for="targetRound">회차 변경</label>
+        <input type="number" id="targetRound" value="{{ next_round }}" min="{{ next_round }}" max="{{ next_round + 5 }}">
+        <span class="help-text">최대 +5회차까지 예약 가능</span>
+      </div>
+    </div>
+  </section>
+
+  <!-- 번호 입력 섹션 -->
+  <section class="card">
+    <div class="card-header">
+      <h2>🎯 번호 입력</h2>
+    </div>
+
+    <!-- 입력 방식 탭 -->
+    <div class="input-method-tabs">
+      <button type="button" class="method-tab {% if prefilled_method == 'ai' %}active{% else %}{% endif %}" data-method="ai">🤖 AI 추천</button>
+      <button type="button" class="method-tab {% if prefilled_method == 'manual' or not prefilled_method %}active{% endif %}" data-method="manual">🎯 직접 선택</button>
+      <button type="button" class="method-tab" data-method="text">✏️ 텍스트 입력</button>
+      <button type="button" class="method-tab" data-method="random">🎲 랜덤 생성</button>
+    </div>
+
+    <!-- AI 추천 탭 -->
+    <div class="input-method ai-method {% if prefilled_method == 'ai' %}active{% endif %}">
+      <div class="ai-message">
+        <p>전략분석 페이지에서 AI 추천번호를 받아보세요!</p>
+        <a href="{{ url_for('main.strategy') }}" class="btn btn-primary">전략분석 페이지로 이동</a>
+      </div>
+    </div>
+
+    <!-- 직접 선택 탭 -->
+    <div class="input-method manual-method {% if prefilled_method == 'manual' or not prefilled_method %}active{% endif %}">
+      <div class="number-grid">
+        {% for i in range(1, 46) %}
+        <button type="button" class="number-btn" data-number="{{ i }}">{{ i }}</button>
+        {% endfor %}
+      </div>
+      <div class="selected-numbers">
+        <div class="selected-header">
+          <span class="label">선택된 번호</span>
+          <span class="counter">(<span id="selectedCount">0</span>/6)</span>
+          <button type="button" class="clear-btn" onclick="clearSelectedNumbers()">초기화</button>
+        </div>
+        <div class="selected-display" id="selectedDisplay">
+          번호를 선택하세요 (6개)
+        </div>
+      </div>
+    </div>
+
+    <!-- 텍스트 입력 탭 -->
+    <div class="input-method text-method">
+      <div class="text-input-row">
+        <input type="text" id="textNumbers" placeholder="예: 1, 7, 12, 23, 32, 40" maxlength="50" class="numbers-input">
+        <button type="button" class="parse-btn" onclick="parseTextNumbers()">번호 적용</button>
+      </div>
+      <div class="input-help">
+        <small>1-45 사이의 6개 번호를 콤마(,) 또는 공백으로 구분하여 입력하세요.</small>
+      </div>
+    </div>
+
+    <!-- 랜덤 생성 탭 -->
+    <div class="input-method random-method">
+      <div class="random-controls">
+        <button type="button" class="btn btn-secondary" onclick="generateRandomNumbers('pure')">🎲 완전 랜덤</button>
+        <button type="button" class="btn btn-secondary" onclick="generateRandomNumbers('hot')">🔥 빈출번호 기반</button>
+        <button type="button" class="btn btn-secondary" onclick="generateRandomNumbers('cold')">❄️ 미출번호 기반</button>
+      </div>
+      <div class="input-help">
+        <small>다양한 방식으로 랜덤 번호를 생성할 수 있습니다.</small>
+      </div>
+    </div>
+
+    <!-- 장바구니 추가 버튼 -->
+    <div class="add-button-section">
+      <button type="button" class="btn btn-primary btn-large" onclick="addToCart()" id="addButton" disabled>
+        ➕ 장바구니에 추가
+      </button>
+    </div>
+  </section>
+
+  <!-- 장바구니 섹션 -->
+  <section class="card">
+    <div class="card-header">
+      <h2>🛒 장바구니 (임시저장)</h2>
+      <div class="cart-actions">
+        <button type="button" class="btn btn-success" onclick="confirmAllPurchases()" id="confirmAllBtn" {% if not draft_purchases %}disabled{% endif %}>
+          ✅ 전체 구매 확정
+        </button>
+      </div>
+    </div>
+
+    {% if draft_purchases %}
+    <div class="table-container">
+      <table>
+        <thead>
+          <tr>
+            <th>회차</th>
+            <th>번호</th>
+            <th>입력방식</th>
+            <th>등록일시</th>
+            <th>삭제</th>
+          </tr>
+        </thead>
+        <tbody id="cartTableBody">
+          {% for purchase in draft_purchases %}
+          <tr id="cart-row-{{ purchase.id }}">
+            <td><strong>{{ purchase.purchase_round }}회</strong></td>
+            <td class="numbers-cell">
+              {% for num in purchase.numbers_list() %}
+                <span class="number-badge">{{ num }}</span>
+              {% endfor %}
+            </td>
+            <td>
+              {% if purchase.source == 'ai' %}
+                <span class="badge-ai">AI추천</span>
+              {% elif purchase.source == 'random' %}
+                <span class="badge-random">랜덤</span>
+              {% elif purchase.source == 'qr' %}
+                <span class="badge-qr">QR스캔</span>
+              {% else %}
+                <span class="badge-manual">수동입력</span>
+              {% endif %}
+            </td>
+            <td>{{ purchase.purchase_date.strftime('%m/%d %H:%M') }}</td>
+            <td>
+              <button class="btn btn-danger btn-sm" onclick="deleteFromCart({{ purchase.id }})">삭제</button>
+            </td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+    {% else %}
+    <div class="empty-cart" id="emptyCart">
+      <p>장바구니가 비어있습니다.</p>
+      <p class="muted">위에서 번호를 입력하고 장바구니에 추가해보세요!</p>
+    </div>
+    {% endif %}
+  </section>
+
+</div> <!-- End main-content -->
+
+<style>
+/* 회차 선택 섹션 */
+.round-selection {
+  padding: 1.5rem;
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  border-radius: 0.5rem;
+  color: white;
+}
+
+.round-info {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 1.5rem;
+  margin-bottom: 1.5rem;
+}
+
+.round-info > div {
+  text-align: center;
+}
+
+.round-info .label {
+  display: block;
+  font-size: 0.875rem;
+  opacity: 0.9;
+  margin-bottom: 0.5rem;
+}
+
+.round-info .value {
+  display: block;
+  font-size: 1.5rem;
+  font-weight: bold;
+}
+
+.round-input {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  padding: 1rem;
+  background: rgba(255, 255, 255, 0.1);
+  border-radius: 0.5rem;
+}
+
+.round-input label {
+  font-weight: 600;
+  min-width: 80px;
+}
+
+.round-input input {
+  width: 120px;
+  padding: 0.5rem;
+  border: 2px solid rgba(255, 255, 255, 0.3);
+  border-radius: 0.25rem;
+  font-size: 1rem;
+  text-align: center;
+  background: rgba(255, 255, 255, 0.9);
+}
+
+.help-text {
+  font-size: 0.875rem;
+  opacity: 0.9;
+}
+
+/* Method Tabs */
+.input-method-tabs {
+  display: flex;
+  gap: 0.5rem;
+  margin-bottom: 1.5rem;
+  border-bottom: 1px solid #e9ecef;
+}
+
+.method-tab {
+  padding: 0.75rem 1.5rem;
+  border: none;
+  background: transparent;
+  color: #666;
+  cursor: pointer;
+  border-bottom: 3px solid transparent;
+  font-weight: 500;
+  transition: all 0.2s ease;
+}
+
+.method-tab:hover {
+  color: #667eea;
+  background: #f8f9fa;
+}
+
+.method-tab.active {
+  color: #667eea;
+  border-bottom-color: #667eea;
+  background: #f8f9fa;
+}
+
+/* Input Methods */
+.input-method {
+  display: none;
+  padding: 1.5rem;
+  border: 1px solid #e9ecef;
+  border-radius: 0.5rem;
+  margin-bottom: 1.5rem;
+  min-height: 300px;
+}
+
+.input-method.active {
+  display: block;
+}
+
+/* AI Message */
+.ai-method .ai-message {
+  text-align: center;
+  padding: 3rem 2rem;
+}
+
+.ai-method .ai-message p {
+  font-size: 1.1rem;
+  margin-bottom: 1.5rem;
+  color: #666;
+}
+
+/* Number Grid */
+.number-grid {
+  display: grid;
+  grid-template-columns: repeat(9, 1fr);
+  gap: 0.5rem;
+  margin-bottom: 1.5rem;
+}
+
+.number-btn {
+  width: 100%;
+  aspect-ratio: 1;
+  border: 2px solid #e9ecef;
+  border-radius: 50%;
+  background: white;
+  color: #333;
+  font-weight: bold;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.number-btn:hover {
+  border-color: #667eea;
+  background: #f0f4ff;
+}
+
+.number-btn.selected {
+  background: linear-gradient(135deg, #667eea, #764ba2);
+  color: white;
+  border-color: #667eea;
+  transform: scale(1.1);
+  box-shadow: 0 4px 12px rgba(102, 126, 234, 0.3);
+}
+
+/* Selected Numbers */
+.selected-numbers {
+  background: #f8f9fa;
+  border-radius: 0.5rem;
+  padding: 1rem;
+}
+
+.selected-header {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  margin-bottom: 0.75rem;
+}
+
+.selected-header .label {
+  font-weight: 600;
+  color: #333;
+}
+
+.selected-header .counter {
+  color: #667eea;
+  font-weight: bold;
+}
+
+.clear-btn {
+  background: #e53e3e;
+  color: white;
+  border: none;
+  padding: 0.25rem 0.5rem;
+  border-radius: 0.25rem;
+  font-size: 0.75rem;
+  cursor: pointer;
+  margin-left: auto;
+}
+
+.clear-btn:hover {
+  background: #c53030;
+}
+
+.selected-display {
+  min-height: 60px;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  flex-wrap: wrap;
+  padding: 0.75rem;
+  background: white;
+  border-radius: 0.25rem;
+  border: 2px dashed #e9ecef;
+  color: #666;
+}
+
+.selected-display.has-numbers {
+  border-style: solid;
+  border-color: #667eea;
+  color: #333;
+}
+
+.selected-number {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  background: linear-gradient(135deg, #667eea, #764ba2);
+  color: white;
+  border-radius: 50%;
+  font-size: 0.875rem;
+  font-weight: bold;
+  box-shadow: 0 2px 6px rgba(102, 126, 234, 0.3);
+}
+
+/* Text Input */
+.text-input-row {
+  display: flex;
+  gap: 1rem;
+  align-items: center;
+  margin-bottom: 0.75rem;
+}
+
+.numbers-input {
+  flex: 1;
+  padding: 0.75rem;
+  border: 2px solid #e9ecef;
+  border-radius: 0.25rem;
+  font-size: 1rem;
+}
+
+.numbers-input:focus {
+  outline: none;
+  border-color: #667eea;
+}
+
+.parse-btn {
+  background: #667eea;
+  color: white;
+  border: none;
+  padding: 0.75rem 1.5rem;
+  border-radius: 0.25rem;
+  cursor: pointer;
+  font-weight: 500;
+  white-space: nowrap;
+}
+
+.parse-btn:hover {
+  background: #5a67d8;
+}
+
+/* Random Controls */
+.random-controls {
+  display: flex;
+  gap: 1rem;
+  flex-wrap: wrap;
+  margin-bottom: 0.75rem;
+}
+
+/* Add Button */
+.add-button-section {
+  text-align: center;
+  margin-top: 1.5rem;
+  padding-top: 1.5rem;
+  border-top: 1px solid #e9ecef;
+}
+
+.btn-large {
+  padding: 1rem 2rem;
+  font-size: 1.1rem;
+  font-weight: 600;
+  border-radius: 0.5rem;
+  min-width: 250px;
+}
+
+/* Cart Section */
+.cart-actions {
+  display: flex;
+  gap: 0.5rem;
+}
+
+.empty-cart {
+  text-align: center;
+  padding: 3rem 2rem;
+  color: #999;
+}
+
+.empty-cart p {
+  margin: 0.5rem 0;
+}
+
+.empty-cart .muted {
+  font-size: 0.9rem;
+  color: #aaa;
+}
+
+.number-badge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  background: linear-gradient(135deg, #667eea, #764ba2);
+  color: white;
+  border-radius: 50%;
+  font-size: 0.8rem;
+  font-weight: bold;
+  margin: 0 2px;
+  box-shadow: 0 2px 4px rgba(102, 126, 234, 0.3);
+}
+
+.badge-ai {
+  background: linear-gradient(135deg, #667eea, #764ba2);
+  color: white;
+  padding: 0.25rem 0.5rem;
+  border-radius: 1rem;
+  font-size: 0.75rem;
+  font-weight: 600;
+  display: inline-block;
+}
+
+.badge-manual {
+  background: linear-gradient(135deg, #28a745, #20c997);
+  color: white;
+  padding: 0.25rem 0.5rem;
+  border-radius: 1rem;
+  font-size: 0.75rem;
+  font-weight: 600;
+  display: inline-block;
+}
+
+.badge-random {
+  background: linear-gradient(135deg, #f093fb, #f5576c);
+  color: white;
+  padding: 0.25rem 0.5rem;
+  border-radius: 1rem;
+  font-size: 0.75rem;
+  font-weight: 600;
+  display: inline-block;
+}
+
+.badge-qr {
+  background: linear-gradient(135deg, #4facfe, #00f2fe);
+  color: white;
+  padding: 0.25rem 0.5rem;
+  border-radius: 1rem;
+  font-size: 0.75rem;
+  font-weight: 600;
+  display: inline-block;
+}
+
+/* Button styles */
+.btn {
+  padding: 0.5rem 1rem;
+  border: none;
+  border-radius: 0.25rem;
+  cursor: pointer;
+  font-weight: 500;
+  transition: all 0.2s ease;
+}
+
+.btn:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.btn-primary {
+  background: #667eea;
+  color: white;
+}
+
+.btn-primary:hover:not(:disabled) {
+  background: #5a67d8;
+}
+
+.btn-success {
+  background: #38a169;
+  color: white;
+}
+
+.btn-success:hover:not(:disabled) {
+  background: #2f855a;
+}
+
+.btn-danger {
+  background: #e53e3e;
+  color: white;
+}
+
+.btn-danger:hover {
+  background: #c53030;
+}
+
+.btn-secondary {
+  background: #6c757d;
+  color: white;
+  padding: 0.75rem 1rem;
+}
+
+.btn-secondary:hover {
+  background: #5a6268;
+}
+
+.btn-sm {
+  padding: 0.25rem 0.5rem;
+  font-size: 0.875rem;
+}
+
+.input-help {
+  color: #666;
+  margin-bottom: 1rem;
+}
+
+/* Mobile Responsive */
+@media (max-width: 768px) {
+  .round-info {
+    grid-template-columns: 1fr;
+    gap: 1rem;
+  }
+
+  .round-input {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 0.75rem;
+  }
+
+  .input-method-tabs {
+    flex-direction: column;
+    gap: 0;
+  }
+
+  .method-tab {
+    border-bottom: 1px solid #e9ecef;
+    border-radius: 0;
+    padding: 1rem;
+    text-align: left;
+  }
+
+  .number-grid {
+    grid-template-columns: repeat(5, 1fr);
+    gap: 0.75rem;
+  }
+
+  .text-input-row {
+    flex-direction: column;
+  }
+
+  .random-controls {
+    flex-direction: column;
+  }
+
+  .btn-secondary, .parse-btn {
+    width: 100%;
+  }
+
+  .btn-large {
+    min-width: auto;
+    width: 100%;
+  }
+
+  .cart-actions {
+    flex-direction: column;
+  }
+
+  .cart-actions .btn {
+    width: 100%;
+  }
+}
+</style>
+
+<script>
+// Global variables
+let selectedNumbers = [];
+let currentMethod = 'manual';
+const frequentNumbers = {{ most_frequent | map('first') | list | tojson }};
+const leastFrequentNumbers = {{ least_frequent | map('first') | list | tojson }};
+
+// Initialize on page load
+document.addEventListener('DOMContentLoaded', function() {
+  initializeInputTabs();
+  initializeNumberButtons();
+  updateDDayCounter();
+  setInterval(updateDDayCounter, 60000); // Update every minute
+
+  // Pre-fill numbers if provided
+  const prefilledNumbers = '{{ prefilled_numbers }}';
+  if (prefilledNumbers) {
+    const numbers = prefilledNumbers.split(',').map(n => parseInt(n.trim()));
+    if (numbers.length === 6) {
+      numbers.forEach(num => {
+        selectedNumbers.push(num);
+        const btn = document.querySelector(`[data-number="${num}"]`);
+        if (btn) btn.classList.add('selected');
+      });
+      updateSelectedDisplay();
+      updateAddButton();
+    }
+  }
+});
+
+// Initialize input tabs
+function initializeInputTabs() {
+  document.querySelectorAll('.method-tab').forEach(tab => {
+    tab.addEventListener('click', function() {
+      const method = this.getAttribute('data-method');
+      switchInputMethod(method);
+    });
+  });
+}
+
+// Initialize number buttons
+function initializeNumberButtons() {
+  document.querySelectorAll('.number-btn').forEach(btn => {
+    btn.addEventListener('click', function() {
+      const number = parseInt(this.getAttribute('data-number'));
+      toggleNumber(number);
+    });
+  });
+}
+
+// Switch input method
+function switchInputMethod(method) {
+  currentMethod = method;
+
+  // Update tabs
+  document.querySelectorAll('.method-tab').forEach(tab => {
+    tab.classList.remove('active');
+  });
+  document.querySelector(`[data-method="${method}"]`).classList.add('active');
+
+  // Update sections
+  document.querySelectorAll('.input-method').forEach(section => {
+    section.classList.remove('active');
+  });
+  document.querySelector(`.${method}-method`).classList.add('active');
+}
+
+// Toggle number selection
+function toggleNumber(number) {
+  const index = selectedNumbers.indexOf(number);
+
+  if (index > -1) {
+    selectedNumbers.splice(index, 1);
+    document.querySelector(`[data-number="${number}"]`).classList.remove('selected');
+  } else {
+    if (selectedNumbers.length < 6) {
+      selectedNumbers.push(number);
+      document.querySelector(`[data-number="${number}"]`).classList.add('selected');
+    } else {
+      alert('최대 6개 번호까지 선택할 수 있습니다.');
+      return;
+    }
+  }
+
+  selectedNumbers.sort((a, b) => a - b);
+  updateSelectedDisplay();
+  updateAddButton();
+}
+
+// Clear selected numbers
+function clearSelectedNumbers() {
+  selectedNumbers = [];
+  document.querySelectorAll('.number-btn.selected').forEach(btn => {
+    btn.classList.remove('selected');
+  });
+  updateSelectedDisplay();
+  updateAddButton();
+}
+
+// Update selected display
+function updateSelectedDisplay() {
+  const display = document.getElementById('selectedDisplay');
+  const counter = document.getElementById('selectedCount');
+
+  counter.textContent = selectedNumbers.length;
+
+  if (selectedNumbers.length === 0) {
+    display.innerHTML = '번호를 선택하세요 (6개)';
+    display.classList.remove('has-numbers');
+  } else {
+    const numbersHtml = selectedNumbers.map(num =>
+      `<span class="selected-number">${num}</span>`
+    ).join('');
+    display.innerHTML = numbersHtml;
+    display.classList.add('has-numbers');
+  }
+}
+
+// Parse text numbers
+function parseTextNumbers() {
+  const input = document.getElementById('textNumbers');
+  const text = input.value.trim();
+
+  if (!text) {
+    alert('번호를 입력해주세요.');
+    return;
+  }
+
+  const numbers = text.split(/[,\s]+/)
+    .map(n => parseInt(n.trim()))
+    .filter(n => !isNaN(n) && n >= 1 && n <= 45);
+
+  if (numbers.length !== 6) {
+    alert('1-45 사이의 6개 번호를 정확히 입력해주세요.');
+    return;
+  }
+
+  if (new Set(numbers).size !== 6) {
+    alert('중복된 번호가 있습니다.');
+    return;
+  }
+
+  // Apply to selection
+  clearSelectedNumbers();
+  numbers.forEach(num => {
+    selectedNumbers.push(num);
+    const btn = document.querySelector(`[data-number="${num}"]`);
+    if (btn) btn.classList.add('selected');
+  });
+
+  selectedNumbers.sort((a, b) => a - b);
+  updateSelectedDisplay();
+  updateAddButton();
+  switchInputMethod('manual');
+  alert('번호가 적용되었습니다!');
+}
+
+// Generate random numbers
+function generateRandomNumbers(type) {
+  let availableNumbers;
+
+  switch(type) {
+    case 'hot':
+      availableNumbers = frequentNumbers.slice(0, 15);
+      break;
+    case 'cold':
+      availableNumbers = leastFrequentNumbers.slice(0, 15);
+      break;
+    default:
+      availableNumbers = Array.from({length: 45}, (_, i) => i + 1);
+  }
+
+  const shuffled = [...availableNumbers].sort(() => Math.random() - 0.5);
+  const selected = shuffled.slice(0, 6).sort((a, b) => a - b);
+
+  clearSelectedNumbers();
+  selected.forEach(num => {
+    selectedNumbers.push(num);
+    const btn = document.querySelector(`[data-number="${num}"]`);
+    if (btn) btn.classList.add('selected');
+  });
+
+  updateSelectedDisplay();
+  updateAddButton();
+  switchInputMethod('manual');
+}
+
+// Update add button state
+function updateAddButton() {
+  const addButton = document.getElementById('addButton');
+  addButton.disabled = selectedNumbers.length !== 6;
+}
+
+// Add to cart
+function addToCart() {
+  if (selectedNumbers.length !== 6) {
+    alert('6개 번호를 선택해주세요.');
+    return;
+  }
+
+  const targetRound = document.getElementById('targetRound').value;
+  const numbers = selectedNumbers.join(',');
+
+  const formData = new FormData();
+  formData.append('numbers', numbers);
+  formData.append('round', targetRound);
+  formData.append('source', currentMethod);
+  formData.append('csrf_token', window.csrfToken);
+
+  const addButton = document.getElementById('addButton');
+  const originalText = addButton.textContent;
+  addButton.disabled = true;
+  addButton.textContent = '⏳ 추가중...';
+
+  fetch('/api/purchases/add', {
+    method: 'POST',
+    body: formData
+  })
+  .then(response => response.json())
+  .then(data => {
+    if (data.success) {
+      showToast('✅ ' + data.message, 'success');
+      clearSelectedNumbers();
+      setTimeout(() => window.location.reload(), 1000);
+    } else {
+      alert('오류: ' + data.error);
+      addButton.disabled = false;
+      addButton.textContent = originalText;
+    }
+  })
+  .catch(error => {
+    alert('오류가 발생했습니다: ' + error);
+    addButton.disabled = false;
+    addButton.textContent = originalText;
+  });
+}
+
+// Delete from cart
+function deleteFromCart(purchaseId) {
+  if (!confirm('장바구니에서 삭제하시겠습니까?')) return;
+
+  const formData = new FormData();
+  formData.append('csrf_token', window.csrfToken);
+
+  fetch(`/api/purchases/draft/${purchaseId}/delete`, {
+    method: 'POST',
+    body: formData
+  })
+  .then(response => response.json())
+  .then(data => {
+    if (data.success) {
+      const row = document.getElementById(`cart-row-${purchaseId}`);
+      row.style.opacity = '0';
+      row.style.transition = 'opacity 0.3s';
+      setTimeout(() => {
+        row.remove();
+        const tbody = document.getElementById('cartTableBody');
+        if (!tbody || tbody.children.length === 0) {
+          location.reload();
+        }
+      }, 300);
+      showToast('✅ 삭제되었습니다', 'success');
+    } else {
+      alert('오류: ' + data.error);
+    }
+  })
+  .catch(error => {
+    alert('오류가 발생했습니다: ' + error);
+  });
+}
+
+// Confirm all purchases
+function confirmAllPurchases() {
+  const rows = document.querySelectorAll('#cartTableBody tr');
+  if (rows.length === 0) {
+    alert('장바구니가 비어있습니다.');
+    return;
+  }
+
+  const purchaseIds = Array.from(rows).map(row => {
+    const id = row.id.replace('cart-row-', '');
+    return id;
+  }).join(',');
+
+  if (!confirm(`${rows.length}개 번호를 구매 확정하시겠습니까?`)) return;
+
+  const formData = new FormData();
+  formData.append('purchase_ids', purchaseIds);
+  formData.append('csrf_token', window.csrfToken);
+
+  const confirmBtn = document.getElementById('confirmAllBtn');
+  const originalText = confirmBtn.textContent;
+  confirmBtn.disabled = true;
+  confirmBtn.textContent = '⏳ 처리중...';
+
+  fetch('/api/purchases/confirm', {
+    method: 'POST',
+    body: formData
+  })
+  .then(response => response.json())
+  .then(data => {
+    if (data.success) {
+      showToast('✅ ' + data.message, 'success');
+      setTimeout(() => window.location.href = '/purchases', 1500);
+    } else {
+      alert('오류: ' + data.error);
+      confirmBtn.disabled = false;
+      confirmBtn.textContent = originalText;
+    }
+  })
+  .catch(error => {
+    alert('오류가 발생했습니다: ' + error);
+    confirmBtn.disabled = false;
+    confirmBtn.textContent = originalText;
+  });
+}
+
+// Update D-Day counter
+function updateDDayCounter() {
+  const drawDate = new Date('{{ next_draw_date.strftime("%Y-%m-%d %H:%M:%S") }}');
+  const now = new Date();
+  const diff = drawDate - now;
+
+  if (diff < 0) {
+    document.getElementById('dday-counter').textContent = '추첨완료';
+    return;
+  }
+
+  const days = Math.floor(diff / (1000 * 60 * 60 * 24));
+  const hours = Math.floor((diff % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60));
+  const minutes = Math.floor((diff % (1000 * 60 * 60)) / (1000 * 60));
+
+  if (days > 0) {
+    document.getElementById('dday-counter').textContent = `D-${days}`;
+  } else {
+    document.getElementById('dday-counter').textContent = `${hours}시간 ${minutes}분`;
+  }
+}
+
+// Show toast notification
+function showToast(message, type = 'info') {
+  const toast = document.createElement('div');
+  toast.style.cssText = `
+    position: fixed;
+    top: 20px;
+    right: 20px;
+    background: ${type === 'success' ? '#28a745' : '#667eea'};
+    color: white;
+    padding: 1rem 1.5rem;
+    border-radius: 0.5rem;
+    z-index: 1000;
+    box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+    animation: slideIn 0.3s ease;
+  `;
+  toast.textContent = message;
+  document.body.appendChild(toast);
+
+  setTimeout(() => {
+    toast.style.animation = 'slideOut 0.3s ease';
+    setTimeout(() => toast.remove(), 300);
+  }, 3000);
+}
+
+// Animations
+const style = document.createElement('style');
+style.textContent = `
+  @keyframes slideIn {
+    from { transform: translateX(100%); opacity: 0; }
+    to { transform: translateX(0); opacity: 1; }
+  }
+  @keyframes slideOut {
+    from { transform: translateX(0); opacity: 1; }
+    to { transform: translateX(100%); opacity: 0; }
+  }
+`;
+document.head.appendChild(style);
+</script>
+
+{% endblock %}

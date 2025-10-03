@@ -139,6 +139,10 @@
       <button type="button" class="refresh-btn" onclick="refreshRecommendations()" title="새 추천번호 생성">🔄 새 추천번호</button>
     </div>
 
+    <div class="recommendation-notice">
+      <p>💡 추천받은 번호를 구매하려면 <strong>"구매관리"</strong> 페이지로 이동하세요!</p>
+    </div>
+
     <div class="table-container">
       <table>
         <thead>
@@ -146,7 +150,7 @@
             <th>세트</th>
             <th>추천번호</th>
             <th>선택 이유</th>
-            <th>구매</th>
+            <th>액션</th>
           </tr>
         </thead>
         <tbody>
@@ -166,11 +170,9 @@
               {% endif %}
             </td>
             <td>
-              <button class="btn btn-primary btn-sm purchase-btn"
-                      data-numbers="{{ rec | join(',') }}"
-                      data-method="AI추천">
-                구매하기
-              </button>
+              <a href="{{ url_for('main.buy') }}?numbers={{ rec | join(',') }}&method=ai" class="btn btn-primary btn-sm">
+                🛒 구매관리에 추가
+              </a>
             </td>
           </tr>
           {% endfor %}
@@ -179,167 +181,21 @@
     </div>
   </section>
 
-  <!-- Manual Number Input Section -->
-  <section class="card">
-    <div class="card-header">
-      <h2>✏️ 수동 번호 입력</h2>
-    </div>
-
-    <div class="manual-input-section">
-      <!-- 회차 입력 -->
-      <div class="round-section">
-        <label for="manualRound" class="input-label">대상 회차</label>
-        <input type="number" id="manualRound" placeholder="회차" min="1" max="9999" class="round-input">
-        <span class="input-help-inline">비워두면 다음 회차로 자동 설정</span>
+  <!-- Quick Action Section -->
+  <section class="card quick-action-section">
+    <div class="quick-action-content">
+      <div class="action-icon">🛒</div>
+      <div class="action-text">
+        <h3>번호를 직접 입력하거나 랜덤 생성하고 싶으신가요?</h3>
+        <p>구매관리 페이지에서 다양한 방식으로 번호를 입력하고 관리할 수 있습니다.</p>
       </div>
-
-      <!-- 번호 입력 방식 선택 -->
-      <div class="input-method-tabs">
-        <button type="button" class="method-tab active" data-method="manual">🎯 직접 선택</button>
-        <button type="button" class="method-tab" data-method="text">✏️ 텍스트 입력</button>
-        <button type="button" class="method-tab" data-method="random">🎲 랜덤 생성</button>
-      </div>
-
-      <!-- 직접 선택 방식 -->
-      <div class="input-method manual-method active">
-        <div class="number-grid">
-          {% for i in range(1, 46) %}
-          <button type="button" class="number-btn" data-number="{{ i }}">{{ i }}</button>
-          {% endfor %}
-        </div>
-        <div class="selected-numbers">
-          <div class="selected-header">
-            <span class="label">선택된 번호</span>
-            <span class="counter">(<span id="selectedCount">0</span>/6)</span>
-            <button type="button" class="clear-btn" onclick="clearSelectedNumbers()">초기화</button>
-          </div>
-          <div class="selected-display" id="selectedDisplay">
-            번호를 선택하세요 (6개)
-          </div>
-        </div>
-      </div>
-
-      <!-- 텍스트 입력 방식 -->
-      <div class="input-method text-method">
-        <div class="text-input-row">
-          <input type="text" id="manualNumbers" placeholder="예: 1, 7, 12, 23, 32, 40 (콤마 또는 공백으로 구분)" maxlength="50" class="numbers-input">
-          <button type="button" class="parse-btn" onclick="parseTextNumbers()">번호 적용</button>
-        </div>
-        <div class="input-help">
-          <small>1-45 사이의 6개 번호를 콤마(,) 또는 공백으로 구분하여 입력하세요.</small>
-        </div>
-
-        <!-- 텍스트 입력에서도 선택된 번호 표시 -->
-        <div class="text-selected-display" id="textSelectedDisplay" style="display: none;">
-          <div class="selected-info">
-            <strong>선택된 번호 (<span id="textSelectedCount">0</span>/6):</strong>
-            <button type="button" class="btn btn-sm btn-outline" onclick="clearSelectedNumbers()">초기화</button>
-          </div>
-          <div class="selected-numbers" id="textSelectedNumbers">
-            <!-- 선택된 번호들이 여기에 표시됩니다 -->
-          </div>
-        </div>
-      </div>
-
-      <!-- 랜덤 생성 방식 -->
-      <div class="input-method random-method">
-        <div class="random-controls">
-          <button type="button" class="btn btn-secondary" onclick="generateRandomNumbers()">🎲 랜덤 번호 생성</button>
-          <button type="button" class="btn btn-secondary" onclick="generateRandomNumbers('hot')">🔥 빈출번호 기반</button>
-          <button type="button" class="btn btn-secondary" onclick="generateRandomNumbers('cold')">❄️ 미출번호 기반</button>
-        </div>
-        <div class="input-help">
-          <small>다양한 방식으로 랜덤 번호를 생성할 수 있습니다.</small>
-        </div>
-      </div>
-
-      <!-- 추가 버튼 -->
-      <div class="add-button-section">
-        <button type="button" class="btn btn-primary btn-large" onclick="addManualNumbers()" id="addButton" disabled>
-          ➕ 번호 추가하기
-        </button>
+      <div class="action-button">
+        <a href="{{ url_for('main.buy') }}" class="btn btn-large btn-action">
+          구매관리 페이지로 이동 →
+        </a>
       </div>
     </div>
-
-    <!-- Display existing manual numbers -->
-    {% if manual_numbers.items %}
-    <div class="manual-numbers-list">
-      <h4>나의 구매 번호 (수동입력 & AI추천)</h4>
-      <div class="table-container">
-        <table class="compact-table">
-          <thead>
-            <tr>
-              <th>회차</th>
-              <th>번호</th>
-              <th>등록일</th>
-              <th>구분</th>
-              <th>구매</th>
-              <th>삭제</th>
-            </tr>
-          </thead>
-          <tbody>
-            {% for purchase in manual_numbers.items %}
-            <tr id="manual-row-{{ purchase.id }}">
-              <td>{{ purchase.purchase_round }}회</td>
-              <td class="numbers-cell">
-                {% for num in purchase.numbers_list() %}
-                  <span class="number-text">{{ num }}</span>{% if not loop.last %}, {% endif %}
-                {% endfor %}
-              </td>
-              <td>{{ purchase.purchase_date.strftime('%m/%d %H:%M') }}</td>
-              <td>
-                {% if purchase.purchase_method == "AI추천" %}
-                  <span class="badge-ai">{{ purchase.purchase_method }}</span>
-                {% else %}
-                  <span class="badge-manual">{{ purchase.purchase_method }}</span>
-                {% endif %}
-              </td>
-              <td>
-                <button class="btn btn-primary btn-sm purchase-btn"
-                        data-numbers="{{ purchase.numbers }}"
-                        data-method="{{ purchase.purchase_method }}">
-                  구매하기
-                </button>
-              </td>
-              <td>
-                <button class="btn btn-danger btn-sm" onclick="deleteManualNumbers({{ purchase.id }})">삭제</button>
-              </td>
-            </tr>
-            {% endfor %}
-          </tbody>
-        </table>
-      </div>
-
-      <!-- Manual Numbers Pagination -->
-      {% if manual_numbers.pages > 1 %}
-      <div class="pagination-section">
-        <div class="pagination-info">
-          페이지 {{ manual_numbers.page }} / {{ manual_numbers.pages }} (총 {{ manual_numbers.total }}건)
-        </div>
-        <div class="pagination-controls">
-          {% if manual_numbers.has_prev %}
-            <a href="{{ url_for('main.strategy', manual_page=manual_numbers.prev_num) }}" class="page-btn pagination-link">‹ 이전</a>
-          {% endif %}
-
-          {% for page_num in range(1, manual_numbers.pages + 1) %}
-            {% if page_num == manual_numbers.page %}
-              <span class="page-btn current">{{ page_num }}</span>
-            {% else %}
-              <a href="{{ url_for('main.strategy', manual_page=page_num) }}" class="page-btn pagination-link">{{ page_num }}</a>
-            {% endif %}
-          {% endfor %}
-
-          {% if manual_numbers.has_next %}
-            <a href="{{ url_for('main.strategy', manual_page=manual_numbers.next_num) }}" class="page-btn pagination-link">다음 ›</a>
-          {% endif %}
-        </div>
-      </div>
-      {% endif %}
-    </div>
-    {% endif %}
   </section>
-
-
 
 </div> <!-- End main-content -->
 
@@ -845,7 +701,75 @@
   color: #666;
 }
 
-/* Enhanced Manual Input Styles */
+/* Recommendation Notice */
+.recommendation-notice {
+  background: linear-gradient(135deg, #e3f2fd, #f0f4ff);
+  border-left: 4px solid #667eea;
+  padding: 1rem 1.5rem;
+  margin-bottom: 1.5rem;
+  border-radius: 0.5rem;
+}
+
+.recommendation-notice p {
+  margin: 0;
+  color: #333;
+  font-size: 0.95rem;
+}
+
+.recommendation-notice strong {
+  color: #667eea;
+}
+
+/* Quick Action Section */
+.quick-action-section {
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  border: none;
+  padding: 0;
+  overflow: hidden;
+}
+
+.quick-action-content {
+  display: grid;
+  grid-template-columns: auto 1fr auto;
+  gap: 2rem;
+  align-items: center;
+  padding: 2rem;
+  color: white;
+}
+
+.action-icon {
+  font-size: 3rem;
+  opacity: 0.9;
+}
+
+.action-text h3 {
+  margin: 0 0 0.5rem 0;
+  font-size: 1.25rem;
+  font-weight: 600;
+}
+
+.action-text p {
+  margin: 0;
+  opacity: 0.9;
+  font-size: 0.95rem;
+}
+
+.btn-action {
+  background: white;
+  color: #667eea;
+  font-weight: 600;
+  padding: 1rem 2rem;
+  white-space: nowrap;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+}
+
+.btn-action:hover {
+  background: #f8f9fa;
+  transform: translateY(-2px);
+  box-shadow: 0 6px 16px rgba(0, 0, 0, 0.2);
+}
+
+/* Legacy Manual Input Styles - DEPRECATED (kept for backward compatibility) */
 .manual-input-section {
   margin-bottom: 1.5rem;
 }
@@ -1270,66 +1194,28 @@
     padding: 0.5rem;
   }
 
-  /* Mobile responsive for enhanced manual input */
-  .round-section {
-    flex-direction: column;
-    align-items: flex-start;
-    gap: 0.75rem;
-  }
-
-  .input-method-tabs {
-    flex-direction: column;
-    gap: 0;
-  }
-
-  .method-tab {
-    border-bottom: 1px solid #e9ecef;
-    border-radius: 0;
-    padding: 1rem;
-    text-align: left;
-  }
-
-  .method-tab.active {
-    border-bottom-color: #667eea;
-  }
-
-  .number-grid {
-    grid-template-columns: repeat(5, 1fr);
-    gap: 0.75rem;
-  }
-
-  .number-btn {
-    width: 45px;
-    height: 45px;
-    font-size: 1rem;
-  }
-
-  .text-input-row {
-    flex-direction: column;
-    gap: 0.75rem;
-  }
-
-  .random-controls {
-    flex-direction: column;
-    gap: 0.75rem;
-  }
-
-  .btn-secondary, .parse-btn {
-    width: 100%;
+  /* Mobile responsive for quick action section */
+  .quick-action-content {
+    grid-template-columns: 1fr;
+    gap: 1rem;
     text-align: center;
   }
 
-  .btn-large {
-    min-width: auto;
+  .action-icon {
+    font-size: 2.5rem;
+  }
+
+  .action-button {
     width: 100%;
   }
 
-  .selected-display {
-    justify-content: center;
+  .btn-action {
+    width: 100%;
+    padding: 0.875rem 1.5rem;
   }
 
-  .input-method {
-    padding: 1rem;
+  .recommendation-notice {
+    padding: 0.875rem 1rem;
   }
 }
 
@@ -1391,486 +1277,20 @@ function refreshRecommendations() {
   });
 }
 
-// Enhanced manual input functionality
-let selectedNumbers = [];
-let currentMethod = 'manual';
-
-// Save scroll position and restore after page load
+// Simplified strategy page - manual input removed
 document.addEventListener('DOMContentLoaded', function() {
+  // Save scroll position for pagination
   const savedPos = sessionStorage.getItem('scrollPosition');
   if (savedPos) {
     window.scrollTo(0, parseInt(savedPos));
     sessionStorage.removeItem('scrollPosition');
   }
 
-  // Initialize enhanced manual input
-  initializeManualInput();
-
-  // 페이지네이션 링크에 스크롤 위치 저장 이벤트 추가
   document.querySelectorAll('.pagination-link').forEach(link => {
     link.addEventListener('click', function() {
       sessionStorage.setItem('scrollPosition', window.pageYOffset);
     });
   });
-
-  // 이미 구매한 번호들 체크 및 버튼 상태 변경
-  const purchasedNumbers = {{ purchased_numbers | tojson }};
-  document.querySelectorAll('.purchase-btn').forEach(button => {
-    const numbers = button.getAttribute('data-numbers');
-
-    if (purchasedNumbers.includes(numbers)) {
-      // 이미 구매한 번호인 경우 "구매완료" 상태로 변경
-      button.innerHTML = '구매완료';
-      button.classList.remove('btn-primary');
-      button.classList.add('btn-success');
-      button.disabled = true;
-    } else {
-      // 구매하지 않은 번호인 경우 클릭 이벤트 추가
-      button.addEventListener('click', function() {
-        const method = this.getAttribute('data-method');
-        purchaseLottery(numbers, method, this);
-      });
-    }
-  });
 });
-
-// Initialize enhanced manual input functionality
-function initializeManualInput() {
-  // Method tab switching
-  document.querySelectorAll('.method-tab').forEach(tab => {
-    tab.addEventListener('click', function() {
-      const method = this.getAttribute('data-method');
-      switchInputMethod(method);
-    });
-  });
-
-  // Number button clicks
-  document.querySelectorAll('.number-btn').forEach(btn => {
-    btn.addEventListener('click', function() {
-      const number = parseInt(this.getAttribute('data-number'));
-      toggleNumber(number);
-    });
-  });
-
-  updateAddButton();
-}
-
-// Switch input method
-function switchInputMethod(method) {
-  currentMethod = method;
-
-  // Update tabs
-  document.querySelectorAll('.method-tab').forEach(tab => {
-    tab.classList.remove('active');
-  });
-  document.querySelector(`[data-method="${method}"]`).classList.add('active');
-
-  // Update input sections
-  document.querySelectorAll('.input-method').forEach(section => {
-    section.classList.remove('active');
-  });
-  document.querySelector(`.${method}-method`).classList.add('active');
-
-  // Clear previous selections when switching methods
-  if (method === 'manual') {
-    clearSelectedNumbers();
-  }
-}
-
-// Toggle number selection
-function toggleNumber(number) {
-  const index = selectedNumbers.indexOf(number);
-
-  if (index > -1) {
-    // Remove number
-    selectedNumbers.splice(index, 1);
-    document.querySelector(`[data-number="${number}"]`).classList.remove('selected');
-  } else {
-    // Add number if less than 6 selected
-    if (selectedNumbers.length < 6) {
-      selectedNumbers.push(number);
-      document.querySelector(`[data-number="${number}"]`).classList.add('selected');
-    } else {
-      alert('최대 6개 번호까지 선택할 수 있습니다.');
-      return;
-    }
-  }
-
-  // Sort numbers
-  selectedNumbers.sort((a, b) => a - b);
-
-  updateSelectedDisplay();
-  updateAddButton();
-}
-
-// Update selected numbers display
-function updateSelectedDisplay() {
-  const display = document.getElementById('selectedDisplay');
-  const counter = document.getElementById('selectedCount');
-
-  // 기존 수동 선택 탭 업데이트
-  counter.textContent = selectedNumbers.length;
-
-  if (selectedNumbers.length === 0) {
-    display.innerHTML = '번호를 선택하세요 (6개)';
-    display.classList.remove('has-numbers');
-  } else {
-    const numbersHtml = selectedNumbers.map(num =>
-      `<span class="selected-number">${num}</span>`
-    ).join('');
-    display.innerHTML = numbersHtml;
-    display.classList.add('has-numbers');
-  }
-
-  // 텍스트 입력 탭 업데이트
-  const textDisplay = document.getElementById('textSelectedDisplay');
-  const textCounter = document.getElementById('textSelectedCount');
-  const textNumbers = document.getElementById('textSelectedNumbers');
-
-  if (textDisplay && textCounter && textNumbers) {
-    textCounter.textContent = selectedNumbers.length;
-
-    if (selectedNumbers.length === 0) {
-      textDisplay.style.display = 'none';
-    } else {
-      textDisplay.style.display = 'block';
-      const textNumbersHtml = selectedNumbers.map(num =>
-        `<span class="number-badge">${num}</span>`
-      ).join('');
-      textNumbers.innerHTML = textNumbersHtml;
-    }
-  }
-}
-
-// Clear selected numbers
-function clearSelectedNumbers() {
-  selectedNumbers = [];
-  document.querySelectorAll('.number-btn.selected').forEach(btn => {
-    btn.classList.remove('selected');
-  });
-  updateSelectedDisplay();
-  updateAddButton();
-}
-
-// Parse text input numbers
-function parseTextNumbers() {
-  const input = document.getElementById('manualNumbers');
-  const text = input.value.trim();
-
-  if (!text) {
-    alert('번호를 입력해주세요.');
-    return;
-  }
-
-  // Parse numbers from text
-  const numbers = text.split(/[,\s]+/)
-    .map(n => parseInt(n.trim()))
-    .filter(n => !isNaN(n) && n >= 1 && n <= 45);
-
-  if (numbers.length !== 6) {
-    alert('1-45 사이의 6개 번호를 정확히 입력해주세요.');
-    return;
-  }
-
-  if (new Set(numbers).size !== 6) {
-    alert('중복된 번호가 있습니다. 서로 다른 6개 번호를 입력해주세요.');
-    return;
-  }
-
-  // Apply numbers to selection
-  clearSelectedNumbers();
-  numbers.forEach(num => {
-    selectedNumbers.push(num);
-    // 수동 선택 탭의 버튼들도 업데이트
-    const numberBtn = document.querySelector(`[data-number="${num}"]`);
-    if (numberBtn) {
-      numberBtn.classList.add('selected');
-    }
-  });
-
-  selectedNumbers.sort((a, b) => a - b);
-  updateSelectedDisplay();
-  updateAddButton();
-
-  // 텍스트 입력 탭에서 유지하고 성공 메시지 표시
-  alert(`번호가 적용되었습니다!\n선택된 번호: ${selectedNumbers.join(', ')}\n\n"번호 추가하기" 버튼이 활성화되었습니다.`);
-
-  // 텍스트 입력 필드는 유지 (clear하지 않음)
-}
-
-// Generate random numbers
-function generateRandomNumbers(type = 'pure') {
-  const frequentNumbers = {{ most_frequent | map('first') | list | tojson }};
-  const leastFrequentNumbers = {{ least_frequent | map('first') | list | tojson }};
-
-  let availableNumbers;
-
-  switch(type) {
-    case 'hot':
-      // Use top 15 frequent numbers
-      availableNumbers = frequentNumbers.slice(0, 15);
-      break;
-    case 'cold':
-      // Use top 15 least frequent numbers
-      availableNumbers = leastFrequentNumbers.slice(0, 15);
-      break;
-    default:
-      // Pure random from 1-45
-      availableNumbers = Array.from({length: 45}, (_, i) => i + 1);
-  }
-
-  // Shuffle and select 6
-  const shuffled = [...availableNumbers].sort(() => Math.random() - 0.5);
-  const selected = shuffled.slice(0, 6).sort((a, b) => a - b);
-
-  // Apply to manual selection
-  clearSelectedNumbers();
-  selected.forEach(num => {
-    selectedNumbers.push(num);
-    document.querySelector(`[data-number="${num}"]`).classList.add('selected');
-  });
-
-  updateSelectedDisplay();
-  updateAddButton();
-
-  // Switch to manual method to show selection
-  switchInputMethod('manual');
-}
-
-// Update add button state
-function updateAddButton() {
-  const addButton = document.getElementById('addButton');
-
-  if (currentMethod === 'manual') {
-    addButton.disabled = selectedNumbers.length !== 6;
-  } else {
-    addButton.disabled = false;
-  }
-}
-
-// Enhanced 수동 번호 추가 함수
-function addManualNumbers() {
-  const roundInput = document.getElementById('manualRound');
-  const round = roundInput.value.trim();
-
-  let numbers;
-
-  // Get numbers based on current method
-  if (currentMethod === 'manual') {
-    if (selectedNumbers.length !== 6) {
-      alert('6개 번호를 모두 선택해주세요.');
-      return;
-    }
-    numbers = selectedNumbers.join(',');
-  } else if (currentMethod === 'text') {
-    const numbersInput = document.getElementById('manualNumbers');
-    const text = numbersInput.value.trim();
-
-    if (!text) {
-      alert('번호를 입력해주세요.');
-      return;
-    }
-
-    // Validate text input
-    const parsedNumbers = text.split(/[,\s]+/)
-      .map(n => parseInt(n.trim()))
-      .filter(n => !isNaN(n) && n >= 1 && n <= 45);
-
-    if (parsedNumbers.length !== 6) {
-      alert('1-45 사이의 6개 번호를 정확히 입력해주세요.');
-      return;
-    }
-
-    if (new Set(parsedNumbers).size !== 6) {
-      alert('중복된 번호가 있습니다. 서로 다른 6개 번호를 입력해주세요.');
-      return;
-    }
-
-    numbers = parsedNumbers.sort((a, b) => a - b).join(',');
-  } else {
-    alert('번호를 선택하거나 입력해주세요.');
-    return;
-  }
-
-  const formData = new FormData();
-  formData.append('numbers', numbers);
-  if (round) {
-    formData.append('round', round);
-  }
-  formData.append('csrf_token', window.csrfToken);
-
-  const addButton = document.getElementById('addButton');
-  const originalText = addButton.textContent;
-
-  addButton.disabled = true;
-  addButton.textContent = '⏳ 추가중...';
-
-  fetch('/api/add-manual-numbers', {
-    method: 'POST',
-    body: formData
-  })
-  .then(response => response.json())
-  .then(data => {
-    if (data.success) {
-      // 성공 피드백
-      addButton.classList.remove('btn-primary');
-      addButton.classList.add('btn-success');
-      addButton.textContent = '✅ 추가완료';
-
-      // 입력 필드 초기화
-      roundInput.value = '';
-      if (currentMethod === 'text') {
-        document.getElementById('manualNumbers').value = '';
-      } else if (currentMethod === 'manual') {
-        clearSelectedNumbers();
-      }
-
-      // 성공 알림 표시
-      showSuccessNotification(`번호가 성공적으로 추가되었습니다!`);
-
-      // 2초 후 페이지 새로고침
-      setTimeout(() => {
-        window.location.reload();
-      }, 2000);
-    } else {
-      alert(`오류: ${data.error}`);
-      addButton.disabled = false;
-      addButton.textContent = originalText;
-      addButton.classList.remove('btn-success');
-      addButton.classList.add('btn-primary');
-    }
-  })
-  .catch(error => {
-    alert(`오류가 발생했습니다: ${error}`);
-    addButton.disabled = false;
-    addButton.textContent = originalText;
-    addButton.classList.remove('btn-success');
-    addButton.classList.add('btn-primary');
-  });
-}
-
-// Show success notification
-function showSuccessNotification(message) {
-  const notification = document.createElement('div');
-  notification.style.cssText = `
-    position: fixed;
-    top: 20px;
-    right: 20px;
-    background: linear-gradient(135deg, #28a745, #20c997);
-    color: white;
-    padding: 1rem 1.5rem;
-    border-radius: 0.5rem;
-    z-index: 1000;
-    box-shadow: 0 4px 12px rgba(0,0,0,0.15);
-    animation: slideIn 0.3s ease;
-  `;
-  notification.textContent = message;
-  document.body.appendChild(notification);
-
-  // Remove after 3 seconds
-  setTimeout(() => {
-    notification.style.animation = 'slideOut 0.3s ease';
-    setTimeout(() => notification.remove(), 300);
-  }, 3000);
-}
-
-// 수동 번호 삭제 함수
-function deleteManualNumbers(purchaseId) {
-  // 확인 없이 바로 삭제, 시각적 피드백으로 대체
-  const row = document.getElementById(`manual-row-${purchaseId}`);
-  const deleteBtn = row.querySelector('.btn-danger');
-
-  deleteBtn.disabled = true;
-  deleteBtn.innerHTML = '⏳';
-
-  fetch(`/api/delete-manual-numbers/${purchaseId}`, {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/x-www-form-urlencoded',
-    },
-    body: 'csrf_token=' + encodeURIComponent(window.csrfToken)
-  })
-  .then(response => response.json())
-  .then(data => {
-    if (data.success) {
-      // 페이드 아웃 효과
-      row.style.transition = 'opacity 0.3s ease';
-      row.style.opacity = '0';
-
-      // 0.3초 후 행 제거
-      setTimeout(() => {
-        row.remove();
-      }, 300);
-    } else {
-      alert(`오류: ${data.error}`);
-      deleteBtn.disabled = false;
-      deleteBtn.innerHTML = '삭제';
-    }
-  })
-  .catch(error => {
-    alert(`오류가 발생했습니다: ${error}`);
-    deleteBtn.disabled = false;
-    deleteBtn.innerHTML = '삭제';
-  });
-}
-
-// 구매 기록 함수
-function purchaseLottery(numbers, method, button) {
-  const originalText = button.innerHTML;
-  button.disabled = true;
-  button.innerHTML = '⏳ 기록중...';
-
-  const formData = new FormData();
-  formData.append('numbers', numbers);
-  formData.append('method', method);
-  formData.append('csrf_token', window.csrfToken);
-
-  fetch('/purchase', {
-    method: 'POST',
-    body: formData
-  })
-  .then(response => response.json())
-  .then(data => {
-    if (data.success) {
-      // 구매 성공 시 영구적으로 "구매완료" 상태 유지
-      button.innerHTML = '구매완료';
-      button.classList.remove('btn-primary');
-      button.classList.add('btn-success');
-      button.disabled = true;
-
-      // 성공 메시지 표시
-      const successMsg = document.createElement('div');
-      successMsg.style.cssText = 'position: fixed; top: 20px; right: 20px; background: #28a745; color: white; padding: 1rem 1.5rem; border-radius: 0.5rem; z-index: 1000; box-shadow: 0 4px 12px rgba(0,0,0,0.15);';
-      successMsg.textContent = `✅ ${data.purchase_round}회 구매 완료!`;
-      document.body.appendChild(successMsg);
-
-      // 3초 후 알림 제거
-      setTimeout(() => {
-        successMsg.remove();
-      }, 3000);
-
-      // 구매 기록 페이지 링크 강제 새로고침을 위한 플래그 설정
-      sessionStorage.setItem('recentPurchase', Date.now().toString());
-    } else {
-      // 오류 처리 (중복 구매 등)
-      if (data.error && data.error.includes('이미 구매')) {
-        // 중복 구매인 경우 "구매완료" 상태로 변경
-        button.innerHTML = '구매완료';
-        button.classList.remove('btn-primary');
-        button.classList.add('btn-success');
-        button.disabled = true;
-      } else {
-        alert(`${data.error}`);
-        button.disabled = false;
-        button.innerHTML = originalText;
-      }
-    }
-  })
-  .catch(error => {
-    alert(`오류가 발생했습니다: ${error}`);
-    button.disabled = false;
-    button.innerHTML = originalText;
-  });
-}
 </script>
 {% endblock %}

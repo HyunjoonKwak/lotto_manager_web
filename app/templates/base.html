@@ -178,6 +178,7 @@
         {% if current_user.is_authenticated %}
           <li><a href="{{ url_for('main.info_page') }}" class="nav-link">정보조회</a></li>
           <li><a href="{{ url_for('main.strategy') }}" class="nav-link">전략분석</a></li>
+          <li><a href="{{ url_for('main.buy') }}" class="nav-link">구매관리</a></li>
           <li><a href="{{ url_for('main.purchase_history') }}" class="nav-link">구매이력</a></li>
           <li><a href="{{ url_for('main.crawling_page') }}" class="nav-link">크롤링</a></li>
           <li><a href="https://dhlottery.co.kr" target="_blank" class="nav-link external-link">🎲 동행복권</a></li>
@@ -213,6 +214,7 @@
             (currentPath === '/' && link.getAttribute('href') === '{{ url_for("main.index") }}') ||
             (currentPath.includes('/info') && link.textContent.includes('정보조회')) ||
             (currentPath.includes('/strategy') && link.textContent.includes('전략분석')) ||
+            (currentPath.includes('/buy') && link.textContent.includes('구매관리')) ||
             (currentPath.includes('/purchases') && link.textContent.includes('구매이력')) ||
             (currentPath.includes('/crawling') && link.textContent.includes('크롤링'))) {
           link.classList.add('active');

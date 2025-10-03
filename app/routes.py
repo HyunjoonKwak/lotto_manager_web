@@ -645,25 +645,6 @@ def strategy():
     combinations = get_number_combinations(10, limit=None)
     analysis_limit = total_draws  # 전체 회차 수
 
-    # Get user's manual numbers with pagination (10개 단위)
-    manual_page = int(request.args.get('manual_page', '1'))
-    manual_per_page = 20
-    manual_numbers = Purchase.query.filter(
-        Purchase.user_id == current_user.id,
-        Purchase.purchase_method.in_(["수동입력", "AI추천"])
-    ).order_by(Purchase.purchase_date.desc()).paginate(
-        page=manual_page, per_page=manual_per_page, error_out=False
-    )
-
-    # Get current user's purchased numbers for duplicate check (next round)
-    latest_draw = Draw.query.order_by(Draw.round.desc()).first()
-    next_round = latest_draw.round + 1 if latest_draw else 1
-    purchased_numbers = Purchase.query.filter_by(
-        user_id=current_user.id,
-        purchase_round=next_round
-    ).all()
-    purchased_numbers_list = [p.numbers for p in purchased_numbers]
-
     return render_template(
         "strategy.html",
         title="전략 분석",
@@ -674,13 +655,59 @@ def strategy():
         top_combinations=top_combinations,
         recommendation_reasons=recommendation_reasons,
         total_draws=total_draws,
-        manual_numbers=manual_numbers,
-        purchased_numbers=purchased_numbers_list,
-        next_round=next_round,
         # 번호 분석 데이터
         patterns=patterns,
         combinations=combinations,
         analysis_limit=analysis_limit,
+    )
+
+
+@main_bp.get("/buy")
+@login_required
+def buy():
+    """구매관리 페이지 - 통합 번호 입력 허브"""
+    # 모바일 기기 감지 및 리다이렉트
+    if mobile_redirect_check():
+        return redirect(url_for('main.mobile_buy'))
+
+    # Get latest draw for next round calculation
+    latest_draw = Draw.query.order_by(Draw.round.desc()).first()
+    next_round = latest_draw.round + 1 if latest_draw else 1
+
+    # Calculate draw date (Saturday 8:45 PM)
+    # This is a simplified version - you may want to add actual date calculation
+    from datetime import datetime, timedelta
+    today = datetime.now()
+    days_until_saturday = (5 - today.weekday()) % 7
+    if days_until_saturday == 0 and today.hour >= 21:  # After Saturday 9PM
+        days_until_saturday = 7
+    next_draw_date = today + timedelta(days=days_until_saturday)
+    next_draw_date = next_draw_date.replace(hour=20, minute=45, second=0, microsecond=0)
+
+    # Get frequency analysis for random generation
+    most_frequent = get_most_frequent_numbers(15, limit=None)
+    least_frequent = get_least_frequent_numbers(15, limit=None)
+
+    # Get user's draft purchases (장바구니)
+    draft_purchases = Purchase.query.filter_by(
+        user_id=current_user.id,
+        status='DRAFT'
+    ).order_by(Purchase.purchase_date.desc()).all()
+
+    # Get pre-filled numbers from query params (from strategy page)
+    prefilled_numbers = request.args.get('numbers', '')
+    prefilled_method = request.args.get('method', 'manual')
+
+    return render_template(
+        "buy.html",
+        title="구매관리",
+        next_round=next_round,
+        next_draw_date=next_draw_date,
+        most_frequent=most_frequent,
+        least_frequent=least_frequent,
+        draft_purchases=draft_purchases,
+        prefilled_numbers=prefilled_numbers,
+        prefilled_method=prefilled_method,
     )
 
 
@@ -947,12 +974,15 @@ def purchase_lottery():
 @login_required
 def purchase_history():
     """구매 이력 페이지"""
+    from collections import defaultdict
+
     # 모바일 기기 감지 및 리다이렉트
     if mobile_redirect_check():
         return redirect(url_for('main.mobile_purchases'))
 
     page = int(request.args.get('page', '1'))
     per_page = 20
+    view_mode = request.args.get('view', 'list')  # 'list' 또는 'grouped'
 
     # 사용자 필터 (관리자나 특정 사용자만 모든 기록 조회 가능)
     show_all = request.args.get('show_all', 'false').lower() == 'true'
@@ -977,9 +1007,49 @@ def purchase_history():
         # 일반 사용자는 자신의 기록만
         query = query.filter_by(user_id=current_user.id)
 
-    purchases = query.order_by(Purchase.purchase_date.desc()).paginate(
-        page=page, per_page=per_page, error_out=False
-    )
+    # 회차별 그룹화 모드
+    grouped_purchases = None
+    if view_mode == 'grouped':
+        # 페이지네이션 없이 모든 데이터 가져오기
+        all_purchases = query.order_by(Purchase.purchase_round.desc(), Purchase.purchase_date.desc()).all()
+
+        # 회차별로 그룹화
+        grouped_purchases = defaultdict(list)
+        for purchase in all_purchases:
+            grouped_purchases[purchase.purchase_round].append(purchase)
+
+        # 회차 목록 정렬 (최신 회차 우선)
+        grouped_purchases = dict(sorted(grouped_purchases.items(), key=lambda x: x[0], reverse=True))
+
+        # 페이지네이션을 위한 회차 분할
+        rounds = list(grouped_purchases.keys())
+        total_rounds = len(rounds)
+        start_idx = (page - 1) * 5  # 한 페이지에 5개 회차씩
+        end_idx = start_idx + 5
+        page_rounds = rounds[start_idx:end_idx]
+
+        # 해당 페이지의 회차만 필터링
+        grouped_purchases = {round_num: grouped_purchases[round_num] for round_num in page_rounds}
+
+        # 페이지네이션 객체 생성 (회차 단위)
+        class GroupedPagination:
+            def __init__(self, page, per_page, total):
+                self.page = page
+                self.per_page = per_page
+                self.total = total
+                self.pages = (total + per_page - 1) // per_page
+                self.has_prev = page > 1
+                self.has_next = page < self.pages
+                self.prev_num = page - 1 if self.has_prev else None
+                self.next_num = page + 1 if self.has_next else None
+                self.items = []
+
+        purchases = GroupedPagination(page, 5, total_rounds)
+    else:
+        # 기존 리스트 모드
+        purchases = query.order_by(Purchase.purchase_date.desc()).paginate(
+            page=page, per_page=per_page, error_out=False
+        )
 
     # 통계는 조회된 사용자 기준으로 계산
     stats = get_purchase_statistics(current_user_id)
@@ -993,6 +1063,8 @@ def purchase_history():
         "purchases.html",
         title="구매 이력",
         purchases=purchases,
+        grouped_purchases=grouped_purchases,
+        view_mode=view_mode,
         stats=stats,
         show_all=show_all,
         user_filter=user_filter,
@@ -1344,6 +1416,137 @@ def api_data_detail(tab_type):
         return jsonify({"error": str(e)}), 500
 
 
+@main_bp.get("/api/shop-statistics")
+def api_shop_statistics():
+    """당첨점 통계 분석 API"""
+    try:
+        # 기본 통계
+        total_shops = WinningShop.query.count()
+        rank1_shops = WinningShop.query.filter_by(rank=1).count()
+        rank2_shops = WinningShop.query.filter_by(rank=2).count()
+
+        # 지역별 통계 (주소에서 시/도 추출)
+        location_stats = db.session.query(
+            db.func.substr(WinningShop.address, 1, db.func.instr(WinningShop.address, ' ') - 1).label('region'),
+            db.func.count().label('count')
+        ).filter(
+            WinningShop.address.isnot(None),
+            WinningShop.address != ''
+        ).group_by('region').order_by(db.func.count().desc()).limit(10).all()
+
+        # 상위 당첨 판매점 (여러번 당첨된 곳)
+        top_shops = db.session.query(
+            WinningShop.name,
+            WinningShop.address,
+            db.func.count().label('win_count')
+        ).filter(
+            WinningShop.rank == 1,
+            WinningShop.name.isnot(None)
+        ).group_by(WinningShop.name, WinningShop.address).having(
+            db.func.count() > 1
+        ).order_by(db.func.count().desc()).limit(20).all()
+
+        return jsonify({
+            "total_stats": {
+                "total_shops": total_shops,
+                "rank1_shops": rank1_shops,
+                "rank2_shops": rank2_shops
+            },
+            "location_stats": [
+                {"region": region or "알 수 없음", "count": count}
+                for region, count in location_stats
+            ],
+            "top_shops": [
+                {
+                    "name": shop.name,
+                    "address": shop.address,
+                    "win_count": shop.win_count
+                }
+                for shop in top_shops
+            ]
+        })
+
+    except Exception as e:
+        current_app.logger.error(f"Error in api_shop_statistics: {str(e)}")
+        return jsonify({"error": str(e)}), 500
+
+
+@main_bp.get("/api/shop-search")
+def api_shop_search():
+    """당첨점 검색 API"""
+    try:
+        query = request.args.get('q', '').strip()
+        rank_filter = request.args.get('rank', 'all')  # 'all', '1', '2'
+
+        if not query or len(query) < 2:
+            return jsonify({
+                "success": False,
+                "error": "검색어는 2글자 이상 입력해주세요"
+            }), 400
+
+        # 기본 쿼리 - 판매점명 또는 주소로 검색
+        query_filter = db.or_(
+            WinningShop.name.like(f'%{query}%'),
+            WinningShop.address.like(f'%{query}%')
+        )
+
+        # 등수 필터 적용
+        if rank_filter == '1':
+            shops = WinningShop.query.filter(
+                query_filter,
+                WinningShop.rank == 1
+            ).order_by(
+                WinningShop.round.desc()
+            ).limit(100).all()
+        elif rank_filter == '2':
+            shops = WinningShop.query.filter(
+                query_filter,
+                WinningShop.rank == 2
+            ).order_by(
+                WinningShop.round.desc()
+            ).limit(100).all()
+        else:  # 'all'
+            shops = WinningShop.query.filter(
+                query_filter
+            ).order_by(
+                WinningShop.round.desc(),
+                WinningShop.rank.asc()
+            ).limit(100).all()
+
+        # 검색 결과 변환
+        results = []
+        for shop in shops:
+            results.append({
+                "round": shop.round,
+                "rank": shop.rank,
+                "name": shop.name,
+                "address": shop.address,
+                "method": shop.method,
+                "winners_count": shop.winners_count
+            })
+
+        # 통계 정보
+        total_count = len(results)
+        rank1_count = sum(1 for s in results if s['rank'] == 1)
+        rank2_count = sum(1 for s in results if s['rank'] == 2)
+
+        return jsonify({
+            "success": True,
+            "query": query,
+            "rank_filter": rank_filter,
+            "total_count": total_count,
+            "rank1_count": rank1_count,
+            "rank2_count": rank2_count,
+            "results": results
+        })
+
+    except Exception as e:
+        current_app.logger.error(f"Error in api_shop_search: {str(e)}")
+        return jsonify({
+            "success": False,
+            "error": str(e)
+        }), 500
+
 
 @main_bp.post("/api/refresh-recommendations")
 @login_required
@@ -1527,6 +1730,206 @@ def delete_purchase(purchase_id):
         })
 
     except Exception as e:
+        return jsonify({
+            "success": False,
+            "error": str(e)
+        }), 400
+
+
+@main_bp.post("/api/purchases/add")
+@login_required
+def api_add_purchase():
+    """구매 번호 추가 (DRAFT 상태로 저장 - 장바구니)"""
+    try:
+        numbers_str = request.form.get("numbers", "").strip()
+        round_str = request.form.get("round", "").strip()
+        source = request.form.get("source", "manual")  # manual, ai, qr, random
+
+        if not numbers_str:
+            return jsonify({
+                "success": False,
+                "error": "번호를 입력해주세요"
+            })
+
+        # 번호 파싱 및 검증
+        try:
+            numbers = [int(x.strip()) for x in numbers_str.replace(",", " ").split() if x.strip()]
+
+            if len(numbers) != 6:
+                return jsonify({
+                    "success": False,
+                    "error": "정확히 6개의 번호를 입력해주세요"
+                })
+
+            if len(set(numbers)) != 6:
+                return jsonify({
+                    "success": False,
+                    "error": "중복된 번호가 있습니다"
+                })
+
+            if not all(1 <= num <= 45 for num in numbers):
+                return jsonify({
+                    "success": False,
+                    "error": "번호는 1-45 사이여야 합니다"
+                })
+
+        except ValueError:
+            return jsonify({
+                "success": False,
+                "error": "올바른 번호 형식이 아닙니다"
+            })
+
+        # 회차 결정
+        if round_str:
+            try:
+                purchase_round = int(round_str)
+                if purchase_round < 1:
+                    return jsonify({
+                        "success": False,
+                        "error": "회차는 1 이상이어야 합니다"
+                    })
+            except ValueError:
+                return jsonify({
+                    "success": False,
+                    "error": "올바른 회차 형식이 아닙니다"
+                })
+        else:
+            # 회차가 입력되지 않았으면 다음 회차로 자동 설정
+            latest_draw = Draw.query.order_by(Draw.round.desc()).first()
+            purchase_round = latest_draw.round + 1 if latest_draw else 1
+
+        # 정렬된 번호로 저장
+        sorted_numbers = sorted(numbers)
+        numbers_string = ",".join(map(str, sorted_numbers))
+
+        # 중복 체크 (DRAFT + PURCHASED 모두)
+        existing_purchase = Purchase.query.filter_by(
+            user_id=current_user.id,
+            purchase_round=purchase_round,
+            numbers=numbers_string
+        ).first()
+
+        if existing_purchase:
+            return jsonify({
+                "success": False,
+                "error": f"{purchase_round}회차에 동일한 번호가 이미 등록되어 있습니다"
+            })
+
+        # DRAFT 상태로 저장
+        purchase = Purchase(
+            user_id=current_user.id,
+            purchase_round=purchase_round,
+            numbers=numbers_string,
+            purchase_method=source,  # legacy field
+            source=source,  # new field
+            status='DRAFT',
+            is_real_purchase=False,
+            cost=1000
+        )
+
+        db.session.add(purchase)
+        db.session.commit()
+
+        return jsonify({
+            "success": True,
+            "message": f"{purchase_round}회차 번호가 장바구니에 추가되었습니다",
+            "purchase_id": purchase.id,
+            "purchase_round": purchase_round,
+            "numbers": numbers_string
+        })
+
+    except Exception as e:
+        db.session.rollback()
+        return jsonify({
+            "success": False,
+            "error": str(e)
+        }), 400
+
+
+@main_bp.post("/api/purchases/confirm")
+@login_required
+def api_confirm_purchases():
+    """장바구니의 DRAFT 구매들을 PURCHASED로 확정"""
+    try:
+        purchase_ids_str = request.form.get("purchase_ids", "").strip()
+
+        if not purchase_ids_str:
+            return jsonify({
+                "success": False,
+                "error": "구매할 번호를 선택해주세요"
+            })
+
+        # Parse purchase IDs
+        try:
+            purchase_ids = [int(x.strip()) for x in purchase_ids_str.split(",") if x.strip()]
+        except ValueError:
+            return jsonify({
+                "success": False,
+                "error": "잘못된 구매 ID 형식입니다"
+            })
+
+        # Get draft purchases
+        draft_purchases = Purchase.query.filter(
+            Purchase.id.in_(purchase_ids),
+            Purchase.user_id == current_user.id,
+            Purchase.status == 'DRAFT'
+        ).all()
+
+        if not draft_purchases:
+            return jsonify({
+                "success": False,
+                "error": "선택한 번호를 찾을 수 없습니다"
+            })
+
+        # Update status to PURCHASED
+        for purchase in draft_purchases:
+            purchase.status = 'PURCHASED'
+            purchase.is_real_purchase = True
+
+        db.session.commit()
+
+        return jsonify({
+            "success": True,
+            "message": f"{len(draft_purchases)}개 번호가 구매 확정되었습니다",
+            "confirmed_count": len(draft_purchases)
+        })
+
+    except Exception as e:
+        db.session.rollback()
+        return jsonify({
+            "success": False,
+            "error": str(e)
+        }), 400
+
+
+@main_bp.delete("/api/purchases/draft/<int:purchase_id>")
+@main_bp.post("/api/purchases/draft/<int:purchase_id>/delete")
+@login_required
+def api_delete_draft_purchase(purchase_id):
+    """장바구니(DRAFT) 구매 삭제"""
+    try:
+        purchase = Purchase.query.filter(
+            Purchase.id == purchase_id,
+            Purchase.user_id == current_user.id,
+            Purchase.status == 'DRAFT'
+        ).first()
+
+        if not purchase:
+            return jsonify({
+                "success": False,
+                "error": "해당 번호를 찾을 수 없습니다"
+            })
+
+        db.session.delete(purchase)
+        db.session.commit()
+
+        return jsonify({
+            "success": True,
+            "message": "번호가 삭제되었습니다"
+        })
+
+    except Exception as e:
+        db.session.rollback()
         return jsonify({
             "success": False,
             "error": str(e)
