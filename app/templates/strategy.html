@@ -20,6 +20,17 @@
 <!-- Main Content Grid -->
 <div class="main-content">
 
+  <!-- Recommendation Insights (NEW) -->
+  <section class="card insights-card">
+    <div class="card-header">
+      <h2>💡 AI 추천 개선 힌트</h2>
+      <button onclick="loadInsights()" class="btn-secondary" id="refreshInsightsBtn">새로고침</button>
+    </div>
+    <div id="insightsContent" class="insights-content">
+      <div class="loading-spinner">인사이트를 불러오는 중...</div>
+    </div>
+  </section>
+
   <!-- Recent Draws -->
   <section class="card">
     <div class="card-header">
@@ -199,7 +210,177 @@
 
 </div> <!-- End main-content -->
 
+<script>
+// 인사이트 로드 함수
+async function loadInsights() {
+  const content = document.getElementById('insightsContent');
+  const refreshBtn = document.getElementById('refreshInsightsBtn');
+
+  try {
+    refreshBtn.disabled = true;
+    refreshBtn.textContent = '로딩 중...';
+
+    const response = await fetch('/api/recommendation-insights', {
+      headers: {
+        'X-CSRFToken': window.csrfToken
+      }
+    });
+
+    if (!response.ok) throw new Error('Failed to load insights');
+
+    const result = await response.json();
+    displayInsights(result.data);
+
+  } catch (error) {
+    console.error('Error loading insights:', error);
+    content.innerHTML = '<div style="text-align: center; padding: 2rem; color: #999;">인사이트를 불러오는데 실패했습니다.</div>';
+  } finally {
+    refreshBtn.disabled = false;
+    refreshBtn.textContent = '새로고침';
+  }
+}
+
+function displayInsights(data) {
+  const content = document.getElementById('insightsContent');
+  const { insights, recommendations, warnings } = data;
+
+  let html = '<div class="insights-grid">';
+
+  // Insights
+  if (insights && insights.length > 0) {
+    html += '<div class="insight-section insight-success">';
+    html += '<h4>✨ 효과적인 패턴</h4>';
+    html += '<ul>';
+    insights.forEach(insight => {
+      html += `<li>${insight}</li>`;
+    });
+    html += '</ul></div>';
+  }
+
+  // Recommendations
+  if (recommendations && recommendations.length > 0) {
+    html += '<div class="insight-section insight-info">';
+    html += '<h4>📝 개선 제안</h4>';
+    html += '<ul>';
+    recommendations.forEach(rec => {
+      html += `<li>${rec}</li>`;
+    });
+    html += '</ul></div>';
+  }
+
+  // Warnings
+  if (warnings && warnings.length > 0) {
+    html += '<div class="insight-section insight-warning">';
+    html += '<h4>⚡ 주의사항</h4>';
+    html += '<ul>';
+    warnings.forEach(warn => {
+      html += `<li>${warn}</li>`;
+    });
+    html += '</ul></div>';
+  }
+
+  // No data message
+  if (!insights.length && !recommendations.length && !warnings.length) {
+    html += '<div class="insight-section insight-empty">';
+    html += '<p>📊 더 많은 구매 데이터가 쌓이면 맞춤 분석을 제공합니다</p>';
+    html += '</div>';
+  }
+
+  html += '</div>';
+  content.innerHTML = html;
+}
+
+// 페이지 로드 시 자동 실행
+document.addEventListener('DOMContentLoaded', function() {
+  loadInsights();
+});
+</script>
+
 <style>
+/* 인사이트 카드 스타일 */
+.insights-card {
+  background: linear-gradient(135deg, #f0f9ff, #e0f2fe);
+  border: 2px solid #38bdf8;
+}
+
+.insights-content {
+  padding: 1rem;
+  min-height: 100px;
+}
+
+.insights-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+  gap: 1rem;
+}
+
+.insight-section {
+  padding: 1.25rem;
+  border-radius: 0.75rem;
+  border-left: 4px solid;
+}
+
+.insight-section h4 {
+  margin: 0 0 0.75rem 0;
+  font-size: 1rem;
+  font-weight: 600;
+}
+
+.insight-section ul {
+  margin: 0;
+  padding-left: 1.25rem;
+  list-style: none;
+}
+
+.insight-section li {
+  margin-bottom: 0.5rem;
+  line-height: 1.5;
+  position: relative;
+  padding-left: 0.5rem;
+}
+
+.insight-section li:before {
+  content: '•';
+  position: absolute;
+  left: -0.5rem;
+  font-weight: bold;
+}
+
+.insight-success {
+  background: linear-gradient(135deg, #d1fae5, #ecfdf5);
+  border-left-color: #10b981;
+}
+
+.insight-info {
+  background: linear-gradient(135deg, #dbeafe, #eff6ff);
+  border-left-color: #3b82f6;
+}
+
+.insight-warning {
+  background: linear-gradient(135deg, #fed7aa, #fff7ed);
+  border-left-color: #f59e0b;
+}
+
+.insight-empty {
+  background: #f9fafb;
+  border-left-color: #9ca3af;
+  text-align: center;
+  padding: 2rem;
+}
+
+.insight-empty p {
+  margin: 0;
+  color: #6b7280;
+  font-size: 0.95rem;
+}
+
+.loading-spinner {
+  text-align: center;
+  padding: 2rem;
+  color: #6b7280;
+  font-size: 0.95rem;
+}
+
 /* 번호 분석 스타일 */
 .analysis-grid {
   display: grid;

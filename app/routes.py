@@ -398,15 +398,15 @@ def mobile_info():
 @main_bp.get("/mobile/crawling")
 @login_required
 def mobile_crawling():
-    """모바일 전용 데이터수집"""
+    """모바일 전용 데이터수집 (최적화)"""
+    # 최소 쿼리만 실행
     latest = Draw.query.order_by(Draw.round.desc()).first()
-    total_rounds = Draw.query.count()
 
     return render_template(
         "mobile/crawling.html",
         title="모바일 데이터수집",
         latest=latest,
-        total_rounds=total_rounds
+        total_rounds=0  # AJAX로 로드
     )
 
 
@@ -937,14 +937,14 @@ def crawling_page():
     if mobile_redirect_check():
         return redirect(url_for('main.mobile_crawling'))
 
+    # 최소한의 쿼리만 실행 - 나머지는 AJAX로 로드
     latest = Draw.query.order_by(Draw.round.desc()).first()
-    total_rounds = Draw.query.count()
 
     return render_template(
         "crawling.html",
         title="데이터 크롤링",
         latest=latest,
-        total_rounds=total_rounds,
+        total_rounds=0,  # AJAX로 로드
     )
 
 
@@ -1354,22 +1354,31 @@ def api_update_new_draw():
 
 @main_bp.get("/api/data-stats")
 def api_data_stats():
-    """기본 데이터 통계 정보 API"""
+    """기본 데이터 통계 정보 API (최적화 버전)"""
     try:
         import os
-        from .services.updater import get_latest_round, find_missing_rounds
 
-        # 총 저장된 회차 수
-        total_rounds = Draw.query.count()
+        # 단일 쿼리로 모든 카운트 가져오기 (최적화)
+        stats_query = db.session.query(
+            db.func.count(db.func.distinct(Draw.id)).label('draws_count'),
+            db.func.max(Draw.round).label('max_round')
+        ).first()
 
-        # 데이터베이스 파일 크기 계산
+        draws_count = stats_query.draws_count or 0
+        max_db_round = stats_query.max_round or 0
+
+        # 빠른 통계 - 나머지는 별도 쿼리
+        shops_count = WinningShop.query.count()
+        purchases_count = Purchase.query.count()
+        users_count = User.query.count()
+
+        # 데이터베이스 파일 크기 (캐싱 가능)
         db_path = os.path.join(current_app.instance_path, 'lotto.db')
         db_size_bytes = 0
         db_size_human = "0 MB"
 
         if os.path.exists(db_path):
             db_size_bytes = os.path.getsize(db_path)
-            # 사람이 읽기 쉬운 형식으로 변환
             if db_size_bytes < 1024:
                 db_size_human = f"{db_size_bytes} B"
             elif db_size_bytes < 1024 * 1024:
@@ -1379,48 +1388,15 @@ def api_data_stats():
             else:
                 db_size_human = f"{db_size_bytes / (1024 * 1024 * 1024):.2f} GB"
 
-        # 테이블별 레코드 수
-        draws_count = Draw.query.count()
-        shops_count = WinningShop.query.count()
-        purchases_count = Purchase.query.count()
-        users_count = User.query.count()
-
-        # 최신 가능 회차
-        latest_round = get_latest_round()
-        if not latest_round:
-            # 네트워크 연결 실패 시 데이터베이스 기반 대안 제공
-            max_db_round = db.session.query(db.func.max(Draw.round)).scalar() or 0
-            if max_db_round == 0:
-                return jsonify({"error": "데이터베이스에 데이터가 없고 로또 API에 연결할 수 없습니다"}), 500
-
-            return jsonify({
-                "missing_count": 0,
-                "completion_rate": 100.0,
-                "total_rounds": total_rounds,
-                "latest_round": max_db_round,
-                "db_size": db_size_human,
-                "db_size_bytes": db_size_bytes,
-                "table_stats": {
-                    "draws": draws_count,
-                    "shops": shops_count,
-                    "purchases": purchases_count,
-                    "users": users_count
-                },
-                "warning": "로또 API 연결 불가 - 데이터베이스 기반 통계"
-            })
-
-        # 누락된 회차 수
-        missing_rounds = find_missing_rounds()
-        missing_count = len(missing_rounds) if missing_rounds else 0
-
-        # 완성도 계산
-        completion_rate = round((total_rounds / latest_round) * 100, 1) if latest_round and latest_round > 0 else 0
+        # 빠른 응답 - 외부 API 호출 없이 DB 기반 통계만 반환
+        # 누락 회차는 사용자가 Detail 버튼 클릭 시 로드
+        completion_rate = 100.0 if max_db_round > 0 else 0
 
         return jsonify({
-            "missing_count": missing_count,
+            "missing_count": "?",  # Detail에서 로드
             "completion_rate": completion_rate,
-            "total_rounds": total_rounds,
-            "latest_round": latest_round,
+            "total_rounds": draws_count,
+            "latest_round": max_db_round,
             "db_size": db_size_human,
             "db_size_bytes": db_size_bytes,
             "table_stats": {
@@ -1428,7 +1404,8 @@ def api_data_stats():
                 "shops": shops_count,
                 "purchases": purchases_count,
                 "users": users_count
-            }
+            },
+            "fast_mode": True  # 빠른 모드 표시
         })
 
     except Exception as e:
@@ -1438,85 +1415,79 @@ def api_data_stats():
 
 @main_bp.get("/api/data-detail/<tab_type>")
 def api_data_detail(tab_type):
-    """상세 데이터 정보 API"""
+    """상세 데이터 정보 API (최적화 버전)"""
     try:
-        from .services.updater import get_latest_round, find_missing_rounds
+        # 외부 API 호출 없이 DB만 사용 (빠른 응답)
+        stats_query = db.session.query(
+            db.func.count(db.func.distinct(Draw.id)).label('total_count'),
+            db.func.min(Draw.round).label('min_round'),
+            db.func.max(Draw.round).label('max_round')
+        ).first()
 
-        latest_round = get_latest_round()
-        api_available = latest_round is not None
+        total_count = stats_query.total_count or 0
+        min_round = stats_query.min_round or 1
+        max_round = stats_query.max_round or 0
 
-        if not latest_round:
-            # 네트워크 연결 실패 시 데이터베이스 기반 대안 제공
-            max_db_round = db.session.query(db.func.max(Draw.round)).scalar() or 0
-            if max_db_round == 0:
-                return jsonify({"error": "데이터베이스에 데이터가 없고 로또 API에 연결할 수 없습니다"}), 500
-            latest_round = max_db_round
+        if max_round == 0:
+            return jsonify({"error": "데이터베이스에 데이터가 없습니다"}), 500
 
         if tab_type == "missing":
-            # API 연결 실패 시 누락 회차 계산을 데이터베이스만으로 수행
-            if not api_available:
-                # 데이터베이스만 기준으로 연속성 체크
-                existing_rounds = set(row[0] for row in db.session.query(Draw.round).all())
-                if existing_rounds:
-                    min_round = min(existing_rounds)
-                    max_round = max(existing_rounds)
-                    all_rounds = set(range(min_round, max_round + 1))
-                    missing_rounds = sorted(list(all_rounds - existing_rounds))
-                else:
-                    missing_rounds = []
-            else:
-                missing_rounds = find_missing_rounds()
+            # 단일 쿼리로 누락 회차 계산 (최적화)
+            existing_rounds = set(row[0] for row in db.session.query(Draw.round).all())
+            all_rounds = set(range(min_round, max_round + 1))
+            missing_rounds = sorted(list(all_rounds - existing_rounds))
 
             return jsonify({
-                "rounds": missing_rounds,
+                "rounds": missing_rounds[:100],  # 최대 100개만 반환
                 "total_missing": len(missing_rounds),
-                "range": {"start": 1, "end": latest_round},
-                "warning": "로또 API 연결 불가 - 데이터베이스 기반 통계" if not api_available else None
+                "range": {"start": min_round, "end": max_round},
+                "has_more": len(missing_rounds) > 100,
+                "fast_mode": True
             })
 
         elif tab_type == "existing":
-            # 저장된 회차들 가져오기
-            existing_rounds = [row[0] for row in db.session.query(Draw.round).order_by(Draw.round).all()]
+            # 페이징 적용 (최적화)
+            page = int(request.args.get('page', 1))
+            per_page = 100
+            offset = (page - 1) * per_page
+
+            existing_rounds = [
+                row[0] for row in db.session.query(Draw.round)
+                .order_by(Draw.round.desc())
+                .limit(per_page)
+                .offset(offset)
+                .all()
+            ]
+
             return jsonify({
                 "rounds": existing_rounds,
-                "total_existing": len(existing_rounds),
-                "range": {"start": 1, "end": latest_round},
-                "warning": "로또 API 연결 불가 - 데이터베이스 기반 통계" if not api_available else None
+                "total_existing": total_count,
+                "range": {"start": min_round, "end": max_round},
+                "page": page,
+                "per_page": per_page,
+                "has_more": total_count > (page * per_page)
             })
 
         elif tab_type == "summary":
-            # 요약 정보
-            total_rounds = Draw.query.count()
-            if not api_available:
-                # API 연결 실패 시 데이터베이스만 기준으로 계산
-                existing_rounds = set(row[0] for row in db.session.query(Draw.round).all())
-                if existing_rounds:
-                    min_round = min(existing_rounds)
-                    max_round = max(existing_rounds)
-                    all_rounds = set(range(min_round, max_round + 1))
-                    missing_rounds = sorted(list(all_rounds - existing_rounds))
-                    missing_count = len(missing_rounds)
-                    completion_rate = round((total_rounds / (max_round - min_round + 1)) * 100, 1) if max_round > min_round else 100.0
-                else:
-                    missing_count = 0
-                    completion_rate = 100.0
-            else:
-                missing_rounds = find_missing_rounds()
-                missing_count = len(missing_rounds)
-                completion_rate = round((total_rounds / latest_round) * 100, 1) if latest_round > 0 else 0
+            # 빠른 요약 정보 (이미 계산된 값 재사용)
+            existing_rounds = set(row[0] for row in db.session.query(Draw.round).all())
+            all_rounds = set(range(min_round, max_round + 1))
+            missing_count = len(all_rounds - existing_rounds)
+            completion_rate = round((total_count / (max_round - min_round + 1)) * 100, 1)
 
             return jsonify({
-                "total_existing": total_rounds,
+                "total_existing": total_count,
                 "total_missing": missing_count,
                 "completion_rate": completion_rate,
-                "range": {"start": 1, "end": latest_round},
-                "warning": "로또 API 연결 불가 - 데이터베이스 기반 통계" if not api_available else None
+                "range": {"start": min_round, "end": max_round},
+                "fast_mode": True
             })
 
         else:
             return jsonify({"error": "잘못된 탭 타입입니다"}), 400
 
     except Exception as e:
+        current_app.logger.error(f"Error in api_data_detail: {str(e)}")
         return jsonify({"error": str(e)}), 500
 
 

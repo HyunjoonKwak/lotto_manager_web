@@ -106,7 +106,6 @@
       <div class="detail-tabs">
         <button class="tab-btn active" onclick="showDetailTab('missing')">누락 회차</button>
         <button class="tab-btn" onclick="showDetailTab('existing')">저장된 회차</button>
-        <button class="tab-btn" onclick="showDetailTab('summary')">요약 정보</button>
       </div>
 
       <div class="detail-content">
@@ -118,11 +117,11 @@
         <div id="existing-tab" class="tab-content">
           <div class="loading-indicator" id="existing-loading">데이터를 불러오는 중...</div>
           <div id="existing-list" style="display: none;"></div>
-        </div>
-
-        <div id="summary-tab" class="tab-content">
-          <div class="loading-indicator" id="summary-loading">데이터를 불러오는 중...</div>
-          <div id="summary-info" style="display: none;"></div>
+          <div id="existing-pagination" style="display: none; text-align: center; margin-top: 1rem;">
+            <button class="btn-secondary" onclick="loadExistingPage('prev')" id="existing-prev-btn">← 이전</button>
+            <span id="existing-page-info" style="margin: 0 1rem; color: #6c757d;"></span>
+            <button class="btn-secondary" onclick="loadExistingPage('next')" id="existing-next-btn">다음 →</button>
+          </div>
         </div>
       </div>
     </div>
@@ -1708,7 +1707,14 @@ function updateStatsUI(data) {
   // 기본 통계
   document.getElementById('total-rounds-display').textContent = `${data.total_rounds || 0}회`;
   document.getElementById('latest-round-display').textContent = `${data.latest_round || 0}회`;
-  document.getElementById('missing-count').textContent = `${data.missing_count || 0}회`;
+
+  // 누락 회차 - "?" 표시 시 클릭 안내
+  const missingElement = document.getElementById('missing-count');
+  if (data.missing_count === "?") {
+    missingElement.innerHTML = '<span style="color: #667eea; cursor: pointer; text-decoration: underline;" title="클릭하여 상세 정보 확인" onclick="showDetailPanel()">클릭하여 확인</span>';
+  } else {
+    missingElement.textContent = `${data.missing_count || 0}회`;
+  }
 
   // 완성도 - 색상 코딩
   const completionRate = data.completion_rate || 0;
@@ -1730,6 +1736,11 @@ function updateStatsUI(data) {
   // 판매점 정보
   if (data.table_stats) {
     document.getElementById('shops-count').textContent = `${data.table_stats.shops || 0}개`;
+  }
+
+  // 빠른 모드 표시 (선택적)
+  if (data.fast_mode) {
+    console.log('✓ 빠른 로딩 모드 - 상세 통계는 Detail 클릭');
   }
 
   // 로딩 클래스 제거
@@ -1787,6 +1798,21 @@ function toggleDataDetail() {
   }
 }
 
+// 누락 회차 클릭 시 Detail 패널 자동 열기
+function showDetailPanel() {
+  const panel = document.getElementById('data-detail-panel');
+
+  if (panel.style.display === 'none') {
+    panel.style.display = 'block';
+
+    // "누락" 탭으로 자동 전환
+    showDetailTab('missing');
+
+    // 패널로 스크롤
+    panel.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+  }
+}
+
 // 탭 전환
 function showDetailTab(tabName) {
   // 모든 탭 비활성화
@@ -1813,6 +1839,11 @@ async function loadTabData(tabName) {
     const response = await fetch(`/api/data-detail/${tabName}`);
     const data = await response.json();
 
+    // 에러 응답 체크
+    if (data.error) {
+      throw new Error(data.error);
+    }
+
     document.getElementById(loadingId).style.display = 'none';
     document.getElementById(contentId).style.display = 'block';
 
@@ -1823,13 +1854,11 @@ async function loadTabData(tabName) {
       case 'existing':
         renderExistingRounds(data);
         break;
-      case 'summary':
-        renderSummaryInfo(data);
-        break;
     }
   } catch (error) {
     console.error(`Failed to load ${tabName} data:`, error);
-    document.getElementById(loadingId).textContent = '데이터를 불러오는데 실패했습니다.';
+    document.getElementById(loadingId).style.display = 'block';
+    document.getElementById(loadingId).textContent = `데이터를 불러오는데 실패했습니다: ${error.message}`;
   }
 }
 
@@ -1848,54 +1877,85 @@ function renderMissingRounds(data) {
   }
 
   const rangeDisplay = `<div class="range-display">누락 회차: ${data.total_missing}개 (${data.range.start}~${data.range.end} 중)</div>`;
+
   const roundsList = `<div class="round-list">${data.rounds.map(round =>
     `<div class="round-item missing" onclick="showRoundInfo(${round})">${round}</div>`
   ).join('')}</div>`;
 
-  container.innerHTML = rangeDisplay + roundsList;
+  const moreInfo = data.has_more ?
+    `<div class="more-info">⚡ 빠른 로딩을 위해 최대 100개만 표시됩니다</div>` : '';
+
+  container.innerHTML = rangeDisplay + roundsList + moreInfo;
 }
+
+// 현재 페이지 상태 저장
+let currentExistingPage = 1;
+let totalExistingPages = 1;
 
 // 저장된 회차 렌더링
 function renderExistingRounds(data) {
   const container = document.getElementById('existing-list');
+  const pagination = document.getElementById('existing-pagination');
 
   const rangeDisplay = `<div class="range-display">저장된 회차: ${data.total_existing}개 (${data.range.start}~${data.range.end} 중)</div>`;
+
   const roundsList = `<div class="round-list">${data.rounds.map(round =>
     `<div class="round-item existing" onclick="showRoundInfo(${round})">${round}</div>`
   ).join('')}</div>`;
 
   container.innerHTML = rangeDisplay + roundsList;
+
+  // 페이징 정보 업데이트
+  currentExistingPage = data.page || 1;
+  const perPage = data.per_page || 100;
+  totalExistingPages = Math.ceil(data.total_existing / perPage);
+
+  if (totalExistingPages > 1) {
+    pagination.style.display = 'block';
+    document.getElementById('existing-page-info').textContent = `${currentExistingPage} / ${totalExistingPages} 페이지`;
+
+    // 버튼 상태 업데이트
+    document.getElementById('existing-prev-btn').disabled = currentExistingPage <= 1;
+    document.getElementById('existing-next-btn').disabled = currentExistingPage >= totalExistingPages;
+  } else {
+    pagination.style.display = 'none';
+  }
 }
 
-// 요약 정보 렌더링
-function renderSummaryInfo(data) {
-  const container = document.getElementById('summary-info');
+// 저장된 회차 페이지 로드
+async function loadExistingPage(direction) {
+  let newPage = currentExistingPage;
 
-  const statsHtml = `
-    <div class="summary-stats">
-      <div class="stat-card">
-        <div class="stat-number">${data.total_existing}</div>
-        <div class="stat-label">저장된 회차</div>
-      </div>
-      <div class="stat-card">
-        <div class="stat-number">${data.total_missing}</div>
-        <div class="stat-label">누락된 회차</div>
-      </div>
-      <div class="stat-card">
-        <div class="stat-number">${data.completion_rate}%</div>
-        <div class="stat-label">완성도</div>
-      </div>
-      <div class="stat-card">
-        <div class="stat-number">${data.range.end}</div>
-        <div class="stat-label">최신 회차</div>
-      </div>
-    </div>
-    <div class="range-display">
-      전체 범위: ${data.range.start}회 ~ ${data.range.end}회
-    </div>
-  `;
+  if (direction === 'prev' && currentExistingPage > 1) {
+    newPage = currentExistingPage - 1;
+  } else if (direction === 'next' && currentExistingPage < totalExistingPages) {
+    newPage = currentExistingPage + 1;
+  } else {
+    return; // 이동할 수 없으면 종료
+  }
 
-  container.innerHTML = statsHtml;
+  const loadingId = 'existing-loading';
+  const contentId = 'existing-list';
+
+  document.getElementById(loadingId).style.display = 'block';
+  document.getElementById(contentId).style.display = 'none';
+
+  try {
+    const response = await fetch(`/api/data-detail/existing?page=${newPage}`);
+    const data = await response.json();
+
+    if (data.error) {
+      throw new Error(data.error);
+    }
+
+    document.getElementById(loadingId).style.display = 'none';
+    document.getElementById(contentId).style.display = 'block';
+
+    renderExistingRounds(data);
+  } catch (error) {
+    console.error('Failed to load existing rounds page:', error);
+    document.getElementById(loadingId).textContent = `페이지를 불러오는데 실패했습니다: ${error.message}`;
+  }
 }
 
 // 회차 정보 모달 열기
