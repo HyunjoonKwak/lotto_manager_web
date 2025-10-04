@@ -798,7 +798,7 @@ const csrfToken = document.querySelector('meta[name="csrf-token"]')?.getAttribut
 
 // 장바구니에 추가 함수 (AJAX)
 async function addToCart(numbers, method, setIndex) {
-  const nextRound = {{ next_round }};
+  const nextRound = {{ next_round | default(1) }};
 
   try {
     const response = await fetch('/api/purchases/add', {
