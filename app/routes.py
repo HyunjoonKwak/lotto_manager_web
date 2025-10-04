@@ -1994,9 +1994,16 @@ def delete_purchase(purchase_id):
 def api_add_purchase():
     """구매 번호 추가 (DRAFT 상태로 저장 - 장바구니)"""
     try:
-        numbers_str = request.form.get("numbers", "").strip()
-        round_str = request.form.get("round", "").strip()
-        source = request.form.get("source", "manual")  # manual, ai, qr, random
+        # JSON 또는 Form 데이터 모두 지원
+        if request.is_json:
+            data = request.get_json()
+            numbers_str = data.get("numbers", "").strip()
+            round_str = str(data.get("round", "")).strip()
+            source = data.get("source", "manual")
+        else:
+            numbers_str = request.form.get("numbers", "").strip()
+            round_str = request.form.get("round", "").strip()
+            source = request.form.get("source", "manual")  # manual, ai, qr, random
 
         if not numbers_str:
             return jsonify({
