@@ -29,7 +29,14 @@
       </div>
       <div class="draw-date">
         <div class="label">추첨일시</div>
-        <div class="value">{{ next_draw_date.strftime('%m월 %d일 (%a) %H:%M') }}</div>
+        <div class="value">
+          {% set weekdays = ['월', '화', '수', '목', '금', '토', '일'] %}
+          {{ next_draw_date.strftime('%m월 %d일') }} ({{ weekdays[next_draw_date.weekday()] }}) {{ next_draw_date.strftime('%H:%M') }}
+        </div>
+      </div>
+      <div class="draw-current-time">
+        <div class="label">현재시간</div>
+        <div class="value countdown-value" id="currentTime">--:--:--</div>
       </div>
       <div class="draw-countdown">
         <div class="label">남은 시간</div>
@@ -248,12 +255,13 @@
   margin: 0;
   font-size: 1.25rem;
   font-weight: 600;
+  text-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
 }
 
 .next-draw-content {
   display: grid;
-  grid-template-columns: repeat(3, 1fr);
-  gap: 2rem;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 1.5rem;
   margin-top: 1.5rem;
 }
 
@@ -262,21 +270,33 @@
 }
 
 .next-draw-content .label {
-  font-size: 0.875rem;
-  opacity: 0.9;
+  font-size: 0.9rem;
+  opacity: 1;
   margin-bottom: 0.5rem;
+  font-weight: 600;
+  text-shadow: 0 2px 6px rgba(0, 0, 0, 0.5);
+  letter-spacing: 0.5px;
+  color: #ffffff;
 }
 
 .next-draw-content .value {
   font-size: 1.75rem;
-  font-weight: bold;
+  font-weight: 700;
+  text-shadow: 0 3px 8px rgba(0, 0, 0, 0.4);
+  color: #ffffff;
+  background: rgba(0, 0, 0, 0.15);
+  padding: 0.25rem 0.75rem;
+  border-radius: 0.5rem;
+  display: inline-block;
 }
 
 .countdown-value {
-  background: rgba(255, 255, 255, 0.2);
+  background: rgba(255, 255, 255, 0.25);
   padding: 0.5rem 1rem;
   border-radius: 0.5rem;
   display: inline-block;
+  border: 1px solid rgba(255, 255, 255, 0.3);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
 }
 
 /* Quick Actions Card */
@@ -668,6 +688,19 @@
 </style>
 
 <script>
+// Update current time
+function updateCurrentTime() {
+  const now = new Date();
+  const hours = String(now.getHours()).padStart(2, '0');
+  const minutes = String(now.getMinutes()).padStart(2, '0');
+  const seconds = String(now.getSeconds()).padStart(2, '0');
+
+  const currentTimeEl = document.getElementById('currentTime');
+  if (currentTimeEl) {
+    currentTimeEl.textContent = `${hours}:${minutes}:${seconds}`;
+  }
+}
+
 // Update countdown timer
 function updateCountdown() {
   const drawDate = new Date('{{ next_draw_date.strftime("%Y-%m-%d %H:%M:%S") }}');
@@ -693,10 +726,14 @@ function updateCountdown() {
   }
 }
 
-// Initialize countdown
+// Initialize countdown and current time
 document.addEventListener('DOMContentLoaded', function() {
+  updateCurrentTime();
   updateCountdown();
-  setInterval(updateCountdown, 1000);
+  setInterval(function() {
+    updateCurrentTime();
+    updateCountdown();
+  }, 1000);
 });
 </script>
 
