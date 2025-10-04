@@ -2177,6 +2177,28 @@ def api_delete_draft_purchase(purchase_id):
         }), 400
 
 
+@main_bp.route("/api/purchases/draft-count", methods=["GET"])
+@login_required
+def api_draft_count():
+    """장바구니(DRAFT) 개수 조회"""
+    try:
+        count = Purchase.query.filter(
+            Purchase.user_id == current_user.id,
+            Purchase.status == 'DRAFT'
+        ).count()
+
+        return jsonify({
+            "success": True,
+            "count": count
+        })
+
+    except Exception as e:
+        return jsonify({
+            "success": False,
+            "error": str(e)
+        }), 400
+
+
 @main_bp.route("/login", methods=["GET", "POST"])
 def login():
     """로그인 페이지"""
@@ -3257,4 +3279,3 @@ def api_qr_app_version():
         ],
         "minimum_version": "1.0.0"
     })
-

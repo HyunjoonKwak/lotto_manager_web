@@ -39,6 +39,21 @@
     {% block content %}{% endblock %}
   </div>
 
+  <!-- Cart Widget (우측 상단 장바구니) -->
+  {% if current_user.is_authenticated %}
+  <div id="cartWidget" class="cart-widget" style="display: none;">
+    <a href="{{ url_for('main.buy') }}" class="cart-widget-link">
+      <span class="cart-icon">🛒</span>
+      <span class="cart-badge" id="cartBadge">0</span>
+    </a>
+  </div>
+  {% endif %}
+
+  <!-- Toast Notification -->
+  <div id="toastNotification" class="toast-notification">
+    <span id="toastMessage"></span>
+  </div>
+
   <!-- Floating Action Button -->
   {% if current_user.is_authenticated %}
   <a href="{{ url_for('main.buy') }}" class="floating-action-btn" title="구매관리">

@@ -85,8 +85,8 @@
     </div>
 
     <div class="rec-actions">
-      <button class="btn-small btn-primary" onclick="addToPurchase('{{ rec|join(',') }}')">
-        구매 추가
+      <button class="btn-small btn-primary" onclick="addToCart('{{ rec|join(',') }}', 'ai', {{ loop.index }})">
+        🛒 장바구니 추가
       </button>
     </div>
   </div>
@@ -793,6 +793,98 @@
 </style>
 
 <script>
+// CSRF 토큰 설정
+const csrfToken = document.querySelector('meta[name="csrf-token"]')?.getAttribute('content');
+
+// 장바구니에 추가 함수 (AJAX)
+async function addToCart(numbers, method, setIndex) {
+  const nextRound = {{ next_round }};
+
+  try {
+    const response = await fetch('/api/purchases/add', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'X-CSRFToken': csrfToken
+      },
+      body: JSON.stringify({
+        numbers: numbers,
+        round: nextRound,
+        source: method
+      })
+    });
+
+    const result = await response.json();
+
+    if (result.success) {
+      // 성공 시 토스트 알림
+      showMobileToast(`✅ ${setIndex}번 세트가 장바구니에 추가되었습니다`);
+
+      // 장바구니 개수 업데이트
+      updateCartCount();
+    } else {
+      // 실패 시 (예: 중복)
+      showMobileToast(result.message || '장바구니 추가 실패', 'error');
+    }
+  } catch (error) {
+    console.error('Error adding to cart:', error);
+    showMobileToast('네트워크 오류가 발생했습니다', 'error');
+  }
+}
+
+// 장바구니 개수 업데이트
+async function updateCartCount() {
+  try {
+    const response = await fetch('/api/purchases/draft-count', {
+      headers: {
+        'X-CSRFToken': csrfToken
+      }
+    });
+
+    const result = await response.json();
+
+    if (result.success) {
+      const count = result.count;
+      const cartWidget = document.getElementById('cartWidget');
+      const cartBadge = document.getElementById('cartBadge');
+
+      if (cartWidget && cartBadge) {
+        if (count > 0) {
+          cartWidget.style.display = 'block';
+          cartBadge.textContent = count;
+        } else {
+          cartWidget.style.display = 'none';
+        }
+      }
+    }
+  } catch (error) {
+    console.error('Error updating cart count:', error);
+  }
+}
+
+// 모바일용 토스트 알림
+function showMobileToast(message, type = 'success') {
+  const toast = document.getElementById('toastNotification');
+  const toastMessage = document.getElementById('toastMessage');
+
+  if (toast && toastMessage) {
+    toastMessage.textContent = message;
+    toast.className = 'toast-notification toast-' + type + ' toast-show';
+
+    setTimeout(() => {
+      toast.className = 'toast-notification';
+    }, 3000);
+  } else {
+    // fallback: 기본 alert
+    alert(message);
+  }
+}
+
+// 페이지 로드 시 장바구니 개수 업데이트
+document.addEventListener('DOMContentLoaded', function() {
+  updateCartCount();
+});
+
 // 추천 새로고침
 async function refreshRecommendations() {
   const response = await fetch('/api/refresh-recommendations', {
@@ -804,16 +896,6 @@ async function refreshRecommendations() {
     window.location.reload();
   } else {
     alert('추천 새로고침에 실패했습니다.');
-  }
-}
-
-// 구매 추가
-function addToPurchase(numbers) {
-  // 간단한 확인 후 구매 페이지로 이동
-  const confirmed = confirm(`추천 번호 ${numbers}를 구매하시겠습니까?`);
-  if (confirmed) {
-    // 구매 페이지로 리다이렉트 (번호 포함)
-    window.location.href = `/purchases?auto_numbers=${encodeURIComponent(numbers)}`;
   }
 }
 

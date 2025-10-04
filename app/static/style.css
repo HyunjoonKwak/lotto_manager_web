@@ -1258,3 +1258,160 @@ button:hover {
     font-size: 1.3rem;
   }
 }
+
+/* ============================================
+   Cart Widget (우측 상단 장바구니)
+   ============================================ */
+.cart-widget {
+  position: fixed;
+  top: 80px;
+  right: 20px;
+  z-index: 999;
+  animation: slideInRight 0.3s ease-out;
+}
+
+.cart-widget-link {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  position: relative;
+  width: 60px;
+  height: 60px;
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  border-radius: 50%;
+  box-shadow: 0 4px 12px rgba(102, 126, 234, 0.4);
+  transition: all 0.3s ease;
+  text-decoration: none;
+}
+
+.cart-widget-link:hover {
+  transform: translateY(-3px);
+  box-shadow: 0 6px 20px rgba(102, 126, 234, 0.6);
+}
+
+.cart-icon {
+  font-size: 1.5rem;
+}
+
+.cart-badge {
+  position: absolute;
+  top: -5px;
+  right: -5px;
+  background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);
+  color: white;
+  font-size: 0.75rem;
+  font-weight: bold;
+  min-width: 24px;
+  height: 24px;
+  border-radius: 12px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0 6px;
+  box-shadow: 0 2px 8px rgba(245, 87, 108, 0.4);
+  animation: pulse 1s ease-in-out infinite;
+}
+
+@keyframes slideInRight {
+  from {
+    opacity: 0;
+    transform: translateX(50px);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(0);
+  }
+}
+
+@keyframes pulse {
+  0%, 100% {
+    transform: scale(1);
+  }
+  50% {
+    transform: scale(1.1);
+  }
+}
+
+/* ============================================
+   Toast Notification (토스트 알림)
+   ============================================ */
+.toast-notification {
+  position: fixed;
+  top: 100px;
+  right: 20px;
+  background: white;
+  color: #333;
+  padding: 16px 24px;
+  border-radius: 12px;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.15);
+  z-index: 10000;
+  min-width: 280px;
+  max-width: 400px;
+  opacity: 0;
+  transform: translateX(400px);
+  transition: all 0.4s cubic-bezier(0.68, -0.55, 0.265, 1.55);
+  font-size: 0.95rem;
+  font-weight: 500;
+  border-left: 4px solid #10b981;
+}
+
+.toast-notification.toast-show {
+  opacity: 1;
+  transform: translateX(0);
+}
+
+.toast-notification.toast-success {
+  border-left-color: #10b981;
+  background: linear-gradient(135deg, #d1fae5 0%, #a7f3d0 100%);
+  color: #065f46;
+}
+
+.toast-notification.toast-error {
+  border-left-color: #ef4444;
+  background: linear-gradient(135deg, #fee2e2 0%, #fecaca 100%);
+  color: #991b1b;
+}
+
+.toast-notification.toast-warning {
+  border-left-color: #f59e0b;
+  background: linear-gradient(135deg, #fef3c7 0%, #fde68a 100%);
+  color: #92400e;
+}
+
+.toast-notification #toastMessage {
+  display: block;
+  line-height: 1.5;
+}
+
+/* 모바일 대응 */
+@media (max-width: 768px) {
+  .cart-widget {
+    top: 70px;
+    right: 15px;
+  }
+
+  .cart-widget-link {
+    width: 50px;
+    height: 50px;
+  }
+
+  .cart-icon {
+    font-size: 1.3rem;
+  }
+
+  .cart-badge {
+    font-size: 0.7rem;
+    min-width: 20px;
+    height: 20px;
+  }
+
+  .toast-notification {
+    top: 80px;
+    right: 10px;
+    left: 10px;
+    min-width: auto;
+    max-width: none;
+    font-size: 0.875rem;
+    padding: 14px 18px;
+  }
+}
