@@ -162,41 +162,6 @@
 
   <!-- Recent Activity Feed (if authenticated) -->
   {% if current_user.is_authenticated and user_stats.recent_purchases %}
-  <section class="card recent-activity-card">
-    <div class="card-header">
-      <h2>📝 최근 활동</h2>
-      <a href="{{ url_for('main.purchase_history') }}" class="view-all-link">전체보기 →</a>
-    </div>
-    <div class="activity-list">
-      {% for purchase in user_stats.recent_purchases %}
-      <div class="activity-item">
-        <div class="activity-icon">
-          {% if purchase.source == 'ai' %}🤖
-          {% elif purchase.source == 'qr' %}📱
-          {% elif purchase.source == 'random' %}🎲
-          {% else %}🎯{% endif %}
-        </div>
-        <div class="activity-content">
-          <div class="activity-title">
-            {{ purchase.purchase_round }}회 번호 {{ '등록' if purchase.status == 'DRAFT' else '구매' }}
-          </div>
-          <div class="activity-numbers">
-            {% for num in purchase.numbers_list()[:3] %}
-              <span class="mini-ball">{{ num }}</span>
-            {% endfor %}
-            <span class="more-numbers">...</span>
-          </div>
-        </div>
-        <div class="activity-meta">
-          <div class="activity-date">{{ purchase.purchase_date.strftime('%m/%d %H:%M') }}</div>
-          {% if purchase.winning_rank %}
-          <div class="activity-result rank-{{ purchase.winning_rank }}">{{ purchase.winning_rank }}등</div>
-          {% endif %}
-        </div>
-      </div>
-      {% endfor %}
-    </div>
-  </section>
   {% endif %}
 
   <!-- Latest Winning Shops -->
