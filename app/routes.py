@@ -317,6 +317,10 @@ def mobile_strategy():
     patterns = analyze_patterns(analysis_limit)
     combinations = get_number_combinations(10, analysis_limit)
 
+    # Get latest draw for next round calculation
+    latest_draw = Draw.query.order_by(Draw.round.desc()).first()
+    next_round = latest_draw.round + 1 if latest_draw else 1
+
     return render_template(
         "mobile/strategy.html",
         title="모바일 전략분석",
@@ -334,6 +338,8 @@ def mobile_strategy():
         patterns=patterns,
         combinations=combinations,
         analysis_limit=analysis_limit,
+        # 장바구니 기능을 위한 next_round
+        next_round=next_round,
     )
 
 
@@ -748,6 +754,10 @@ def strategy():
     combinations = get_number_combinations(10, limit=None)
     analysis_limit = total_draws  # 전체 회차 수
 
+    # Get latest draw for next round calculation
+    latest_draw = Draw.query.order_by(Draw.round.desc()).first()
+    next_round = latest_draw.round + 1 if latest_draw else 1
+
     return render_template(
         "strategy.html",
         title="전략 분석",
@@ -762,6 +772,8 @@ def strategy():
         patterns=patterns,
         combinations=combinations,
         analysis_limit=analysis_limit,
+        # 장바구니 기능을 위한 next_round
+        next_round=next_round,
     )
 
 
